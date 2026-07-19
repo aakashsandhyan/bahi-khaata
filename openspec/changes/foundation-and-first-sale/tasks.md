@@ -20,7 +20,7 @@
 - [x] 2.2 Add the `Category` Java enum — `HOME_ESSENTIALS`, `KITCHEN`, `ELECTRONICS`, `GIFTING`, `DECOR`, `FASHION` — and a test asserting the enum values and the migration's CHECK list are the same set, so the two cannot drift.
 - [x] 2.3 Map the `Product` entity and repository, with `category` as the `Category` enum stored as its name, and `attributes` mapped through `@JdbcTypeCode(SqlTypes.JSON)` using the approach proven in 1.1.
 - [x] 2.4 Test that category attributes round-trip unchanged, that a product with no attributes is valid, and that a product carrying attribute names never previously used stores without a migration.
-- [ ] 2.5 Map the `Barcode` entity with its uniqueness constraint, and test that assigning a code already held by another product is refused.
+- [x] 2.5 Map the `Barcode` entity with its uniqueness constraint, and test that assigning a code already held by another product is refused.
 - [ ] 2.6 Implement barcode resolution: a known code returns its product, an unknown code is reported as unknown and creates nothing. Test both, including that no row is written on the unknown path.
 - [ ] 2.7 Implement internal barcode generation using Code 128 with the reserved prefix, via ZXing. Test that generated codes carry the prefix, that successive codes differ, and that origin distinguishes internal from manufacturer codes. Pick the prefix so no valid EAN-13 can produce it, and record the choice in a comment.
 - [ ] 2.8 Implement the unpriced state: `selling_price_paise` nullable, an explicit way to ask whether a product is priced, and a guarantee that an absent price is never returned or coerced to zero. Test that an unpriced product reports as unpriced rather than as costing nothing.
