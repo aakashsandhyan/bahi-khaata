@@ -108,9 +108,18 @@ public class Product extends UuidEntity {
         return category;
     }
 
-    /** The selling price, or null when the product is unpriced. */
+    /** The selling price, or null when the product is unpriced. Never zero for "no price". */
     public Money getSellingPrice() {
         return sellingPrice;
+    }
+
+    /**
+     * Whether a selling price has been set. The explicit question to ask before treating a
+     * product as sellable — an unpriced product is a real, legitimate state (stock received
+     * before it has been valued), not an error and not a price of zero.
+     */
+    public boolean isPriced() {
+        return sellingPrice != null;
     }
 
     public String getHsnCode() {

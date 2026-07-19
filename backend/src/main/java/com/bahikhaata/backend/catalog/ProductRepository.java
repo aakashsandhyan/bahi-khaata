@@ -17,7 +17,12 @@
  */
 package com.bahikhaata.backend.catalog;
 
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ProductRepository extends JpaRepository<Product, UUID> {}
+public interface ProductRepository extends JpaRepository<Product, UUID> {
+
+    /** Products with no selling price — the queue a manager works through to price stock. */
+    List<Product> findBySellingPriceIsNull();
+}
