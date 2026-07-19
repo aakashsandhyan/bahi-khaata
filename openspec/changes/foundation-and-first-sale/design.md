@@ -113,6 +113,16 @@ All timestamps stored UTC, rendered in IST at the edges. The Indian financial ye
 
 Invoice numbers must be consecutive with no gaps within a financial year, which means allocation happens inside the same transaction that finalises the invoice. With one terminal this is uncontended; the transactional boundary is specified now so that a second terminal does not turn it into a duplicate-number defect later.
 
+### 9a. The shop name is Hindi, shown in Devanagari, with a bundled font
+
+The shop is **बचत बाज़ार** (romanized *Bachat Baazar*). It is one Hindi name in two scripts — the Devanagari is the name, the romanization is the same name in Roman letters for logs, window titles, and anywhere Devanagari rendering is not guaranteed. Romanization cannot carry the nuqta on ज़, which is one reason customer-facing surfaces use Devanagari.
+
+Noto Sans Devanagari (SIL OFL) is **bundled** in the terminal, not assumed present. A counter PC may have no Devanagari face installed, and a missing one renders the shop's own name as empty boxes — the worst first impression for a business whose name is its brand. Bundling makes the name identical on every machine. Font loading fails loudly at startup if the resource is absent, rather than falling back to a system font that may not exist.
+
+*Verified:* `BrandingTest` confirms the font parses and that `canDisplayUpTo` covers the full name including the nuqta, and a JavaFX snapshot was rendered by hand to confirm real glyphs paint rather than tofu.
+
+*Deferred, and flagged:* the decision to show the name **Devanagari-only on invoices** is recorded but not built — no invoice exists until section 6. A GST tax invoice is a legal document that a tax officer or auditor may need to read, so Devanagari-only there carries a real risk that a romanized line alongside would remove. To be revisited when invoicing is built.
+
 ### 10. Java 21 LTS
 
 The toolchain targets Java 21 LTS across all modules, pinned via the Gradle toolchain block so the build does not depend on whatever JDK a contributor happens to have installed.

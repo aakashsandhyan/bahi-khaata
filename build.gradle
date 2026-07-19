@@ -47,7 +47,7 @@ subprojects {
                     'Implementation-Title': project.name,
                     'Implementation-Version': project.version,
                     'Bundle-License': 'AGPL-3.0-or-later',
-                    'Bundle-Vendor': 'Bachat Bazar'
+                    'Bundle-Vendor': 'Bachat Baazar'
             )
         }
     }

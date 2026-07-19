@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Bazar
+ * bahi-khaata — point of sale for Bachat Baazar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -42,7 +42,9 @@ public class TerminalApplication extends Application {
 
     @Override
     public void start(Stage stage) {
-        Label heading = new Label("Bachat Bazar");
+        Label heading = new Label(Branding.NAME_DEVANAGARI);
+        heading.setFont(Branding.devanagari(48));
+
         Label detail = new Label("Contacting backend…");
 
         VBox root = new VBox(12, heading, detail);
@@ -50,7 +52,9 @@ public class TerminalApplication extends Application {
         root.setPadding(new Insets(40));
 
         stage.setScene(new Scene(root, 480, 240));
-        stage.setTitle("Bachat Bazar — terminal");
+        // Title uses the romanized name: a window manager's title bar is not a guaranteed
+        // Devanagari surface, and the title is chrome rather than the brand itself.
+        stage.setTitle(Branding.NAME_ROMANIZED + " — terminal");
         stage.show();
 
         checkBackend(detail);

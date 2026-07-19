@@ -29,7 +29,7 @@ INSERT INTO setting (setting_key, setting_value, description) VALUES
      '30',
      'Gross margin used to suggest a selling price for an unpriced product. A suggestion '
      || 'only — it never becomes the price without a person accepting it. PLACEHOLDER: '
-     || 'not derived from Bachat Bazar trading figures.'),
+     || 'not derived from Bachat Baazar trading figures.'),
 
     ('checkout.cart_expiry_minutes',
      '120',
