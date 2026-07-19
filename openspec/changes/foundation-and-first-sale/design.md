@@ -72,6 +72,18 @@ Versioned `V<n>__description.sql` files under `backend`, applied automatically a
 
 *Consequence:* migrations are forward-only. There are no `down` scripts. Rolling back a bad migration on a single-outlet install means restoring the nightly database backup, which is simpler and more honest than maintaining reverse scripts that are never exercised and therefore never known to work.
 
+*Write-ahead logging is not set by a migration.* `PRAGMA journal_mode = WAL` cannot run inside a transaction, and Flyway wraps every migration in one — the attempt fails with "cannot change into wal mode from within a transaction". It also does not belong in connection-init: WAL is persistent, written into the database file header once and surviving every restart, so rerunning it per connection treats a one-time property as a per-connection one. It is therefore set **by the installer, once, at provisioning** (see decision 4a), not by the application.
+
+### 4a. Write-ahead logging, set by the installer
+
+The database runs in WAL mode for crash resilience: an interrupted write leaves the database recoverable rather than truncated, which report §2.1 treats as routine rather than hypothetical for Bhopal. WAL is chosen over the default rollback journal for exactly this.
+
+Because WAL is a persistent, once-only property (see decision 4), the installer provisions it — pre-creating `data/bahi-khaata.db` and running a one-shot `PRAGMA journal_mode = WAL` before the backend first starts. Not app startup, not connection-init.
+
+*Consequence, deferred to section 8:* the installer does not exist yet, so no database is WAL until that work lands — including the one a fresh clone creates on `bootRun`, and every test database. This is accepted: those hold no real data, and crash resilience matters only for the production install the installer creates.
+
+*Restore caveat:* WAL persists across a plain file copy, but a restore via SQLite `.backup` or `VACUUM INTO` can reset journal mode. The backup/restore rehearsal (task 8.5) must confirm the restored database is still WAL, or re-apply it — otherwise a restore silently drops crash resilience at the moment it is most wanted.
+
 ### 5. Immutability enforced at both layers
 
 Ledger rows and issued invoices are immutable. This is enforced twice:
@@ -106,6 +118,20 @@ Fields every product has — SKU, barcode, name, category, selling price, HSN co
 The line between them is drawn by one test: if the system enforces a rule about a field, or joins or filters on it in a core flow, it is a column. JSON is for attributes the system stores and displays but does not reason about. Serial numbers and warranty periods start in JSON; if warranty tracking later becomes a feature with its own rules, that field graduates to a column via a migration. This keeps the flexible part genuinely free-form rather than becoming a shadow schema with no constraints.
 
 *Considered and rejected:* EAV and per-category tables, both already rejected in report §3.1 for reconstruction cost and schema churn respectively.
+
+*Category is a controlled set, not free text.* `product.category` is one of a fixed six — `HOME_ESSENTIALS`, `KITCHEN`, `ELECTRONICS`, `GIFTING`, `DECOR`, `FASHION` — modelled as a Java `Category` enum and enforced in the database by `CHECK (category IN (...))`. Free text would let "Electronics", "electronics", and a tired-evening "Electronis" become three categories, and per-category configuration (margin now, label rules and reporting later) would sit on sand. The cost is that adding a category is a code change plus a migration rather than a data insert — accepted because the department-level spread in report §1 is stable, not something invented monthly. If categories ever do churn, this becomes a lookup table; it is deliberately not one yet.
+
+*Considered and rejected:* a `category` lookup table with a foreign key. It makes adding a category a data insert with no redeploy, but at a stable six it trades type-safety in code for flexibility that is not needed, and an enum reads better at every call site.
+
+### 8a. Target margin resolves through three tiers
+
+The target margin that suggests a price for an unpriced product is not one number. It resolves most-specific-first:
+
+1. **Transient custom** — a margin the manager types while pricing one product. Used to compute that suggestion, then discarded. Never stored: the *price* it produces is what gets stored, and a stored per-product margin would be redundant with simply typing the price.
+2. **Per-category** — a `category_margin` row mapping each `Category` to a target percent. Runtime-editable, because the whole reason margins live in the database is a manager changing them without a redeploy.
+3. **Global default** — the `pricing.target_margin_percent` SETTING, the fallback when a category has no row.
+
+Only the global default exists today. `category_margin` and the resolution logic are built in section 5 (pricing); this records the shape so the `product` schema and the `Category` enum land correctly in section 2. The margin set is data at every tier that a manager touches — the enum fixes only *what categories exist*, never *what each earns*.
 
 ### 9. Timestamps in UTC; financial year is explicit
 
@@ -189,7 +215,15 @@ An open sale is held as a cart persisted by the backend, not as terminal memory.
 
 *Deliberately excluded:* an open cart does not reserve stock. Correct for a single terminal, and it becomes a genuine question the day a second till exists, since two carts could then promise the same unit.
 
-Carts are discarded on finalisation, on explicit void, and automatically after a configurable period of inactivity. The void covers the deliberate abandonment and the expiry covers the forgotten one; without both, either the cashier has no way to clear a cart or the database slowly fills with baskets nobody can account for.
+Carts are discarded on finalisation, on explicit void, and at end-of-day close. They are *not* expired on a short inactivity timer.
+
+*Considered and rejected:* a rolling inactivity timeout (the original design — discard a cart untouched for N minutes). It fights the persistence guarantee: a cart is meant to survive a customer stepping away or a power blip, and a fine timer works against exactly that. The natural boundary for clearing an abandoned cart is not "twenty minutes idle" but "the shop closed" — the customer is not coming back tomorrow for a half-rung basket.
+
+Day-close is a **manual** operation the shopkeeper runs when they shut, not a scheduled job. A store's hours are not fixed, and a timed auto-close could wipe a live cart on a late evening; a human trigger never surprises a sale in progress. Closing the day discards open carts, but **warns first** and lists them — a cart open at close is usually abandoned, but occasionally a sale the cashier forgot to finalise, and silently dropping that loses a real sale.
+
+A **24-hour staleness backstop** covers the forgotten close: any cart untouched for a day is discarded even if the day was never closed. It is deliberately coarse — it only ever catches genuinely dead carts, unlike the fine timer it replaces — so it reintroduces a sweep without reintroducing the hazard.
+
+End-of-day close is new scope, minimal here (it only clears carts) but the natural future home for daily reconciliation and the §5.5 price-mismatch report. Built in section 7.
 
 ### 16. Three model details settled while drawing the diagram
 
@@ -199,7 +233,7 @@ Sketching the entity-relationship diagram exposed three points that were fuzzy r
 
 *Considered and rejected:* full immutability from creation, on the model of the ledger. Consistent, but it forces a formal reversing entry for a mistyped supplier name, which is heavy enough that people work around it.
 
-**Business configuration lives in the database; infrastructure stays in properties.** The margin review threshold, target margin, and cart expiry period sit in a `SETTING` table seeded by migration. Database path, ports, and base URLs remain properties.
+**Business configuration lives in the database; infrastructure stays in properties.** The margin review threshold, target margin, and cart staleness backstop sit in a `SETTING` table seeded by migration. Database path, ports, and base URLs remain properties.
 
 *Rationale:* the values that need tuning are business judgements a shop manager might reasonably want to change, and requiring a file edit and a backend restart mid-trading-day makes them effectively unchangeable. The settings screen is later work; the slice reads the values and ships with seeded defaults.
 
@@ -260,7 +294,7 @@ erDiagram
     PRODUCT {
         uuid id PK
         text name
-        text category
+        text category "enum, CHECK-constrained"
         int selling_price_paise "nullable - unpriced"
         text hsn_code
         json attributes
@@ -334,7 +368,7 @@ Mutability falls into three tiers rather than two, and the triggers must be scop
 - **Frozen on consumption** — `LOT`, `BATCH`. Editable while no stock from the lot has been consumed, refused thereafter. Enforced in application logic, since the condition depends on the ledger rather than on the row itself.
 - **Immutable from creation** — `STOCK_LEDGER`, `INVOICE`, `INVOICE_LINE`. `UPDATE`/`DELETE`-rejecting triggers, so a direct `sqlite3` session cannot bypass them.
 
-`SETTING` is a key-value table holding business parameters — margin review threshold, target margin for price suggestions, cart expiry period — seeded with defaults by migration. Infrastructure configuration stays in properties files.
+`SETTING` is a key-value table holding business parameters — margin review threshold, target margin for price suggestions, cart staleness backstop — seeded with defaults by migration. Infrastructure configuration stays in properties files.
 
 ## Risks / Trade-offs
 

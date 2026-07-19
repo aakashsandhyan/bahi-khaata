@@ -16,16 +16,17 @@
 
 ## 2. Products and barcodes
 
-- [ ] 2.1 Write the migration creating `PRODUCT` (UUID text PK, name, category, nullable `selling_price_paise`, `hsn_code`, JSON `attributes`, `price_review_flagged`) and `BARCODE` (UUID text PK, product FK, `code` with a unique constraint, `origin`). Index `BARCODE.code` — it is the checkout hot path. Review this SQL before any entity class exists.
-- [ ] 2.2 Map the `Product` entity and repository, with `attributes` mapped through `@JdbcTypeCode(SqlTypes.JSON)` using the approach proven in 1.1.
-- [ ] 2.3 Test that category attributes round-trip unchanged, that a product with no attributes is valid, and that a product carrying attribute names never previously used stores without a migration.
-- [ ] 2.4 Map the `Barcode` entity with its uniqueness constraint, and test that assigning a code already held by another product is refused.
-- [ ] 2.5 Implement barcode resolution: a known code returns its product, an unknown code is reported as unknown and creates nothing. Test both, including that no row is written on the unknown path.
-- [ ] 2.6 Implement internal barcode generation using Code 128 with the reserved prefix, via ZXing. Test that generated codes carry the prefix, that successive codes differ, and that origin distinguishes internal from manufacturer codes. Pick the prefix so no valid EAN-13 can produce it, and record the choice in a comment.
-- [ ] 2.7 Implement the unpriced state: `selling_price_paise` nullable, an explicit way to ask whether a product is priced, and a guarantee that an absent price is never returned or coerced to zero. Test that an unpriced product reports as unpriced rather than as costing nothing.
-- [ ] 2.8 Implement explicit price setting, and test that the price is unchanged by every other product operation. This is the invariant the whole pricing model rests on, so test it directly rather than trusting it.
-- [ ] 2.9 Add product and barcode-lookup DTOs to `contracts`, carrying money as integer paise and representing an absent price as absent rather than zero.
-- [ ] 2.10 Add backend endpoints for barcode lookup, product creation, and price setting, wired to the DTOs from 2.9. No terminal UI in this section — products are created through goods-in, which arrives in section 4.
+- [ ] 2.1 Write the migration creating `PRODUCT` (UUID text PK, name, `category` with `CHECK (category IN (...))` over the six category values, nullable `selling_price_paise`, `hsn_code`, JSON `attributes` declared CLOB, `price_review_flagged`) and `BARCODE` (UUID text PK, product FK, `code` with a unique constraint, `origin`). Index `BARCODE.code` — it is the checkout hot path. Review this SQL before any entity class exists.
+- [ ] 2.2 Add the `Category` Java enum — `HOME_ESSENTIALS`, `KITCHEN`, `ELECTRONICS`, `GIFTING`, `DECOR`, `FASHION` — and a test asserting the enum values and the migration's CHECK list are the same set, so the two cannot drift.
+- [ ] 2.3 Map the `Product` entity and repository, with `category` as the `Category` enum stored as its name, and `attributes` mapped through `@JdbcTypeCode(SqlTypes.JSON)` using the approach proven in 1.1.
+- [ ] 2.4 Test that category attributes round-trip unchanged, that a product with no attributes is valid, and that a product carrying attribute names never previously used stores without a migration.
+- [ ] 2.5 Map the `Barcode` entity with its uniqueness constraint, and test that assigning a code already held by another product is refused.
+- [ ] 2.6 Implement barcode resolution: a known code returns its product, an unknown code is reported as unknown and creates nothing. Test both, including that no row is written on the unknown path.
+- [ ] 2.7 Implement internal barcode generation using Code 128 with the reserved prefix, via ZXing. Test that generated codes carry the prefix, that successive codes differ, and that origin distinguishes internal from manufacturer codes. Pick the prefix so no valid EAN-13 can produce it, and record the choice in a comment.
+- [ ] 2.8 Implement the unpriced state: `selling_price_paise` nullable, an explicit way to ask whether a product is priced, and a guarantee that an absent price is never returned or coerced to zero. Test that an unpriced product reports as unpriced rather than as costing nothing.
+- [ ] 2.9 Implement explicit price setting, and test that the price is unchanged by every other product operation. This is the invariant the whole pricing model rests on, so test it directly rather than trusting it.
+- [ ] 2.10 Add product and barcode-lookup DTOs to `contracts`, carrying money as integer paise and representing an absent price as absent rather than zero.
+- [ ] 2.11 Add backend endpoints for barcode lookup, product creation, and price setting, wired to the DTOs from 2.10. No terminal UI in this section — products are created through goods-in, which arrives in section 4.
 
 ## 3. Lots and cost allocation
 
@@ -63,13 +64,15 @@
 - [ ] 5.1 Capture MRP per batch at receipt, including the estimated-value path for goods with no printed MRP, with estimates distinguishable from printed values.
 - [ ] 5.2 Expose the most recently received batch's MRP as the product's MRP for display, and test that earlier batches retain their own.
 - [ ] 5.3 Implement gross margin as (price − cost) ÷ price. Name the method so it cannot be mistaken for markup, and test a case where the two diverge sharply — this is a standard retail arithmetic bug and the test is what stops it recurring.
-- [ ] 5.4 Implement the suggested selling price from allocated unit cost and the target margin read from `SETTING`. Offered only for unpriced products.
-- [ ] 5.5 Test that a suggestion never becomes a price on its own, that the product stays unpriced and unsellable until someone accepts, and that an override is honoured.
-- [ ] 5.6 Test that a product with an existing price receives no suggestion and its price is untouched when new stock arrives at any cost.
-- [ ] 5.7 Implement margin-erosion flagging at receipt: flag when gross margin drops by the `SETTING` threshold or more against the margin at the most recent prior batch cost.
-- [ ] 5.8 Test the no-flag cases: first batch of a product, a cheaper batch, erosion below threshold, and an unpriced product.
-- [ ] 5.9 Clear the flag when a price is explicitly set, and test that a flagged product continues to sell at its existing price with the flag intact. Flagging must never block a sale.
-- [ ] 5.10 Surface the suggestion and the flag in the goods-in screen from 4.13, so a price can be set during intake.
+- [ ] 5.4 Add the `category_margin` table via migration — one row per `Category`, holding a target percent, runtime-editable — and a typed accessor. Update the `pricing.target_margin_percent` SETTING description to name it the global fallback (this is where the V2 wording is corrected, in a new migration rather than by editing V2).
+- [ ] 5.5 Implement the three-tier target-margin resolution: transient custom (passed in, never stored) → `category_margin` row for the product's category → global SETTING default. Test each tier wins over the next, and that the custom value is not persisted.
+- [ ] 5.6 Implement the suggested selling price from allocated unit cost and the resolved target margin. Offered only for unpriced products.
+- [ ] 5.7 Test that a suggestion never becomes a price on its own, that the product stays unpriced and unsellable until someone accepts, and that an override is honoured.
+- [ ] 5.8 Test that a product with an existing price receives no suggestion and its price is untouched when new stock arrives at any cost.
+- [ ] 5.9 Implement margin-erosion flagging at receipt: flag when gross margin drops by the `SETTING` threshold or more against the margin at the most recent prior batch cost.
+- [ ] 5.10 Test the no-flag cases: first batch of a product, a cheaper batch, erosion below threshold, and an unpriced product.
+- [ ] 5.11 Clear the flag when a price is explicitly set, and test that a flagged product continues to sell at its existing price with the flag intact. Flagging must never block a sale.
+- [ ] 5.12 Surface the suggestion and the flag in the goods-in screen from 4.13, so a price can be set during intake.
 
 ## 6. Invoicing
 
@@ -96,20 +99,22 @@
 - [ ] 7.6 Implement line removal and the running total.
 - [ ] 7.7 Implement cart recovery: restart the terminal mid-sale and confirm the cart returns with its lines intact. Test the interruption case by killing the terminal process, not by a clean shutdown.
 - [ ] 7.8 Implement explicit void, discarding the cart with no invoice and no stock consumed.
-- [ ] 7.9 Implement the expiry sweep as a scheduled backend job using the `SETTING` period, discarding inactive carts and leaving active ones alone. This is the first unattended job in the system — make its failures visible in logs.
-- [ ] 7.10 Implement finalisation as a single transaction issuing the invoice, appending ledger rows, and consuming stock FIFO. Test that invoice quantities reconcile with ledger quantities, remembering that one line at quantity two may produce two ledger rows.
-- [ ] 7.11 Test that a failure during finalisation leaves no invoice, no ledger row, and unchanged quantity on hand. Force the failure at more than one point in the transaction.
-- [ ] 7.12 Refuse finalisation when a line exceeds quantity on hand, reporting which product is short. Test the exactly-sufficient case succeeds and leaves on-hand at zero.
-- [ ] 7.13 Discard the cart on successful finalisation, leaving the invoice and ledger rows as the record.
-- [ ] 7.14 Implement the terminal's waiting state: poll health on startup, show a plain-language message while the backend is unreachable, present checkout once it answers without requiring a restart, and surface a mid-sale loss of the backend without reporting the sale as finalised.
-- [ ] 7.15 Build the checkout screen in `terminal` — scan field, line list, running total, finalise, and an on-screen invoice view. Rough is fine; correct is not optional.
+- [ ] 7.9 Add the end-of-day close operation: a manual backend endpoint that discards all open carts, and warns first — returning the list of open carts so the terminal can show them before the operator confirms. A cart open at close is usually abandoned but occasionally a forgotten sale, so the warning must distinguish an open-cart close from a clean one. Carts persist through the trading day; nothing but close, void, finalisation, or the backstop clears them.
+- [ ] 7.10 Replace the obsolete `checkout.cart_expiry_minutes` SETTING with `checkout.cart_stale_hours` (default 24) via a new migration — not by editing the applied V2 — and update `Settings` to expose the staleness window rather than the old inactivity duration. Implement the backstop as a scheduled backend job that discards any cart untouched beyond the staleness window, even if the day was never closed. Coarse by design; make its failures visible in logs. This is the first unattended job in the system.
+- [ ] 7.11 Implement finalisation as a single transaction issuing the invoice, appending ledger rows, and consuming stock FIFO. Test that invoice quantities reconcile with ledger quantities, remembering that one line at quantity two may produce two ledger rows.
+- [ ] 7.12 Test that a failure during finalisation leaves no invoice, no ledger row, and unchanged quantity on hand. Force the failure at more than one point in the transaction.
+- [ ] 7.13 Refuse finalisation when a line exceeds quantity on hand, reporting which product is short. Test the exactly-sufficient case succeeds and leaves on-hand at zero.
+- [ ] 7.14 Discard the cart on successful finalisation, leaving the invoice and ledger rows as the record.
+- [ ] 7.15 Implement the terminal's waiting state: poll health on startup, show a plain-language message while the backend is unreachable, present checkout once it answers without requiring a restart, and surface a mid-sale loss of the backend without reporting the sale as finalised.
+- [ ] 7.16 Build the checkout screen in `terminal` — scan field, line list, running total, finalise, and an on-screen invoice view. Rough is fine; correct is not optional.
 
 ## 8. Packaging and operations
 
 - [ ] 8.1 Write the backend Dockerfile and Compose file so a self-hosting retailer starts it with one command.
 - [ ] 8.2 Package the terminal with `jpackage`, bundling a trimmed JRE, and confirm the installer works on a machine with no JDK installed.
 - [ ] 8.3 Register the backend to start at boot, so the terminal's health polling is a safety net rather than the primary mechanism.
-- [ ] 8.4 Automate nightly database backups to a destination that survives loss of the counter PC. Local disk alone does not satisfy this.
-- [ ] 8.5 Rehearse the restore. Actually destroy a database and bring it back from a backup, then write down what you did. Migrations are forward-only, so this procedure is the entire rollback story and an unrehearsed one is not a mitigation.
-- [ ] 8.6 Run the whole slice by hand end to end — receive a lot, price a product, scan it, finalise, inspect the invoice and ledger — and record every model gap it surfaces. Fold those gaps into the schema before this change closes, while no real transaction data exists.
-- [ ] 8.7 Write the README: what the project is, how to self-host it, the AGPL terms, and the architecture in brief.
+- [ ] 8.4 Provision the database in WAL mode: the installer pre-creates `data/bahi-khaata.db` and runs a one-shot `PRAGMA journal_mode = WAL` before the backend first starts. WAL is persistent, so this is once-only — not app startup, not connection-init. See design decision 4a. Confirm the provisioned database reports `wal` from a direct `sqlite3` session.
+- [ ] 8.5 Automate nightly database backups to a destination that survives loss of the counter PC. Local disk alone does not satisfy this.
+- [ ] 8.6 Rehearse the restore. Actually destroy a database and bring it back from a backup, then write down what you did. Confirm the restored database is still in WAL mode — a `.backup` or `VACUUM INTO` restore can reset journal mode, silently dropping crash resilience. Migrations are forward-only, so this procedure is the entire rollback story and an unrehearsed one is not a mitigation.
+- [ ] 8.7 Run the whole slice by hand end to end — receive a lot, price a product, scan it, finalise, inspect the invoice and ledger — and record every model gap it surfaces. Fold those gaps into the schema before this change closes, while no real transaction data exists.
+- [ ] 8.8 Write the README: what the project is, how to self-host it, the AGPL terms, and the architecture in brief. (A first pass was written in task 1.13; extend it for the self-host path once the Docker and installer work above exists.)

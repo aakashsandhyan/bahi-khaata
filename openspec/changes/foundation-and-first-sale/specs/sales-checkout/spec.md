@@ -75,7 +75,7 @@ The cart SHALL be persisted by the backend rather than held only in the terminal
 
 ### Requirement: A cart is working state and does not outlive its sale
 
-A cart SHALL be discarded once its sale is finalised, leaving the invoice and its ledger rows as the record. A cart SHALL also be discardable by explicit void, and SHALL expire automatically after a configurable period of inactivity so that forgotten carts do not accumulate. Discarding a cart by any route SHALL leave no invoice and consume no stock.
+A cart SHALL be discarded once its sale is finalised, leaving the invoice and its ledger rows as the record. A cart SHALL also be discardable by explicit void. Carts SHALL NOT expire on a short inactivity timer; they persist through the trading day and are cleared when the day is closed. A backstop SHALL discard any cart untouched for a long staleness window so that a forgotten day-close does not let carts accumulate indefinitely. Discarding a cart by any route SHALL leave no invoice and consume no stock.
 
 #### Scenario: Finalisation discards the cart
 
@@ -89,16 +89,28 @@ A cart SHALL be discarded once its sale is finalised, leaving the invoice and it
 - **THEN** the cart is discarded
 - **AND** no invoice is created and no stock is consumed
 
-#### Scenario: A forgotten cart expires
+#### Scenario: A cart persists through the trading day
 
-- **WHEN** a cart has been inactive for longer than the configured expiry period
-- **THEN** the cart is discarded
+- **WHEN** a cart is left idle during trading hours, short of the staleness window and before the day is closed
+- **THEN** the cart remains open and unchanged
+
+#### Scenario: Closing the day discards open carts
+
+- **WHEN** the day is closed
+- **THEN** every open cart is discarded
 - **AND** no invoice is created and no stock is consumed
 
-#### Scenario: Expiry does not affect a cart in use
+#### Scenario: Closing the day warns before discarding open carts
 
-- **WHEN** a cart has been modified within the configured expiry period
-- **THEN** the cart remains open
+- **WHEN** the day is closed while one or more carts are open
+- **THEN** the operator is warned and shown the open carts before they are discarded
+- **AND** the warning distinguishes this from a routine close with no open carts
+
+#### Scenario: A stale cart is discarded by the backstop
+
+- **WHEN** a cart has been untouched for longer than the staleness window
+- **THEN** the cart is discarded even if the day has not been closed
+- **AND** no invoice is created and no stock is consumed
 
 ### Requirement: Finalising a sale applies all of its effects atomically
 

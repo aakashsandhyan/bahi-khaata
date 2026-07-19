@@ -55,9 +55,23 @@ For stock arriving without a usable manufacturer barcode, the system SHALL gener
 - **WHEN** any barcode is examined
 - **THEN** the system can determine whether it was internally generated or manufacturer-assigned
 
+### Requirement: Every product belongs to a category from a governed set
+
+Every product SHALL carry a category drawn from a fixed, governed set of categories, and the database SHALL reject a category outside that set. The category is not free text: an unconstrained string would let the same category be spelled several ways, and per-category configuration such as target margin would then attach to inconsistent keys.
+
+#### Scenario: A product takes a category from the governed set
+
+- **WHEN** a product is stored with a category from the governed set
+- **THEN** the product is stored successfully with that category
+
+#### Scenario: A category outside the set is rejected at the database
+
+- **WHEN** a product is stored with a category value not in the governed set, including directly against the database
+- **THEN** the database rejects it
+
 ### Requirement: Category-varying attributes are stored without schema change
 
-Products SHALL store fields common to all products as first-class columns, and category-specific attributes as a single JSON document. Adding a product in a new category with unfamiliar attributes SHALL NOT require a schema migration.
+Products SHALL store fields common to all products as first-class columns, and category-specific attributes as a single JSON document. Adding a product carrying attribute names never used before SHALL NOT require a schema migration.
 
 #### Scenario: Category-specific attributes round-trip
 
@@ -69,7 +83,7 @@ Products SHALL store fields common to all products as first-class columns, and c
 - **WHEN** a product is stored with no category-specific attributes
 - **THEN** the product is stored successfully
 
-#### Scenario: A new category requires no migration
+#### Scenario: Unfamiliar attribute names require no migration
 
 - **WHEN** a product is stored carrying attribute names never previously used
 - **THEN** the product is stored successfully without a schema change
@@ -119,13 +133,31 @@ Maximum retail price SHALL be recorded on the batch, because the same product ca
 
 ### Requirement: The system suggests a selling price but does not set it
 
-For a product with no selling price, the system SHALL calculate a suggested price from its allocated per-unit cost and a configurable target margin, and SHALL present it for confirmation. The suggestion SHALL NOT become the selling price until a person accepts or overrides it, and SHALL never be applied to a product that already has a price.
+For a product with no selling price, the system SHALL calculate a suggested price from its allocated per-unit cost and a resolved target margin, and SHALL present it for confirmation. The suggestion SHALL NOT become the selling price until a person accepts or overrides it, and SHALL never be applied to a product that already has a price.
+
+The target margin SHALL resolve most-specific-first: a transient custom margin supplied for this one suggestion, otherwise the margin configured for the product's category, otherwise a global default margin. A transient custom margin SHALL NOT be persisted — the price it produces is what is stored.
 
 #### Scenario: A suggestion is offered for an unpriced product
 
 - **WHEN** an unpriced product's batch has an allocated per-unit cost
-- **THEN** the system calculates a suggested selling price achieving the configured target margin
+- **THEN** the system calculates a suggested selling price achieving the resolved target margin
 - **AND** presents it for confirmation
+
+#### Scenario: The category margin is used when no custom margin is supplied
+
+- **WHEN** a suggestion is calculated for a product whose category has a configured margin, with no custom margin supplied
+- **THEN** the suggestion uses the category's margin rather than the global default
+
+#### Scenario: A custom margin overrides the category margin and is not stored
+
+- **WHEN** a suggestion is calculated with a transient custom margin supplied
+- **THEN** the suggestion uses the custom margin
+- **AND** no custom margin is persisted against the product
+
+#### Scenario: The global default applies when the category has no configured margin
+
+- **WHEN** a suggestion is calculated for a product whose category has no configured margin and no custom margin is supplied
+- **THEN** the suggestion uses the global default margin
 
 #### Scenario: A suggestion does not become a price on its own
 
