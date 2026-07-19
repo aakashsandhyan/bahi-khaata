@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.Money;
@@ -56,5 +57,50 @@ class ProductPricingTest {
         assertThat(products.findBySellingPriceIsNull())
                 .extracting(Product::getId)
                 .contains(unpriced.getId());
+    }
+
+    @Test
+    @DisplayName("Setting a price makes the product priced and persists")
+    void settingAPricePersists() {
+        Product product = products.save(new Product("Steel bottle", Category.KITCHEN, Map.of()));
+
+        product.setSellingPrice(Money.ofRupees(200));
+        products.save(product);
+
+        Product found = products.findById(product.getId()).orElseThrow();
+        assertThat(found.isPriced()).isTrue();
+        assertThat(found.getSellingPrice()).isEqualTo(Money.ofRupees(200));
+    }
+
+    @Test
+    @DisplayName("A price must be a real, positive amount")
+    void priceMustBePositive() {
+        Product product = new Product("Kettle", Category.KITCHEN, Map.of());
+
+        // Cannot un-price by passing null.
+        assertThatThrownBy(() -> product.setSellingPrice(null))
+                .isInstanceOf(NullPointerException.class);
+        // Cannot set zero or negative — a giveaway or a negative price is not a price.
+        assertThatThrownBy(() -> product.setSellingPrice(Money.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> product.setSellingPrice(Money.ofPaise(-1)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("A set price is unchanged by a persistence round trip")
+    void priceSurvivesReload() {
+        // The narrow invariant testable in section 2: nothing incidental — a re-save, a
+        // reload — alters a price once set. The larger invariant, that receiving stock at a
+        // new cost never changes the price, is exercised in section 5 where batches exist.
+        Product product = products.save(new Product("Wall clock", Category.DECOR, Map.of()));
+        product.setSellingPrice(Money.ofRupees(150));
+        products.save(product);
+
+        Product reloaded = products.findById(product.getId()).orElseThrow();
+        products.save(reloaded); // a no-op re-save must not disturb the price
+
+        assertThat(products.findById(product.getId()).orElseThrow().getSellingPrice())
+                .isEqualTo(Money.ofRupees(150));
     }
 }

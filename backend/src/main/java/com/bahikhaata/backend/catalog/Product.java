@@ -122,6 +122,22 @@ public class Product extends UuidEntity {
         return sellingPrice != null;
     }
 
+    /**
+     * Sets the selling price. This is the only thing that changes a product's price: no other
+     * operation — not receiving stock at a new cost, not flagging for margin review — may
+     * touch it. That is the invariant the whole no-auto-repricing model rests on.
+     *
+     * <p>The price must be a real, positive amount. A product cannot be un-priced by passing
+     * null, and cannot be set to zero or a negative value.
+     */
+    public void setSellingPrice(Money price) {
+        Objects.requireNonNull(price, "selling price (a product cannot be un-priced)");
+        if (!price.isPositive()) {
+            throw new IllegalArgumentException("selling price must be positive, was " + price);
+        }
+        this.sellingPrice = price;
+    }
+
     public String getHsnCode() {
         return hsnCode;
     }
