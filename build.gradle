@@ -38,6 +38,20 @@ subprojects {
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 
+    // Licence travels with the artefact, not just the repository. Someone handed a jar
+    // with no source tree still learns what terms it is under — which is the whole point
+    // of AGPL, since a POS is exactly the kind of software that gets redeployed.
+    tasks.withType(Jar).configureEach {
+        manifest {
+            attributes(
+                    'Implementation-Title': project.name,
+                    'Implementation-Version': project.version,
+                    'Bundle-License': 'AGPL-3.0-or-later',
+                    'Bundle-Vendor': 'Bachat Bazar'
+            )
+        }
+    }
+
     tasks.named('test') {
         useJUnitPlatform()
         testLogging {
