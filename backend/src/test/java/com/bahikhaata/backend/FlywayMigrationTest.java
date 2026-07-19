@@ -59,28 +59,39 @@ class FlywayMigrationTest {
     private JdbcTemplate jdbc;
 
     @Test
-    @DisplayName("A clean database is migrated to a known version at startup")
+    @DisplayName("A clean database migrates cleanly to a gapless, all-successful history")
     void cleanDatabaseReachesKnownVersion() {
         List<Map<String, Object>> history =
                 jdbc.queryForList(
                         "SELECT version, description, success FROM flyway_schema_history "
                                 + "ORDER BY installed_rank");
 
-        assertThat(history).hasSize(2);
+        // Deliberately count-agnostic: adding a migration must not break this test.
+        // What matters is that a fresh database reaches a coherent state — V1 first,
+        // every migration successful, and versions consecutive with no gaps.
+        assertThat(history).isNotEmpty();
         assertThat(history.get(0)).containsEntry("version", "1");
         assertThat(history.get(0)).containsEntry("description", "baseline");
-        assertThat(history.get(1)).containsEntry("version", "2");
         assertThat(history).allSatisfy(row -> assertThat(row.get("success")).isEqualTo(1));
+
+        for (int i = 0; i < history.size(); i++) {
+            assertThat(history.get(i))
+                    .as("migration at position %d", i)
+                    .containsEntry("version", String.valueOf(i + 1));
+        }
     }
 
     @Test
-    @DisplayName("Migration is idempotent — a second run applies nothing new")
-    void secondRunAppliesNothing() {
-        Integer applied =
+    @DisplayName("Every applied migration is recorded exactly once")
+    void eachMigrationRecordedOnce() {
+        Integer rows =
                 jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history", Integer.class);
+        Integer distinctVersions =
+                jdbc.queryForObject(
+                        "SELECT COUNT(DISTINCT version) FROM flyway_schema_history", Integer.class);
 
-        // The context has already started once. Flyway records each application
-        // exactly once, so a restart against this database must not add rows.
-        assertThat(applied).isEqualTo(2);
+        // Flyway records each application once; a duplicated version would mean a
+        // migration ran twice, which is drift.
+        assertThat(rows).isEqualTo(distinctVersions);
     }
 }

@@ -16,7 +16,7 @@
 
 ## 2. Products and barcodes
 
-- [ ] 2.1 Write the migration creating `PRODUCT` (UUID text PK, name, `category` with `CHECK (category IN (...))` over the six category values, nullable `selling_price_paise`, `hsn_code`, JSON `attributes` declared CLOB, `price_review_flagged`) and `BARCODE` (UUID text PK, product FK, `code` with a unique constraint, `origin`). Index `BARCODE.code` — it is the checkout hot path. Review this SQL before any entity class exists.
+- [x] 2.1 Write the migration creating `PRODUCT` (UUID text PK, name, `category` with `CHECK (category IN (...))` over the six category values, nullable `selling_price_paise`, `hsn_code`, JSON `attributes` declared CLOB, `price_review_flagged`) and `BARCODE` (UUID text PK, product FK, `code` with a unique constraint, `origin`). Index `BARCODE.code` — it is the checkout hot path. Review this SQL before any entity class exists.
 - [ ] 2.2 Add the `Category` Java enum — `HOME_ESSENTIALS`, `KITCHEN`, `ELECTRONICS`, `GIFTING`, `DECOR`, `FASHION` — and a test asserting the enum values and the migration's CHECK list are the same set, so the two cannot drift.
 - [ ] 2.3 Map the `Product` entity and repository, with `category` as the `Category` enum stored as its name, and `attributes` mapped through `@JdbcTypeCode(SqlTypes.JSON)` using the approach proven in 1.1.
 - [ ] 2.4 Test that category attributes round-trip unchanged, that a product with no attributes is valid, and that a product carrying attribute names never previously used stores without a migration.

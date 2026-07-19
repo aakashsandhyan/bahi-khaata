@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = "bahikhaata.db.path=build/test-health-up.db")
@@ -36,13 +37,25 @@ class HealthControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private JdbcTemplate jdbc;
+
     @Test
-    @DisplayName("A migrated database reports UP with its schema version")
+    @DisplayName("A migrated database reports UP with the latest applied schema version")
     void reportsUp() throws Exception {
+        // Assert against the actual latest migration rather than a literal, so adding a
+        // migration does not break this test — it is the endpoint reporting the current
+        // version that matters, not a specific number.
+        String latest =
+                jdbc.queryForObject(
+                        "SELECT version FROM flyway_schema_history WHERE success = 1 "
+                                + "ORDER BY installed_rank DESC LIMIT 1",
+                        String.class);
+
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
-                .andExpect(jsonPath("$.schemaVersion").value("2"));
+                .andExpect(jsonPath("$.schemaVersion").value(latest));
     }
 
     @Test
