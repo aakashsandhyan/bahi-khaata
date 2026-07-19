@@ -1,9 +1,13 @@
 pluginManagement {
-    plugins {
-        id 'org.springframework.boot' version "${springBootVersion}"
-        id 'io.spring.dependency-management' version "${springDependencyManagementVersion}"
+    // Plugin versions come from the version catalog (gradle/libs.versions.toml). Only the
+    // JavaFX plugin needs its repository declared; the Spring plugins are on the portal.
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
     }
 }
+
+// Version catalog at gradle/libs.versions.toml is loaded automatically as `libs`.
 
 rootProject.name = 'bahi-khaata'
 

@@ -6,11 +6,11 @@
 
 plugins {
     id 'application'
-    id 'org.openjfx.javafxplugin' version '0.1.0'
+    alias(libs.plugins.javafx)
 }
 
 javafx {
-    version = '21.0.6'
+    version = libs.versions.javafx.get()
     modules = ['javafx.controls']
 }
 
@@ -33,5 +33,5 @@ dependencies {
 
     // JSON only. The HTTP client itself is java.net.http from the JDK — no
     // third-party client, one less thing to keep current.
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+    implementation libs.jackson.databind
 }

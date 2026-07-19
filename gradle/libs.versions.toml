@@ -1,0 +1,38 @@
+# Single source of truth for dependency and plugin versions.
+# Referenced from build scripts as libs.<alias>. Bump here, nowhere else.
+
+[versions]
+springBoot = "3.5.0"
+springDependencyManagement = "1.1.7"
+javafxPlugin = "0.1.0"
+javafx = "21.0.6"
+sqliteJdbc = "3.49.1.0"
+jackson = "2.18.2"
+archunit = "1.3.0"
+assertj = "3.26.3"
+junit = "5.11.4"
+
+[libraries]
+# Spring BOM, imported as a platform where versionless Spring coordinates must resolve
+# outside the Spring Boot plugin (the architecture module).
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+# Versionless — resolved by the Spring dependency-management plugin in :backend.
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+hibernate-community-dialects = { module = "org.hibernate.orm:hibernate-community-dialects" }
+flyway-core = { module = "org.flywaydb:flyway-core" }
+
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
+javafx = { id = "org.openjfx.javafxplugin", version.ref = "javafxPlugin" }

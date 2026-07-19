@@ -8,12 +8,12 @@ dependencies {
     // :backend declares its Spring dependencies without versions, relying on the
     // dependency-management plugin it applies. Those coordinates arrive here
     // transitively, so this module needs the same BOM to resolve them.
-    testImplementation platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+    testImplementation platform(libs.spring.boot.dependencies)
 
     testImplementation project(':contracts')
     testImplementation project(':backend')
     testImplementation project(':terminal')
     testImplementation project(':dashboard')
 
-    testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+    testImplementation libs.archunit.junit5
 }

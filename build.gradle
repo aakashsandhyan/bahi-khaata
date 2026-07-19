@@ -6,11 +6,12 @@
 // modules and one reviewer, a single readable file beats an indirection that
 // has to be opened to understand what any module inherits.
 
-// Declared here so module build files can apply them without repeating a
-// version. `apply false` means no module gets them implicitly — :backend opts in.
+// Declared here so module build files can apply them without repeating a version.
+// `apply false` means no module gets them implicitly — :backend opts in. Versions
+// come from the catalog (gradle/libs.versions.toml).
 plugins {
-    id 'org.springframework.boot' apply false
-    id 'io.spring.dependency-management' apply false
+    alias(libs.plugins.spring.boot) apply false
+    alias(libs.plugins.spring.dependency.management) apply false
 }
 
 subprojects {
@@ -32,10 +33,10 @@ subprojects {
     }
 
     dependencies {
-        testImplementation platform('org.junit:junit-bom:5.11.4')
-        testImplementation 'org.junit.jupiter:junit-jupiter'
-        testImplementation 'org.assertj:assertj-core:3.26.3'
-        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        testImplementation platform(libs.junit.bom)
+        testImplementation libs.junit.jupiter
+        testImplementation libs.assertj.core
+        testRuntimeOnly libs.junit.platform.launcher
     }
 
     // Licence travels with the artefact, not just the repository. Someone handed a jar
