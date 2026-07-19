@@ -20,9 +20,19 @@ package com.bahikhaata.backend.catalog;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface BarcodeRepository extends JpaRepository<Barcode, UUID> {
 
-    /** The checkout hot path: a scanned code to its barcode, or empty if unrecognised. */
+    /** A scanned code to its barcode, or empty if unrecognised. */
     Optional<Barcode> findByCode(String code);
+
+    /**
+     * The checkout hot path: a scanned code straight to its product, or empty if the code is
+     * unrecognised. Returns the product itself rather than a lazy association off a barcode,
+     * so the caller holds a usable product outside the persistence session.
+     */
+    @Query("SELECT b.product FROM Barcode b WHERE b.code = :code")
+    Optional<Product> findProductByCode(@Param("code") String code);
 }
