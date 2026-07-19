@@ -1,6 +1,7 @@
 package com.bahikhaata.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -18,10 +19,14 @@ import org.junit.jupiter.api.Test;
  * <p>Rules are written explicitly rather than with {@code @AnalyzeClasses} so it is
  * visible at the call site exactly which classes each rule examines.
  *
- * <p>{@code allowEmptyShould(true)} is set because modules are still being populated
- * and ArchUnit fails a rule that matches no classes. Once every module carries real
- * code this should be removed, so that an empty module becomes a failure rather than
- * a silent pass.
+ * <p>ArchUnit fails a rule that matches no classes, and that default is kept everywhere
+ * it can be. A rule passing because it examined nothing is worse than no rule — it reads
+ * as a guarantee while checking nothing, which is how all five of these passed before a
+ * real violation was introduced in task 1.3.
+ *
+ * <p>The single exception is {@code dashboard}, which is deliberately empty for this
+ * change. {@link #dashboardIsStillEmpty()} fails the moment that stops being true, so the
+ * exemption cannot outlive its reason.
  */
 class ModuleBoundaryTest {
 
@@ -45,8 +50,7 @@ class ModuleBoundaryTest {
                 .resideInAPackage(BACKEND + "..")
                 .because(
                         "the terminal reaches data only over localhost HTTP; a direct dependency "
-                                + "would make the backend impossible to detach")
-                .allowEmptyShould(true);
+                                + "would make the backend impossible to detach");
 
         rule.check(classesIn(TERMINAL));
     }
@@ -59,6 +63,9 @@ class ModuleBoundaryTest {
                 .dependOnClassesThat()
                 .resideInAPackage(BACKEND + "..")
                 .because("the dashboard is a client of the backend, not part of it")
+                // The only exemption in this class. dashboard has no code yet — see
+                // dashboardIsStillEmpty(), which fails as soon as it does, forcing this
+                // line to be removed rather than quietly outliving its reason.
                 .allowEmptyShould(true);
 
         rule.check(classesIn(DASHBOARD));
@@ -71,8 +78,7 @@ class ModuleBoundaryTest {
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(TERMINAL + "..", DASHBOARD + "..")
-                .because("the backend serves its clients and must not know who they are")
-                .allowEmptyShould(true);
+                .because("the backend serves its clients and must not know who they are");
 
         rule.check(classesIn(BACKEND));
     }
@@ -84,8 +90,7 @@ class ModuleBoundaryTest {
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(BACKEND + "..", TERMINAL + "..", DASHBOARD + "..")
-                .because("contracts is the shared wire format and must depend on nothing")
-                .allowEmptyShould(true);
+                .because("contracts is the shared wire format and must depend on nothing");
 
         rule.check(classesIn(CONTRACTS));
     }
@@ -106,9 +111,29 @@ class ModuleBoundaryTest {
                         "javax.sql..")
                 .because(
                         "a JPA entity or Spring type in contracts leaks the persistence model into "
-                                + "the wire format, making every schema change a breaking API change")
-                .allowEmptyShould(true);
+                                + "the wire format, making every schema change a breaking API change");
 
         rule.check(classesIn(CONTRACTS));
+    }
+
+    @Test
+    @DisplayName("The packages these rules examine actually contain classes")
+    void rulesAreNotSilentlyExaminingNothing() {
+        // Every rule above targets a package by name. Rename a package and the rules keep
+        // passing, having examined an empty set — a whole test class turning green while
+        // checking nothing. This is the guard against that.
+        assertThat(classesIn(CONTRACTS).size()).as("classes in %s", CONTRACTS).isPositive();
+        assertThat(classesIn(BACKEND).size()).as("classes in %s", BACKEND).isPositive();
+        assertThat(classesIn(TERMINAL).size()).as("classes in %s", TERMINAL).isPositive();
+    }
+
+    @Test
+    @DisplayName("dashboard is still empty, so its exemption is still justified")
+    void dashboardIsStillEmpty() {
+        assertThat(classesIn(DASHBOARD).size())
+                .as(
+                        "dashboard now has code, so remove allowEmptyShould(true) from "
+                                + "dashboardMustNotDependOnBackend and delete this test")
+                .isZero();
     }
 }

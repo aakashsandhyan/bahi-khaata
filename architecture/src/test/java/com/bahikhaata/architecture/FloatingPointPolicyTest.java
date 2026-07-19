@@ -21,8 +21,9 @@ import org.junit.jupiter.api.Test;
  * {@code terminal} is JavaFX, where coordinates, widths and opacities are legitimately
  * {@code double}. Banning it there would produce noise, and noise gets suppressed.
  *
- * <p>{@code allowEmptyShould(true)} for the same reason as the boundary rules — modules
- * are still being populated, and ArchUnit fails a rule that matches nothing.
+ * <p>No {@code allowEmptyShould} exemption here: both packages carry real classes, so a
+ * rule matching nothing means the packages were renamed and the check has silently
+ * stopped running.
  */
 class FloatingPointPolicyTest {
 
@@ -49,8 +50,7 @@ class FloatingPointPolicyTest {
                 .haveRawType(Float.class)
                 .because(
                         "money is an integer count of paise; a floating-point field is how an "
-                                + "amount stops being exact and reaches an invoice wrong")
-                .allowEmptyShould(true);
+                                + "amount stops being exact and reaches an invoice wrong");
 
         rule.check(moneyHandlingClasses());
     }
@@ -69,8 +69,7 @@ class FloatingPointPolicyTest {
                 .haveRawReturnType(Float.class)
                 .because(
                         "a computation returning a double has already lost exactness, whatever "
-                                + "the caller does with it")
-                .allowEmptyShould(true);
+                                + "the caller does with it");
 
         rule.check(moneyHandlingClasses());
     }
