@@ -1,0 +1,26 @@
+-- V1 — baseline.
+--
+-- Records the conventions every later migration follows. Deliberately creates
+-- no tables: application schema begins at V2 with the product catalogue. Its
+-- job is to establish that a clean database reaches a known version without
+-- anyone touching it.
+--
+-- Conventions for every migration in this project:
+--
+--   * Forward-only. There are no down scripts. Rolling back means restoring a
+--     backup, which is why that path is rehearsed rather than assumed.
+--   * Never edit an applied migration. validate-on-migrate refuses to start if
+--     a file's checksum changes, because divergent history across installations
+--     is the failure that stalled Chromis POS.
+--   * A column backing a Java `long` is declared BIGINT, never INTEGER.
+--     That covers every paise amount and every quantity.
+--   * A column backing @JdbcTypeCode(SqlTypes.JSON) is declared CLOB, not TEXT.
+--
+-- The last two are not stylistic. SQLite treats the pairs identically at
+-- runtime, but Hibernate's schema validator compares declared types and aborts
+-- startup on a mismatch. Both were found by the task 1.1 spike failing.
+--
+-- Note on PRAGMA: journal_mode cannot be set here. Flyway runs each migration
+-- inside a transaction, and SQLite refuses "cannot change into wal mode from
+-- within a transaction". Durability mode belongs to connection setup, not to
+-- schema history.

@@ -1,0 +1,79 @@
+package com.bahikhaata.terminal;
+
+import com.bahikhaata.contracts.HealthResponse;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+/**
+ * Skeleton checkout terminal. Proves the terminal can start and reach the backend.
+ *
+ * <p>Deliberately not the real startup behaviour. The specs require the terminal to poll
+ * health, show a plain-language waiting state, and refuse to present checkout until the
+ * backend answers — that lands in task 7.14 with the rest of the checkout flow. This is a
+ * single call reporting what it found.
+ */
+public class TerminalApplication extends Application {
+
+    private final BackendClient backend = BackendClient.fromSystemProperties();
+
+    @Override
+    public void start(Stage stage) {
+        Label heading = new Label("Bachat Bazar");
+        Label detail = new Label("Contacting backend…");
+
+        VBox root = new VBox(12, heading, detail);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(40));
+
+        stage.setScene(new Scene(root, 480, 240));
+        stage.setTitle("Bachat Bazar — terminal");
+        stage.show();
+
+        checkBackend(detail);
+    }
+
+    /**
+     * The call runs off the JavaFX application thread. Doing it inline would freeze the
+     * window for the duration of the timeout, which is exactly the frozen-window failure
+     * the design says a cashier must never see.
+     */
+    private void checkBackend(Label detail) {
+        Task<HealthResponse> check =
+                new Task<>() {
+                    @Override
+                    protected HealthResponse call() {
+                        return backend.health();
+                    }
+                };
+
+        check.setOnSucceeded(
+                event -> {
+                    HealthResponse health = check.getValue();
+                    detail.setText(
+                            "Backend " + health.status() + " — schema v" + health.schemaVersion());
+                });
+
+        check.setOnFailed(
+                event -> detail.setText("Backend unavailable: " + check.getException().getMessage()));
+
+        Thread worker = new Thread(check, "backend-health-check");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    @Override
+    public void stop() {
+        Platform.exit();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}

@@ -1,0 +1,23 @@
+# Build output
+build/
+.gradle/
+
+# The Gradle wrapper jar and scripts ARE tracked deliberately — a clean checkout
+# must build without a Gradle install. Only the downloaded distribution is not.
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local database and its write-ahead sidecars. Never committed: it holds real
+# transaction data, and an invoice ledger in version control is both a privacy
+# problem and a merge conflict nobody can resolve.
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# macOS
+.DS_Store

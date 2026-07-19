@@ -1,0 +1,37 @@
+// The JavaFX checkout terminal. Reaches the database only through the backend
+// over localhost HTTP.
+//
+// Note what is absent: there is no dependency on :backend, and there must never
+// be one. That absence is the detachability guarantee — see design decision 1.
+
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+javafx {
+    version = '21.0.6'
+    modules = ['javafx.controls']
+}
+
+application {
+    mainClass = 'com.bahikhaata.terminal.TerminalApplication'
+}
+
+// Talks to a running backend using the real client, so the terminal's parser is
+// checked against JSON the backend actually produced rather than a stub written
+// in this repository. Test classpath — never packaged.
+tasks.register('healthProbe', JavaExec) {
+    group = 'verification'
+    description = 'Prints backend health as the terminal sees it. Needs a running backend.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.bahikhaata.terminal.HealthProbe'
+}
+
+dependencies {
+    implementation project(':contracts')
+
+    // JSON only. The HTTP client itself is java.net.http from the JDK — no
+    // third-party client, one less thing to keep current.
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+}

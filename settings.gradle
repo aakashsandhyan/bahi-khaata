@@ -1,0 +1,17 @@
+pluginManagement {
+    plugins {
+        id 'org.springframework.boot' version "${springBootVersion}"
+        id 'io.spring.dependency-management' version "${springDependencyManagementVersion}"
+    }
+}
+
+rootProject.name = 'bahi-khaata'
+
+include 'contracts'
+include 'backend'
+include 'terminal'
+include 'dashboard'
+
+// Test-only module. Depends on all four so it can see their compiled classes
+// and assert the boundaries between them. Ships nothing.
+include 'architecture'

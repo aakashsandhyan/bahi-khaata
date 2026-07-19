@@ -1,0 +1,62 @@
+schema: spec-driven
+
+context: |
+  bahi-khaata is a custom, offline-first POS system for Bachat Bazar — a single-outlet
+  liquidation/overstock retail store in Bhopal, India. `Bachat_Bazar_POS_Report.md` at the
+  repo root is the authoritative record of decisions reached so far; read it before
+  proposing architecture, and do not re-litigate decisions it has already settled.
+
+  Why custom rather than off-the-shelf: the same product arrives repeatedly at different
+  cost prices, a large share of stock has no usable manufacturer barcode, product
+  attributes vary widely by category (electronics need serial/warranty, fashion needs
+  size/colour, kitchenware needs neither), and the brand promise of "cheaper than online"
+  makes price-tag accuracy a first-class product concern. Generic POS tools assume a stable
+  catalogue with consistent barcodes and costs, so they fit poorly.
+
+  Settled decisions — treat as given:
+  - Local-first. All reads and writes hit a local database on the store's own machine.
+    Checkout must never be blocked by network state.
+  - JavaFX for the checkout terminal (money and hardware — highest stakes, and the code the
+    engineer reviews best). Spring Boot backend as the single source of truth for schema and
+    business logic. A separate web dashboard for admin, reports, and inventory views.
+  - SQLite locally, packaged via jpackage. PostgreSQL is the future central database, only
+    once a second outlet exists.
+  - UUIDv4 primary keys on every table, from day one, even though sync is not being built.
+  - Product attributes: standard relational columns for shared fields plus a JSON column for
+    category-specific ones. Not EAV, not per-category tables.
+  - Products and batches/lots are separate. Cost price varies per lot; selling price is a
+    single attribute on the product that customers see, changed only by deliberate business
+    decision — never as an automatic side effect of a new delivery.
+  - Every inventory movement writes to an append-only stock ledger. FIFO costing, chosen for
+    per-lot margin visibility.
+  - Invoices are immutable once issued, as Indian GST law requires. Corrections are new,
+    linked reversing entries, never edits.
+  - Internally generated barcodes use Code 128 with a distinct prefix so they cannot collide
+    with real manufacturer codes.
+  - AGPL-3.0, to close the SaaS loophole that plain GPL leaves open.
+
+  Repository shape: a monorepo for now, but components must stay cleanly detachable behind
+  explicit contracts so any of them can move to its own module or repository later without
+  a rewrite. Nothing should reach across a component boundary into another's internals or
+  database.
+
+  Deliberately out of scope for v1 — do not design for these beyond leaving schema room:
+  multi-outlet sync or replication, live e-invoicing/IRP integration, gateway-based
+  automatic UPI confirmation (start with manual UTR entry), the "verified cheaper than
+  online" price-comparison feature, and digital shelf labels.
+
+  Working style: 100% of the code is written by Claude and reviewed line by line by an
+  engineer with 8 years of Java experience before it is pushed. Favour explicit, reviewable
+  code over clever abstraction. Scope tightly — solo open-source POS projects historically
+  stall on build fragility and speculative complexity, not on flawed core ideas.
+
+rules:
+  proposal:
+    - Focus on why and what, never how — architecture reasoning belongs in design.md.
+    - Do not restate report content the reader already has; reference it instead.
+  design:
+    - Record decisions that were considered and rejected, with the reason, not just the
+      chosen path.
+    - Call out anything the report lists as still open rather than silently deciding it.
+  tasks:
+    - Each task should be reviewable in a single sitting by one engineer.

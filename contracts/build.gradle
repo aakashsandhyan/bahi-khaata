@@ -1,0 +1,16 @@
+// Wire format shared between backend, terminal, and dashboard.
+//
+// This module holds request/response DTOs and the value types they are built
+// from — Money, and later the identifiers. Nothing else. It deliberately has no
+// dependencies: no Spring, no JPA, no persistence annotations. If a JPA entity
+// ever appears here the persistence model has leaked into the wire format, and
+// every future schema change becomes a breaking API change.
+//
+// Money lives here rather than in :backend because all three clients need the
+// same notion of an amount, and three copies of the section 170 rounding rule
+// would drift.
+//
+// Task 1.3 adds ArchUnit tests that fail the build if that happens.
+
+dependencies {
+}

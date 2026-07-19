@@ -1,0 +1,9 @@
+// Admin, reports and inventory views. Out of scope for this change beyond
+// existing as a module — see design Non-Goals.
+//
+// Like :terminal, it reaches data only through the backend and must never
+// depend on :backend directly.
+
+dependencies {
+    implementation project(':contracts')
+}

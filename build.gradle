@@ -1,0 +1,48 @@
+// Root build. Shared configuration only — each module declares its own
+// dependencies and framework plugins.
+//
+// Configuration is applied through `subprojects` rather than convention plugins
+// in buildSrc. Convention plugins are the more scalable pattern, but with four
+// modules and one reviewer, a single readable file beats an indirection that
+// has to be opened to understand what any module inherits.
+
+// Declared here so module build files can apply them without repeating a
+// version. `apply false` means no module gets them implicitly — :backend opts in.
+plugins {
+    id 'org.springframework.boot' apply false
+    id 'io.spring.dependency-management' apply false
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    group = 'com.bahikhaata'
+    version = '0.1.0-SNAPSHOT'
+
+    java {
+        // Pinned so the build does not depend on whichever JDK a contributor
+        // happens to have on PATH. See design decision 10.
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.11.4')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.assertj:assertj-core:3.26.3'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+        testLogging {
+            events 'passed', 'failed', 'skipped'
+            exceptionFormat = 'full'
+        }
+    }
+}
