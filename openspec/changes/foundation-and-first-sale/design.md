@@ -273,8 +273,8 @@ erDiagram
         datetime effective_at
     }
     SETTING {
-        text key PK
-        text value
+        text setting_key PK
+        text setting_value
         text description
     }
     INVOICE {

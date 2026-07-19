@@ -11,7 +11,7 @@
 - [x] 1.9 Add a health endpoint to `backend` and its DTO to `contracts`.
 - [x] 1.10 Create the JavaFX application skeleton in `terminal` with its HTTP client pointed at the backend base URL, and confirm it can call the health endpoint end to end. The waiting-state behaviour itself belongs to the `sales-checkout` section.
 - [x] 1.11 Add AGPL-3.0: full licence text at the repository root, the copyright header pattern applied to existing sources, and the licence declared in the Gradle build. Do this before the codebase grows, so headers are established rather than retrofitted across hundreds of files.
-- [ ] 1.12 Add the `SETTING` key-value table via migration, seeded with the margin review threshold, target margin, and cart expiry defaults, plus a typed accessor for reading them. Business parameters only — infrastructure configuration stays in properties.
+- [x] 1.12 Add the `SETTING` key-value table via migration, seeded with the margin review threshold, target margin, and cart expiry defaults, plus a typed accessor for reading them. Business parameters only — infrastructure configuration stays in properties.
 - [ ] 1.13 Write the developer setup path — clone, build, run backend, run terminal — and verify it works from a clean checkout on a machine that has never built this project. Any manual database step here is a defect.
 
 ## 2. Products and barcodes

@@ -66,10 +66,11 @@ class FlywayMigrationTest {
                         "SELECT version, description, success FROM flyway_schema_history "
                                 + "ORDER BY installed_rank");
 
-        assertThat(history).hasSize(1);
+        assertThat(history).hasSize(2);
         assertThat(history.get(0)).containsEntry("version", "1");
         assertThat(history.get(0)).containsEntry("description", "baseline");
-        assertThat(history.get(0).get("success")).isEqualTo(1);
+        assertThat(history.get(1)).containsEntry("version", "2");
+        assertThat(history).allSatisfy(row -> assertThat(row.get("success")).isEqualTo(1));
     }
 
     @Test
@@ -80,6 +81,6 @@ class FlywayMigrationTest {
 
         // The context has already started once. Flyway records each application
         // exactly once, so a restart against this database must not add rows.
-        assertThat(applied).isEqualTo(1);
+        assertThat(applied).isEqualTo(2);
     }
 }
