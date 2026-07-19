@@ -17,6 +17,9 @@
  */
 package com.bahikhaata.backend.health;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,31 +27,36 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * The endpoint must not claim readiness it does not have. Flyway is disabled here, so
- * {@code flyway_schema_history} is absent and the check fails the way it would against a
- * database that is present but unusable.
+ * The health endpoint reports 503 DOWN, not a healthy 200, when the database cannot be read.
+ *
+ * <p>A controller slice with a failing {@link JdbcTemplate} rather than a full context: once
+ * real entities exist, an unmigrated database cannot start the application at all — {@code
+ * ddl-auto=validate} aborts on the missing schema — so the only reachable DOWN path is a
+ * database that becomes unreadable after a healthy start. That is what this simulates, and it
+ * is the state the terminal must never mistake for ready.
  */
-@SpringBootTest(
-        properties = {
-            "bahikhaata.db.path=build/test-health-down.db",
-            "spring.flyway.enabled=false"
-        })
-@AutoConfigureMockMvc
+@WebMvcTest(HealthController.class)
 class HealthControllerUnmigratedTest {
 
     @Autowired
     private MockMvc mockMvc;
 
+    @MockitoBean
+    private JdbcTemplate jdbc;
+
     @Test
-    @DisplayName("An unmigrated database reports 503, not a healthy 200")
+    @DisplayName("An unreadable database reports 503, not a healthy 200")
     void reportsServiceUnavailable() throws Exception {
-        // Guards the failure that hurts: a running process reporting healthy while it
-        // cannot serve a sale, so the cashier finds out on the first scan.
+        when(jdbc.queryForObject(anyString(), eq(String.class)))
+                .thenThrow(new CannotGetJdbcConnectionException("database unreachable"));
+
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.status").value("DOWN"))

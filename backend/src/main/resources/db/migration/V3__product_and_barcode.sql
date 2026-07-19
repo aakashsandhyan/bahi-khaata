@@ -2,12 +2,14 @@
 --
 -- Declared-type rules (design decision 3): a Java `long` is BIGINT, a
 -- @JdbcTypeCode(SqlTypes.JSON) field is CLOB, a UUID is CHAR(36), a Java `boolean`
--- is BOOLEAN, and a `java.time.Instant` is TIMESTAMP. SQLite ignores these
--- distinctions at runtime; Hibernate's validator does not. Every type here was
--- confirmed against the community dialect's own schema generation, not guessed.
+-- is BOOLEAN, and plain text columns are declared TEXT (matched by the entity's
+-- columnDefinition, so a name is not silently capped at varchar(255)). SQLite
+-- ignores these distinctions at runtime; Hibernate's validator does not.
 --
--- Timestamps are Instants — UTC instants (design decision 9), not zoned — set by
--- the application via @CreationTimestamp / @UpdateTimestamp.
+-- Timestamps are Instants (UTC, design decision 9), stored as ISO-8601 UTC text
+-- via a converter so they stay readable in a sqlite3 session — the same reason
+-- ids are CHAR(36). Fixed-width milliseconds keep text sort chronological. The
+-- application sets them via @CreationTimestamp / @UpdateTimestamp.
 
 CREATE TABLE product (
     id                    CHAR(36) PRIMARY KEY,
@@ -34,8 +36,8 @@ CREATE TABLE product (
 
     -- Product is mutable — name, price, attributes change — so updated_at earns
     -- its place alongside created_at.
-    created_at            TIMESTAMP NOT NULL,
-    updated_at            TIMESTAMP NOT NULL
+    created_at            TEXT      NOT NULL,
+    updated_at            TEXT      NOT NULL
 );
 
 CREATE TABLE barcode (
@@ -53,5 +55,5 @@ CREATE TABLE barcode (
 
     -- created_at only: a barcode is assigned once and not edited afterwards, so
     -- there is nothing for an updated_at to track.
-    created_at  TIMESTAMP NOT NULL
+    created_at  TEXT      NOT NULL
 );
