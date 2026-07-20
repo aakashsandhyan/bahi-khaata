@@ -134,6 +134,12 @@ Units received damaged or otherwise unsellable SHALL be recorded but excluded fr
 - **THEN** the quantity damaged is recorded against the batch
 - **AND** those units do not count toward quantity on hand
 
+#### Scenario: Damage on arrival never enters the ledger, damage found later does
+
+- **WHEN** a batch is received with some units damaged on arrival
+- **THEN** the receipt movement records only the sellable quantity, and no movement is appended for the damaged units — they never became stock
+- **AND** damage discovered after receipt, once the units were on hand, is instead recorded as a write-off movement that reduces quantity on hand
+
 ### Requirement: Each delivery of a product is recorded as its own batch
 
 Every arrival of a product SHALL create a batch recording its allocated cost price, quantity, and date, linked to both its product and its lot. Receiving the same product again SHALL create a new batch rather than altering an existing one, because the same product routinely arrives at different costs.

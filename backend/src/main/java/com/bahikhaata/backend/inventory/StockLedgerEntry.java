@@ -105,6 +105,21 @@ public class StockLedgerEntry extends UuidEntity {
     }
 
     /**
+     * The receipt for a whole batch: brings in its <em>sellable</em> quantity, not everything
+     * that arrived.
+     *
+     * <p>Units damaged on arrival never became sellable stock, so they never enter the ledger.
+     * They are not lost information — the batch records how many arrived and how many were
+     * damaged, and their cost is absorbed by the units that can be sold. {@link
+     * MovementType#WRITE_OFF} is reserved for damage found <em>later</em>, once stock was
+     * genuinely on hand and has to come back off it.
+     */
+    public static StockLedgerEntry receiptOf(Batch batch, Instant effectiveAt) {
+        Objects.requireNonNull(batch, "batch");
+        return receipt(batch.getProduct(), batch, batch.sellableQuantity(), effectiveAt);
+    }
+
+    /**
      * Stock leaving through a sale. Takes a positive count and records it negative, so a
      * caller cannot accidentally book a sale that adds stock. Cost of goods sold is required:
      * a sale whose cost is unknown would silently break margin reporting.

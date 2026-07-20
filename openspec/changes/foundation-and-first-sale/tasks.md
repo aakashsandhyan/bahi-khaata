@@ -50,7 +50,7 @@
 - [x] 4.3 Map the ledger entity as `@Immutable` with no setters, constructed complete. Test that Hibernate's dirty checking never emits an `UPDATE` for it — this is the specific hazard JPA introduces here.
 - [x] 4.4 Implement movement types and signed quantities. Test that a receipt is positive, a sale is negative, and an adjustment may be either, with no separate direction field able to contradict the sign.
 - [ ] 4.5 Wire lot creation from 3.11 to append receipt movements for each batch, in the same transaction that creates the lot.
-- [ ] 4.6 Implement quantity on hand derived from the ledger, per product and per batch. Test that it equals the net of appended movements and that damaged units are excluded.
+- [x] 4.6 Implement quantity on hand derived from the ledger, per product and per batch. Test that it equals the net of appended movements and that damaged units are excluded.
 - [ ] 4.7 Implement FIFO consumption: draw from the oldest batch with quantity remaining, moving to the next when exhausted, recording how much came from each. Test the spanning case explicitly.
 - [ ] 4.8 Attribute cost of goods sold at the consumed batch's cost, splitting across batches when a consumption spans them. Test that a two-batch consumption records each portion at its own cost.
 - [ ] 4.9 Implement backdated movements: appended at their effective date with derived figures recalculated forward, and no existing ledger row modified. Test that a late-logged receipt changes on-hand from its effective date onward while leaving prior rows byte-identical.

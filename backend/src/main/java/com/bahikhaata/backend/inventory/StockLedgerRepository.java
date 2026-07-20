@@ -20,6 +20,8 @@ package com.bahikhaata.backend.inventory;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface StockLedgerRepository extends JpaRepository<StockLedgerEntry, UUID> {
 
@@ -28,4 +30,18 @@ public interface StockLedgerRepository extends JpaRepository<StockLedgerEntry, U
 
     /** What has moved for one batch, which is how much of it remains. */
     List<StockLedgerEntry> findByBatchId(UUID batchId);
+
+    /**
+     * Quantity on hand for a product: the net of its movements, never a stored counter that
+     * could disagree with them. COALESCE so a product that has never moved reports zero
+     * rather than null.
+     */
+    @Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockLedgerEntry e "
+            + "WHERE e.product.id = :productId")
+    long quantityOnHand(@Param("productId") UUID productId);
+
+    /** The same, for one batch — what FIFO needs to know is still drawable from it. */
+    @Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockLedgerEntry e "
+            + "WHERE e.batch.id = :batchId")
+    long quantityOnHandForBatch(@Param("batchId") UUID batchId);
 }
