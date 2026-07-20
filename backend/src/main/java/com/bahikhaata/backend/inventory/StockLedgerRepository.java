@@ -61,4 +61,15 @@ public interface StockLedgerRepository extends JpaRepository<StockLedgerEntry, U
     @Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockLedgerEntry e "
             + "WHERE e.batch.id = :batchId AND e.effectiveAt <= :asAt")
     long quantityOnHandForBatchAsAt(@Param("batchId") UUID batchId, @Param("asAt") Instant asAt);
+
+    /**
+     * Whether any stock has left this lot, through any of its batches.
+     *
+     * <p>Asked of the whole lot, not one batch: allocation spreads a single amount across
+     * every line, so once any of it has been consumed the figures for all of them are load
+     * bearing.
+     */
+    @Query("SELECT COUNT(e) > 0 FROM StockLedgerEntry e "
+            + "WHERE e.batch.lot.id = :lotId AND e.quantity < 0")
+    boolean hasConsumptionFromLot(@Param("lotId") UUID lotId);
 }

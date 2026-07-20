@@ -55,7 +55,7 @@
 - [x] 4.8 Attribute cost of goods sold at the consumed batch's cost, splitting across batches when a consumption spans them. Test that a two-batch consumption records each portion at its own cost.
 - [x] 4.9 Implement backdated movements: appended at their effective date with derived figures recalculated forward, and no existing ledger row modified. Test that a late-logged receipt changes on-hand from its effective date onward while leaving prior rows byte-identical.
 - [x] 4.10 Implement point-in-time valuation and on-hand as at a given date, excluding movements effective after it.
-- [ ] 4.11 Implement freeze-on-consumption: a lot and its batches are editable while no stock from the lot has been consumed and refused thereafter, with edits before the freeze triggering reallocation. Test that consuming from one batch freezes the entire lot, not just that batch.
+- [x] 4.11 Implement freeze-on-consumption: a lot and its batches are editable while no stock from the lot has been consumed and refused thereafter, with edits before the freeze triggering reallocation. Test that consuming from one batch freezes the entire lot, not just that batch. (The policy and its guard are built; the edit operations it guards, and the reallocation an edit triggers, arrive with the parked cost allocator.)
 - [ ] 4.12 Add stock query DTOs to `contracts` and the backend endpoints behind them.
 - [ ] 4.13 Build the goods-in screen in `terminal`: create a lot, add lines with quantity and MRP, optionally pin a cost, mark damaged units, see the resulting allocation, and submit. Deliberately rough — the allocation figures being visible and correct is the goal, not the layout.
 

@@ -222,6 +222,17 @@ A lot and its batches SHALL be editable while no stock from that lot has been co
 
 - **WHEN** stock from any batch of a lot has been consumed
 - **THEN** further edits to that lot or to any of its batches are refused
+- **AND** the batches of that lot from which nothing has been consumed are frozen too, because the lot amount was apportioned across all of them and editing it would re-cost stock already sold
+
+#### Scenario: Any stock leaving counts as consumption
+
+- **WHEN** stock leaves a lot by any route — a sale, a write-off, or a downward adjustment
+- **THEN** the lot is frozen from that point
+
+#### Scenario: Receiving stock does not freeze a lot
+
+- **WHEN** a lot has receipts recorded but nothing has yet left it
+- **THEN** the lot and its batches remain editable, being still only a data-entry record
 
 #### Scenario: A frozen lot is corrected by adjustment
 
