@@ -17,6 +17,8 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.contracts.Money;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,5 +50,23 @@ public class StockLevels {
     @Transactional(readOnly = true)
     public long onHandForBatch(UUID batchId) {
         return ledger.quantityOnHandForBatch(batchId);
+    }
+
+    /**
+     * What this batch has actually cost in sales so far — the cost side of its margin.
+     *
+     * <p>This is the figure FIFO exists to make answerable. Averaging costs across lots gives
+     * the same total across a whole sale, but attributes none of it to a particular delivery,
+     * so "was that supplier's pallet worth buying again?" becomes unanswerable.
+     *
+     * <p>Summed in Java over the batch's movements rather than in SQL, because the amount is
+     * a converted value type and the arithmetic stays exact integer paise throughout.
+     */
+    @Transactional(readOnly = true)
+    public Money costOfGoodsSoldForBatch(UUID batchId) {
+        return ledger.findByBatchId(batchId).stream()
+                .map(StockLedgerEntry::getCogs)
+                .filter(Objects::nonNull)
+                .reduce(Money.ZERO, Money::plus);
     }
 }
