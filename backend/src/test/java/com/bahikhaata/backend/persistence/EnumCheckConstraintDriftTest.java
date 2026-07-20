@@ -23,6 +23,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CostBasis;
+import com.bahikhaata.contracts.MovementType;
 import com.bahikhaata.contracts.Origin;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -52,6 +53,7 @@ class EnumCheckConstraintDriftTest {
 
     private static final String PRODUCTS = "/db/migration/V3__product_and_barcode.sql";
     private static final String LOTS = "/db/migration/V5__lot_and_batch.sql";
+    private static final String LEDGER = "/db/migration/V6__stock_ledger.sql";
 
     private static final Pattern QUOTED = Pattern.compile("'([^']*)'");
 
@@ -60,7 +62,8 @@ class EnumCheckConstraintDriftTest {
                 arguments(Category.class, "category", PRODUCTS),
                 arguments(Origin.class, "origin", PRODUCTS),
                 arguments(AllocationMethod.class, "allocation_method", LOTS),
-                arguments(CostBasis.class, "cost_basis", LOTS));
+                arguments(CostBasis.class, "cost_basis", LOTS),
+                arguments(MovementType.class, "movement_type", LEDGER));
     }
 
     @ParameterizedTest(name = "{0} matches the {1} CHECK constraint")
