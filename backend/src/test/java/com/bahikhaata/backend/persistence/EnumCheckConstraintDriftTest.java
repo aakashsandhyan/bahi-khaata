@@ -54,6 +54,7 @@ class EnumCheckConstraintDriftTest {
     private static final String PRODUCTS = "/db/migration/V3__product_and_barcode.sql";
     private static final String LOTS = "/db/migration/V5__lot_and_batch.sql";
     private static final String LEDGER = "/db/migration/V6__stock_ledger.sql";
+    private static final String MARGINS = "/db/migration/V8__category_margin.sql";
 
     private static final Pattern QUOTED = Pattern.compile("'([^']*)'");
 
@@ -63,7 +64,9 @@ class EnumCheckConstraintDriftTest {
                 arguments(Origin.class, "origin", PRODUCTS),
                 arguments(AllocationMethod.class, "allocation_method", LOTS),
                 arguments(CostBasis.class, "cost_basis", LOTS),
-                arguments(MovementType.class, "movement_type", LEDGER));
+                arguments(MovementType.class, "movement_type", LEDGER),
+                // The category CHECK is repeated on category_margin and must not drift either.
+                arguments(Category.class, "category", MARGINS));
     }
 
     @ParameterizedTest(name = "{0} matches the {1} CHECK constraint")

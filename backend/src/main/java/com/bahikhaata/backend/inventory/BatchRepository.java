@@ -36,4 +36,15 @@ public interface BatchRepository extends JpaRepository<Batch, UUID> {
     @Query("SELECT b FROM Batch b WHERE b.product.id = :productId "
             + "ORDER BY b.lot.receivedOn ASC, b.createdAt ASC")
     List<Batch> findByProductIdInFifoOrder(@Param("productId") UUID productId);
+
+    /**
+     * A product's batches newest delivery first — the reverse of FIFO order.
+     *
+     * <p>Used for the MRP a customer should see: successive lots of the same product genuinely
+     * arrive bearing different printed prices, and the one on the shelf now is the one that
+     * came in last.
+     */
+    @Query("SELECT b FROM Batch b WHERE b.product.id = :productId "
+            + "ORDER BY b.lot.receivedOn DESC, b.createdAt DESC")
+    List<Batch> findByProductIdNewestFirst(@Param("productId") UUID productId);
 }
