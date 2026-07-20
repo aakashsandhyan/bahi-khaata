@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -44,4 +45,20 @@ public interface StockLedgerRepository extends JpaRepository<StockLedgerEntry, U
     @Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockLedgerEntry e "
             + "WHERE e.batch.id = :batchId")
     long quantityOnHandForBatch(@Param("batchId") UUID batchId);
+
+    /**
+     * Quantity on hand as it stood at a moment in the past: movements effective after that
+     * moment are excluded.
+     *
+     * <p>Comparison is on the stored ISO-8601 text, which is fixed width and therefore orders
+     * chronologically — the reason the timestamp format pads its fractional seconds.
+     */
+    @Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockLedgerEntry e "
+            + "WHERE e.product.id = :productId AND e.effectiveAt <= :asAt")
+    long quantityOnHandAsAt(@Param("productId") UUID productId, @Param("asAt") Instant asAt);
+
+    /** The same, for one batch — the basis for valuing stock as it stood. */
+    @Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockLedgerEntry e "
+            + "WHERE e.batch.id = :batchId AND e.effectiveAt <= :asAt")
+    long quantityOnHandForBatchAsAt(@Param("batchId") UUID batchId, @Param("asAt") Instant asAt);
 }

@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.inventory;
 
 import com.bahikhaata.contracts.Money;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -35,9 +36,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class StockLevels {
 
     private final StockLedgerRepository ledger;
+    private final BatchRepository batches;
 
-    StockLevels(StockLedgerRepository ledger) {
+    StockLevels(StockLedgerRepository ledger, BatchRepository batches) {
         this.ledger = ledger;
+        this.batches = batches;
     }
 
     /** Units of a product available to sell, across all its batches. */
@@ -68,5 +71,37 @@ public class StockLevels {
                 .map(StockLedgerEntry::getCogs)
                 .filter(Objects::nonNull)
                 .reduce(Money.ZERO, Money::plus);
+    }
+
+    /**
+     * Quantity on hand as it stood at a moment in the past — movements effective after that
+     * moment are excluded.
+     *
+     * <p>Reconstructible rather than remembered: because the ledger keeps every movement with
+     * the time it was effective, any past position can be recomputed, including one that a
+     * backdated entry has since changed.
+     */
+    @Transactional(readOnly = true)
+    public long onHandAsAt(UUID productId, Instant asAt) {
+        return ledger.quantityOnHandAsAt(productId, asAt);
+    }
+
+    /**
+     * What the stock of a product was worth at a moment in the past, at the cost of the
+     * batches it actually consisted of.
+     *
+     * <p>Valued per batch rather than at an average, for the same reason cost of goods sold is
+     * attributed per batch: an average hides which delivery the value came from.
+     */
+    @Transactional(readOnly = true)
+    public Money valuationAsAt(UUID productId, Instant asAt) {
+        Money total = Money.ZERO;
+        for (Batch batch : batches.findByProductIdInFifoOrder(productId)) {
+            long remaining = ledger.quantityOnHandForBatchAsAt(batch.getId(), asAt);
+            if (remaining > 0) {
+                total = total.plus(batch.getAllocatedUnitCost().times(remaining));
+            }
+        }
+        return total;
     }
 }
