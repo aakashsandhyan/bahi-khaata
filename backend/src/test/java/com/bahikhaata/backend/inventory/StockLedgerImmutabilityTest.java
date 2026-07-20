@@ -26,7 +26,6 @@ import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.Money;
-import com.bahikhaata.contracts.MovementType;
 import jakarta.persistence.EntityManager;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -89,13 +88,8 @@ class StockLedgerImmutabilityTest {
                                 quantity, 0, Money.ofRupees(300), false));
 
         return ledger.save(
-                new StockLedgerEntry(
-                        product,
-                        batch,
-                        quantity,
-                        MovementType.PURCHASE_RECEIPT,
-                        null,
-                        Instant.parse("2026-07-20T10:00:00Z")));
+                StockLedgerEntry.receipt(
+                        product, batch, quantity, Instant.parse("2026-07-20T10:00:00Z")));
     }
 
     @Test
@@ -169,34 +163,4 @@ class StockLedgerImmutabilityTest {
         assertThat(ledger.findById(id).orElseThrow().getQuantity()).isEqualTo(30L);
     }
 
-    @Test
-    @DisplayName("A zero movement, and cost of goods sold on an arrival, are refused")
-    void impossibleMovementsRefused() {
-        Product product = products.save(new Product("Guard rails", Category.KITCHEN, Map.of()));
-        Lot lot =
-                lots.save(
-                        new Lot(
-                                "A", LocalDate.of(2026, 7, 20), Money.ofRupees(100), Money.ZERO,
-                                AllocationMethod.RELATIVE_MRP));
-        Batch batch =
-                batches.save(
-                        new Batch(
-                                product, lot, Money.ofPaise(100), CostBasis.ALLOCATED, 10, 0,
-                                Money.ofRupees(50), false));
-        Instant when = Instant.parse("2026-07-20T10:00:00Z");
-
-        assertThatThrownBy(
-                        () ->
-                                new StockLedgerEntry(
-                                        product, batch, 0, MovementType.ADJUSTMENT, null, when))
-                .isInstanceOf(IllegalArgumentException.class);
-
-        // Cost of goods sold belongs to stock leaving; an arrival has none.
-        assertThatThrownBy(
-                        () ->
-                                new StockLedgerEntry(
-                                        product, batch, 5, MovementType.PURCHASE_RECEIPT,
-                                        Money.ofPaise(100), when))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
 }

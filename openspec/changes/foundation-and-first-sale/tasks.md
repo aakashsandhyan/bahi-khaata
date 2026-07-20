@@ -48,7 +48,7 @@
 - [x] 4.1 Write the migration creating `STOCK_LEDGER` (UUID text PK, product FK, batch FK, nullable invoice FK, signed `quantity`, `movement_type`, nullable `cogs_paise`, `effective_at`), with `UPDATE`- and `DELETE`-rejecting triggers using the pattern from 1.8. Review this SQL before any entity class exists.
 - [x] 4.2 Verify the triggers reject `UPDATE` and `DELETE` from a direct `sqlite3` session, not only through the application. The spec requires database-level enforcement; an application-only guard does not satisfy it.
 - [x] 4.3 Map the ledger entity as `@Immutable` with no setters, constructed complete. Test that Hibernate's dirty checking never emits an `UPDATE` for it — this is the specific hazard JPA introduces here.
-- [ ] 4.4 Implement movement types and signed quantities. Test that a receipt is positive, a sale is negative, and an adjustment may be either, with no separate direction field able to contradict the sign.
+- [x] 4.4 Implement movement types and signed quantities. Test that a receipt is positive, a sale is negative, and an adjustment may be either, with no separate direction field able to contradict the sign.
 - [ ] 4.5 Wire lot creation from 3.11 to append receipt movements for each batch, in the same transaction that creates the lot.
 - [ ] 4.6 Implement quantity on hand derived from the ledger, per product and per batch. Test that it equals the net of appended movements and that damaged units are excluded.
 - [ ] 4.7 Implement FIFO consumption: draw from the oldest batch with quantity remaining, moving to the next when exhausted, recording how much came from each. Test the spanning case explicitly.

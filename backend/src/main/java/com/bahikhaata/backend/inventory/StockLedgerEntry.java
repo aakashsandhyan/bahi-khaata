@@ -93,7 +93,59 @@ public class StockLedgerEntry extends UuidEntity {
     /** For Hibernate. */
     protected StockLedgerEntry() {}
 
-    public StockLedgerEntry(
+    /**
+     * Stock arriving from a supplier. Takes a positive count; an arrival has no cost of goods
+     * sold.
+     */
+    public static StockLedgerEntry receipt(
+            Product product, Batch batch, long quantity, Instant effectiveAt) {
+        requireCount(quantity, "a receipt must bring stock in");
+        return new StockLedgerEntry(
+                product, batch, quantity, MovementType.PURCHASE_RECEIPT, null, effectiveAt);
+    }
+
+    /**
+     * Stock leaving through a sale. Takes a positive count and records it negative, so a
+     * caller cannot accidentally book a sale that adds stock. Cost of goods sold is required:
+     * a sale whose cost is unknown would silently break margin reporting.
+     */
+    public static StockLedgerEntry sale(
+            Product product, Batch batch, long quantity, Money cogs, Instant effectiveAt) {
+        requireCount(quantity, "a sale must take stock out");
+        Objects.requireNonNull(cogs, "cost of goods sold is required on a sale");
+        return new StockLedgerEntry(
+                product, batch, -quantity, MovementType.SALE, cogs, effectiveAt);
+    }
+
+    /**
+     * Stock leaving because it cannot be sold. Takes a positive count and records it negative.
+     * Carries no cost of goods sold — nothing was sold, so attributing COGS would overstate
+     * the cost of what actually earned.
+     */
+    public static StockLedgerEntry writeOff(
+            Product product, Batch batch, long quantity, Instant effectiveAt) {
+        requireCount(quantity, "a write-off must take stock out");
+        return new StockLedgerEntry(
+                product, batch, -quantity, MovementType.WRITE_OFF, null, effectiveAt);
+    }
+
+    /**
+     * A correction after a stock take. The only movement that takes an already-signed
+     * quantity, because a count can legitimately come out either high or low.
+     */
+    public static StockLedgerEntry adjustment(
+            Product product, Batch batch, long signedQuantity, Instant effectiveAt) {
+        return new StockLedgerEntry(
+                product, batch, signedQuantity, MovementType.ADJUSTMENT, null, effectiveAt);
+    }
+
+    private static void requireCount(long quantity, String message) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException(message + ", so its count must be positive");
+        }
+    }
+
+    private StockLedgerEntry(
             Product product,
             Batch batch,
             long quantity,
