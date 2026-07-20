@@ -41,7 +41,7 @@
 - [x] 3.9 Record provenance — `cost_basis` on each batch as allocated, pinned, or imported, and `allocation_method` on the lot. Test that each route sets the basis it should.
 - [x] 3.10 Add freight to the amount allocated, and test that a lot with freight spreads the larger total.
 - [x] 3.11 Add lot and lot-line DTOs to `contracts`, and a backend endpoint creating a lot with its lines and resulting batches. Reject a lot that fails allocation rather than persisting a partial result.
-- [ ] 3.12 Test that changing the configured allocation method leaves previously allocated lots untouched, and that a lot allocated afterwards uses and records the new method.
+- [x] 3.12 Test that changing the configured allocation method leaves previously allocated lots untouched, and that a lot allocated afterwards uses and records the new method.
 
 ## 4. Stock ledger and FIFO consumption
 
