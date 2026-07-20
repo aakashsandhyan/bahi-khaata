@@ -94,9 +94,16 @@ public class Product extends UuidEntity {
      * received before anyone has decided what it is worth.
      */
     public Product(String name, Category category, Map<String, Object> attributes) {
+        this(name, category, null, attributes);
+    }
+
+    /** As above, recording an HSN code where one is known. */
+    public Product(
+            String name, Category category, String hsnCode, Map<String, Object> attributes) {
         super(newId());
         this.name = Objects.requireNonNull(name, "name");
         this.category = Objects.requireNonNull(category, "category");
+        this.hsnCode = hsnCode;
         this.attributes = attributes;
     }
 

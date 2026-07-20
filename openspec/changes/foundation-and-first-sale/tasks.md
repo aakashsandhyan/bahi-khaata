@@ -26,7 +26,7 @@
 - [x] 2.8 Implement the unpriced state: `selling_price_paise` nullable, an explicit way to ask whether a product is priced, and a guarantee that an absent price is never returned or coerced to zero. Test that an unpriced product reports as unpriced rather than as costing nothing.
 - [x] 2.9 Implement explicit price setting, and test that the price is unchanged by every other product operation. This is the invariant the whole pricing model rests on, so test it directly rather than trusting it.
 - [x] 2.10 Add product and barcode-lookup DTOs to `contracts`, carrying money as integer paise and representing an absent price as absent rather than zero.
-- [ ] 2.11 Add backend endpoints for barcode lookup, product creation, and price setting, wired to the DTOs from 2.10. No terminal UI in this section — products are created through goods-in, which arrives in section 4.
+- [x] 2.11 Add backend endpoints for barcode lookup, product creation, and price setting, wired to the DTOs from 2.10. No terminal UI in this section — products are created through goods-in, which arrives in section 4.
 
 ## 3. Lots and cost allocation
 
