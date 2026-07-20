@@ -19,6 +19,8 @@ package com.bahikhaata.backend.inventory;
 
 import com.bahikhaata.contracts.Money;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -103,5 +105,24 @@ public class StockLevels {
             }
         }
         return total;
+    }
+
+    /**
+     * What remains of each of a product's batches, oldest delivery first — the order stock is
+     * consumed in.
+     *
+     * <p>Exhausted batches are left out: they are history, and a caller asking what is on the
+     * shelf does not want a list padded with zeroes.
+     */
+    @Transactional(readOnly = true)
+    public List<BatchStock> remainingByBatch(UUID productId) {
+        List<BatchStock> remaining = new ArrayList<>();
+        for (Batch batch : batches.findByProductIdInFifoOrder(productId)) {
+            long left = ledger.quantityOnHandForBatch(batch.getId());
+            if (left > 0) {
+                remaining.add(new BatchStock(batch, left));
+            }
+        }
+        return remaining;
     }
 }
