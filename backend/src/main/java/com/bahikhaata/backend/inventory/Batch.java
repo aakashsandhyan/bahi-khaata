@@ -59,6 +59,16 @@ public class Batch extends UuidEntity {
     @JoinColumn(name = "lot_id", nullable = false)
     private Lot lot;
 
+    /**
+     * This line's whole share of the lot amount. Authoritative: the shares of a lot's batches
+     * sum to what was paid, exactly. The unit cost below is derived from it and rounded down,
+     * so multiplying that back out does not recover this figure — which is precisely why both
+     * are stored.
+     */
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "allocated_total_paise", nullable = false)
+    private Money allocatedTotal;
+
     @Convert(converter = MoneyConverter.class)
     @Column(name = "allocated_unit_cost_paise", nullable = false)
     private Money allocatedUnitCost;
@@ -93,6 +103,11 @@ public class Batch extends UuidEntity {
     /** For Hibernate. */
     protected Batch() {}
 
+    /**
+     * As below, deriving the line total from the unit cost. For batches not produced by an
+     * allocation — test fixtures, and stock entered before allocation existed — where no
+     * separate share figure exists to preserve.
+     */
     public Batch(
             Product product,
             Lot lot,
@@ -102,7 +117,30 @@ public class Batch extends UuidEntity {
             long quantityDamaged,
             Money mrp,
             boolean mrpIsEstimate) {
+        this(
+                product,
+                lot,
+                allocatedUnitCost.times(quantityReceived - quantityDamaged),
+                allocatedUnitCost,
+                costBasis,
+                quantityReceived,
+                quantityDamaged,
+                mrp,
+                mrpIsEstimate);
+    }
+
+    public Batch(
+            Product product,
+            Lot lot,
+            Money allocatedTotal,
+            Money allocatedUnitCost,
+            CostBasis costBasis,
+            long quantityReceived,
+            long quantityDamaged,
+            Money mrp,
+            boolean mrpIsEstimate) {
         super(newId());
+        this.allocatedTotal = Objects.requireNonNull(allocatedTotal, "allocatedTotal");
         this.product = Objects.requireNonNull(product, "product");
         this.lot = Objects.requireNonNull(lot, "lot");
         this.allocatedUnitCost = Objects.requireNonNull(allocatedUnitCost, "allocatedUnitCost");
@@ -137,6 +175,12 @@ public class Batch extends UuidEntity {
         return lot;
     }
 
+    /** This line's share of the lot amount — the figure that reconciles. */
+    public Money getAllocatedTotal() {
+        return allocatedTotal;
+    }
+
+    /** The share divided by the sellable quantity, rounded down. What COGS uses. */
     public Money getAllocatedUnitCost() {
         return allocatedUnitCost;
     }
