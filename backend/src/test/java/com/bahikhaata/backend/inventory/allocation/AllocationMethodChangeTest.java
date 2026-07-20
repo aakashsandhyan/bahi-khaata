@@ -115,8 +115,16 @@ class AllocationMethodChangeTest {
         GoodsInService.ReceivedLot received = receiveMixedPallet();
         UUID lotId = received.lot().getId();
 
-        List<Money> costsWhenReceived =
-                batches.findByLotId(lotId).stream().map(Batch::getAllocatedTotal).toList();
+        // Keyed by product, not by position: findByLotId does not order its rows, so indexing
+        // into it makes a test that passes or fails on SQLite's choice of query plan.
+        Map<UUID, Money> costsWhenReceived =
+                batches.findByLotId(lotId).stream()
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        b -> b.getProduct().getId(), Batch::getAllocatedTotal));
+
+        // The keychains are the line the two strategies disagree most sharply about.
+        UUID keychainId = received.batches().get(1).getProduct().getId();
 
         // Switching the configured strategy is a change to one bean. Nothing walks back over
         // history, because nothing recomputes a stored share.
@@ -130,13 +138,15 @@ class AllocationMethodChangeTest {
                                         new AllocationLine("keychain", 200, 0, Money.ofRupees(50), null)));
 
         assertThat(batches.findByLotId(lotId))
-                .extracting(Batch::getAllocatedTotal)
-                .containsExactlyElementsOf(costsWhenReceived);
+                .allSatisfy(
+                        batch ->
+                                assertThat(batch.getAllocatedTotal())
+                                        .isEqualTo(costsWhenReceived.get(batch.getProduct().getId())));
 
         // And the figures the other strategy would have produced are demonstrably different,
         // so this is not passing because the two happen to agree.
         assertThat(wouldBeDifferent.lines().get(1).allocatedTotal())
-                .isNotEqualTo(costsWhenReceived.get(1));
+                .isNotEqualTo(costsWhenReceived.get(keychainId));
     }
 
     @Test
