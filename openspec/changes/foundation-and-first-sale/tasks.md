@@ -30,8 +30,8 @@
 
 ## 3. Lots and cost allocation
 
-- [ ] 3.1 Write the migration creating `LOT` (UUID text PK, supplier, `received_on`, `amount_paid_paise`, `freight_paise`, `allocation_method`) and `BATCH` (UUID text PK, product FK, lot FK, `allocated_unit_cost_paise`, `cost_basis`, `quantity_received`, `quantity_damaged`, `mrp_paise`, `mrp_is_estimate`, `received_at`). Review this SQL before any entity class exists.
-- [ ] 3.2 Map the `Lot` and `Batch` entities and repositories.
+- [x] 3.1 Write the migration creating `LOT` (UUID text PK, supplier, `received_on`, `amount_paid_paise`, `freight_paise`, `allocation_method`) and `BATCH` (UUID text PK, product FK, lot FK, `allocated_unit_cost_paise`, `cost_basis`, `quantity_received`, `quantity_damaged`, `mrp_paise`, `mrp_is_estimate`, `received_at`). Review this SQL before any entity class exists.
+- [x] 3.2 Map the `Lot` and `Batch` entities and repositories.
 - [ ] 3.3 Implement the allocation calculation as a pure function over plain inputs — lot amount, freight, and lines of quantity, MRP, optional pinned cost, and damaged quantity — returning allocated costs. No entities, no repositories, no Spring. Everything below tests this function directly, which is what makes the arithmetic reviewable in isolation from persistence.
 - [ ] 3.4 Implement proportional allocation by quantity × MRP, and test that lines of differing value receive proportionally different costs. Include the mixed-pallet case where a naive equal split would price a low-value item above its retail price.
 - [ ] 3.5 Implement pinning: pinned lines take their stated cost and their total is deducted from the lot amount *before* the remainder is spread across unpinned lines. Test that pinning one line changes what the other lines receive — not merely what the pinned line receives.
