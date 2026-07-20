@@ -1,0 +1,29 @@
+/*
+ * bahi-khaata — point of sale for Bachat Baazar
+ * Copyright (C) 2026 Aakash Sandhyan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+package com.bahikhaata.contracts;
+
+/**
+ * A request to set a product's selling price, in paise.
+ *
+ * <p>An object with a named field rather than a bare number, so the unit is unmistakable on
+ * the wire: this is paise, not rupees. The backend enforces that it is positive — a price is
+ * never zero or negative, and un-pricing is not an operation.
+ *
+ * @param sellingPricePaise the selling price in paise
+ */
+public record SetPriceRequest(long sellingPricePaise) {}

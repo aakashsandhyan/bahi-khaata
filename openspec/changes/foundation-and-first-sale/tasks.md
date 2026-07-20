@@ -25,7 +25,7 @@
 - [x] 2.7 Implement internal barcode value generation with the reserved prefix `BBZ-` and a six-digit counter starting at 100000 (`BBZ-100000` … `BBZ-999999`). Test that generated codes carry the prefix, that successive codes differ, that origin distinguishes internal from manufacturer codes, and that exhaustion past six digits fails loudly. The prefix is letters, so a generated code can never equal an all-numeric EAN-13 — that is the collision guarantee. ZXing rendering the value to a Code 128 label *image* is deferred to labelling (a future change; printing is out of scope here).
 - [x] 2.8 Implement the unpriced state: `selling_price_paise` nullable, an explicit way to ask whether a product is priced, and a guarantee that an absent price is never returned or coerced to zero. Test that an unpriced product reports as unpriced rather than as costing nothing.
 - [x] 2.9 Implement explicit price setting, and test that the price is unchanged by every other product operation. This is the invariant the whole pricing model rests on, so test it directly rather than trusting it.
-- [ ] 2.10 Add product and barcode-lookup DTOs to `contracts`, carrying money as integer paise and representing an absent price as absent rather than zero.
+- [x] 2.10 Add product and barcode-lookup DTOs to `contracts`, carrying money as integer paise and representing an absent price as absent rather than zero.
 - [ ] 2.11 Add backend endpoints for barcode lookup, product creation, and price setting, wired to the DTOs from 2.10. No terminal UI in this section — products are created through goods-in, which arrives in section 4.
 
 ## 3. Lots and cost allocation
