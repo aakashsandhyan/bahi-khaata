@@ -66,9 +66,9 @@
 - [x] 5.3 Implement gross margin as (price − cost) ÷ price. Name the method so it cannot be mistaken for markup, and test a case where the two diverge sharply — this is a standard retail arithmetic bug and the test is what stops it recurring.
 - [x] 5.4 Add the `category_margin` table via migration — one row per `Category`, holding a target percent, runtime-editable — and a typed accessor. Update the `pricing.target_margin_percent` SETTING description to name it the global fallback (this is where the V2 wording is corrected, in a new migration rather than by editing V2).
 - [x] 5.5 Implement the three-tier target-margin resolution: transient custom (passed in, never stored) → `category_margin` row for the product's category → global SETTING default. Test each tier wins over the next, and that the custom value is not persisted.
-- [ ] 5.6 Implement the suggested selling price from allocated unit cost and the resolved target margin. Offered only for unpriced products.
-- [ ] 5.7 Test that a suggestion never becomes a price on its own, that the product stays unpriced and unsellable until someone accepts, and that an override is honoured.
-- [ ] 5.8 Test that a product with an existing price receives no suggestion and its price is untouched when new stock arrives at any cost.
+- [x] 5.6 Implement the suggested selling price from allocated unit cost and the resolved target margin. Offered only for unpriced products.
+- [x] 5.7 Test that a suggestion never becomes a price on its own, that the product stays unpriced and unsellable until someone accepts, and that an override is honoured.
+- [x] 5.8 Test that a product with an existing price receives no suggestion and its price is untouched when new stock arrives at any cost.
 - [ ] 5.9 Implement margin-erosion flagging at receipt: flag when gross margin drops by the `SETTING` threshold or more against the margin at the most recent prior batch cost.
 - [ ] 5.10 Test the no-flag cases: first batch of a product, a cheaper batch, erosion below threshold, and an unpriced product.
 - [ ] 5.11 Clear the flag when a price is explicitly set, and test that a flagged product continues to sell at its existing price with the flag intact. Flagging must never block a sale.
