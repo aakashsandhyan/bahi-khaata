@@ -45,7 +45,7 @@
 
 ## 4. Stock ledger and FIFO consumption
 
-- [ ] 4.1 Write the migration creating `STOCK_LEDGER` (UUID text PK, product FK, batch FK, nullable invoice FK, signed `quantity`, `movement_type`, nullable `cogs_paise`, `effective_at`), with `UPDATE`- and `DELETE`-rejecting triggers using the pattern from 1.8. Review this SQL before any entity class exists.
+- [x] 4.1 Write the migration creating `STOCK_LEDGER` (UUID text PK, product FK, batch FK, nullable invoice FK, signed `quantity`, `movement_type`, nullable `cogs_paise`, `effective_at`), with `UPDATE`- and `DELETE`-rejecting triggers using the pattern from 1.8. Review this SQL before any entity class exists.
 - [ ] 4.2 Verify the triggers reject `UPDATE` and `DELETE` from a direct `sqlite3` session, not only through the application. The spec requires database-level enforcement; an application-only guard does not satisfy it.
 - [ ] 4.3 Map the ledger entity as `@Immutable` with no setters, constructed complete. Test that Hibernate's dirty checking never emits an `UPDATE` for it — this is the specific hazard JPA introduces here.
 - [ ] 4.4 Implement movement types and signed quantities. Test that a receipt is positive, a sale is negative, and an adjustment may be either, with no separate direction field able to contradict the sign.
@@ -76,7 +76,7 @@
 
 ## 6. Invoicing
 
-- [ ] 6.1 Write the migration creating `INVOICE` (UUID text PK, unique `number`, `financial_year`, nullable self-referencing `corrects_invoice_id`, `issued_at`, `place_of_supply`, supplier identity fields, `total_unrounded_paise`, `total_rounded_paise`, nullable `irn`, signed QR and acknowledgement fields) and `INVOICE_LINE`, with `UPDATE`/`DELETE`-rejecting triggers on issued rows. Review this SQL before any entity class exists.
+- [ ] 6.1 Add `stock_ledger.invoice_id` via `ALTER TABLE ... ADD COLUMN invoice_id CHAR(36) REFERENCES invoice (id)` — deferred from 4.1 because the invoice table did not exist yet; SQLite permits this for a nullable column and it leaves the append-only triggers intact. Then write the migration creating `INVOICE` (UUID text PK, unique `number`, `financial_year`, nullable self-referencing `corrects_invoice_id`, `issued_at`, `place_of_supply`, supplier identity fields, `total_unrounded_paise`, `total_rounded_paise`, nullable `irn`, signed QR and acknowledgement fields) and `INVOICE_LINE`, with `UPDATE`/`DELETE`-rejecting triggers on issued rows. Review this SQL before any entity class exists.
 - [ ] 6.2 Verify at the database level that an issued invoice and its lines reject `UPDATE` and `DELETE` from a direct `sqlite3` session, while an unissued invoice remains editable.
 - [ ] 6.3 Map the invoice and line entities as `@Immutable` once issued, and test that dirty checking cannot emit an `UPDATE` against an issued invoice.
 - [ ] 6.4 Implement the mandatory-field check and refuse to issue an invoice missing any of them, reporting which field is missing rather than failing opaquely.
