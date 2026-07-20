@@ -40,7 +40,7 @@
 - [x] 3.8 Implement damaged-unit handling: damaged quantity is recorded, excluded from the divisor so its cost is absorbed by the sellable units, and excluded from quantity on hand. Test that the lot remains fully allocated when units are damaged.
 - [x] 3.9 Record provenance — `cost_basis` on each batch as allocated, pinned, or imported, and `allocation_method` on the lot. Test that each route sets the basis it should.
 - [x] 3.10 Add freight to the amount allocated, and test that a lot with freight spreads the larger total.
-- [ ] 3.11 Add lot and lot-line DTOs to `contracts`, and a backend endpoint creating a lot with its lines and resulting batches. Reject a lot that fails allocation rather than persisting a partial result.
+- [x] 3.11 Add lot and lot-line DTOs to `contracts`, and a backend endpoint creating a lot with its lines and resulting batches. Reject a lot that fails allocation rather than persisting a partial result.
 - [ ] 3.12 Test that changing the configured allocation method leaves previously allocated lots untouched, and that a lot allocated afterwards uses and records the new method.
 
 ## 4. Stock ledger and FIFO consumption
@@ -49,7 +49,7 @@
 - [x] 4.2 Verify the triggers reject `UPDATE` and `DELETE` from a direct `sqlite3` session, not only through the application. The spec requires database-level enforcement; an application-only guard does not satisfy it.
 - [x] 4.3 Map the ledger entity as `@Immutable` with no setters, constructed complete. Test that Hibernate's dirty checking never emits an `UPDATE` for it — this is the specific hazard JPA introduces here.
 - [x] 4.4 Implement movement types and signed quantities. Test that a receipt is positive, a sale is negative, and an adjustment may be either, with no separate direction field able to contradict the sign.
-- [ ] 4.5 Wire lot creation from 3.11 to append receipt movements for each batch, in the same transaction that creates the lot.
+- [x] 4.5 Wire lot creation from 3.11 to append receipt movements for each batch, in the same transaction that creates the lot.
 - [x] 4.6 Implement quantity on hand derived from the ledger, per product and per batch. Test that it equals the net of appended movements and that damaged units are excluded.
 - [x] 4.7 Implement FIFO consumption: draw from the oldest batch with quantity remaining, moving to the next when exhausted, recording how much came from each. Test the spanning case explicitly.
 - [x] 4.8 Attribute cost of goods sold at the consumed batch's cost, splitting across batches when a consumption spans them. Test that a two-batch consumption records each portion at its own cost.
