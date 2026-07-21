@@ -17,7 +17,12 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.contracts.CartonProgress;
+import com.bahikhaata.contracts.DeliveryClosed;
+import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.UnpackingCarton;
+import com.bahikhaata.contracts.UnpackingLine;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -51,26 +56,26 @@ class UnpackingController {
 
     /** Every carton in a delivery, and where each has got to. */
     @GetMapping("/lots/{lotId}/boxes")
-    List<GoodsInCounting.BoxProgress> boxesOf(@PathVariable UUID lotId) {
+    List<CartonProgress> boxesOf(@PathVariable UUID lotId) {
         return counting.progressOf(lotId);
     }
 
     /** What should be in one carton — the screen shown after scanning the box. */
     @GetMapping("/boxes/{boxId}/lines")
-    List<GoodsInCounting.LineToFind> linesOf(@PathVariable UUID boxId) {
+    List<UnpackingLine> linesOf(@PathVariable UUID boxId) {
         return counting.linesIn(boxId);
     }
 
     /** Finds the carton by the number printed on it, which is what the scanner reads. */
     @GetMapping("/boxes/by-tracking/{trackingNumber}")
-    ResponseEntity<List<GoodsInCounting.CartonFound>> byTracking(
+    ResponseEntity<List<UnpackingCarton>> byTracking(
             @PathVariable String trackingNumber) {
-        List<GoodsInCounting.CartonFound> found = counting.findByTracking(trackingNumber);
+        List<UnpackingCarton> found = counting.findByTracking(trackingNumber);
         return found.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(found);
     }
 
     @PostMapping("/lines/{lineId}/count")
-    GoodsInCounting.CountOutcome count(
+    CountOutcome count(
             @PathVariable UUID lineId, @RequestBody CountRequest request) {
         return counting.countExpected(
                 lineId,
@@ -82,7 +87,7 @@ class UnpackingController {
 
     /** Something in the carton that no line names. */
     @PostMapping("/boxes/{boxId}/unlisted")
-    GoodsInCounting.CountOutcome unlisted(
+    CountOutcome unlisted(
             @PathVariable UUID boxId, @RequestBody UnlistedRequest request) {
         return counting.countUnlisted(
                 boxId,
@@ -121,7 +126,7 @@ class UnpackingController {
      * a delivery open forever and nothing in it could be priced.
      */
     @PostMapping("/lots/{lotId}/close")
-    LotClosing.ClosingOutcome closeLot(
+    DeliveryClosed closeLot(
             @PathVariable UUID lotId,
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false")
                     boolean confirm) {

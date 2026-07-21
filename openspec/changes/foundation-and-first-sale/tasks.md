@@ -57,7 +57,7 @@
 - [x] 4.10 Implement point-in-time valuation and on-hand as at a given date, excluding movements effective after it.
 - [x] 4.11 Implement freeze-on-consumption: a lot and its batches are editable while no stock from the lot has been consumed and refused thereafter, with edits before the freeze triggering reallocation. Test that consuming from one batch freezes the entire lot, not just that batch. (The policy and its guard are built; the edit operations it guards, and the reallocation an edit triggers, arrive with the parked cost allocator.)
 - [x] 4.12 Add stock query DTOs to `contracts` and the backend endpoints behind them.
-- [ ] 4.13 Build the goods-in screen in `terminal`: create a lot, add lines with quantity and MRP, optionally pin a cost, mark damaged units, see the resulting allocation, and submit. Deliberately rough — the allocation figures being visible and correct is the goal, not the layout.
+- [~] 4.13 SUPERSEDED by `goods-in-from-manifest` section 6. This task specifies a goods-in screen for the one-act model — create a lot, enter lines with quantity and MRP, submit — which that change replaced with an expectation recorded at import and counted at unpacking. Building it would mean building a screen for a model that no longer exists. The unpacking screen delivers what this task was for.
 
 ## 5. Pricing and margin review
 
@@ -72,7 +72,7 @@
 - [ ] 5.9 Implement margin-erosion flagging at receipt: flag when gross margin drops by the `SETTING` threshold or more against the margin at the most recent prior batch cost.
 - [ ] 5.10 Test the no-flag cases: first batch of a product, a cheaper batch, erosion below threshold, and an unpriced product.
 - [ ] 5.11 Clear the flag when a price is explicitly set, and test that a flagged product continues to sell at its existing price with the flag intact. Flagging must never block a sale.
-- [ ] 5.12 Surface the suggestion and the flag in the goods-in screen from 4.13, so a price can be set during intake.
+- [~] 5.12 SUPERSEDED with 4.13. Price suggestions belong on the pricing screen rather than the unpacking screen: a price cannot be set until the delivery is closed and its cost known, so there is nothing to suggest while someone is still counting cartons.
 
 ## 6. Invoicing
 

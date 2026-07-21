@@ -1,0 +1,39 @@
+/*
+ * bahi-khaata — point of sale for Bachat Baazar
+ * Copyright (C) 2026 Aakash Sandhyan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+package com.bahikhaata.contracts;
+
+import java.util.UUID;
+
+/**
+ * One thing to look for inside a carton.
+ *
+ * <p>Named in the terms the screen shows it. {@code outstanding} is what the operator still has
+ * to find, which is the only one of these numbers they need while working.
+ *
+ * @param needsMrp whether anyone has yet read the printed price off these goods. Asked once per
+ *     product per delivery: the figure comes off the pack, and every pack in one delivery
+ *     carries the same one, so asking again for each unit would be pure friction.
+ */
+public record UnpackingLine(
+        UUID lineId,
+        String code,
+        String name,
+        long expected,
+        long counted,
+        long outstanding,
+        boolean needsMrp) {}

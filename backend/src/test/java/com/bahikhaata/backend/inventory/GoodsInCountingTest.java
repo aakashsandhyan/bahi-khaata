@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.contracts.AllocationMethod;
+import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
@@ -197,13 +198,13 @@ class GoodsInCountingTest {
     void boxProgressIsReportable() {
         var before = counting.progressOf(lotId);
         assertThat(before).hasSize(2);
-        assertThat(before).allMatch(GoodsInCounting.BoxProgress::isNotStarted);
+        assertThat(before).allMatch(CartonProgress::notStarted);
 
         counting.countExpected(lineFor("KADAI").getId(), 5, null, false, AT);
 
         var mid = counting.progressOf(lotId).stream()
                 .filter(b -> b.trackingNumber().equals("BOX-A")).findFirst().orElseThrow();
-        assertThat(mid.isInProgress())
+        assertThat(mid.inProgress())
                 .as("a part-counted carton is a normal state, not an exception")
                 .isTrue();
         assertThat(mid.unitsExpected()).isEqualTo(16);

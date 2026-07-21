@@ -51,7 +51,7 @@ public class TerminalApplication extends Application {
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(40));
 
-        stage.setScene(new Scene(root, 480, 240));
+        stage.setScene(new Scene(root, 900, 640));
         // Title uses the romanized name: a window manager's title bar is not a guaranteed
         // Devanagari surface, and the title is chrome rather than the brand itself.
         stage.setTitle(Branding.NAME_ROMANIZED + " — terminal");
@@ -76,9 +76,10 @@ public class TerminalApplication extends Application {
 
         check.setOnSucceeded(
                 event -> {
-                    HealthResponse health = check.getValue();
-                    detail.setText(
-                            "Backend " + health.status() + " — schema v" + health.schemaVersion());
+                    // Only once the backend has answered. The unpacking screen reads on every
+                    // scan, and opening it against a backend that is not there would greet the
+                    // operator with a failure they can do nothing about.
+                    showUnpacking(detail.getScene());
                 });
 
         check.setOnFailed(
@@ -87,6 +88,17 @@ public class TerminalApplication extends Application {
         Thread worker = new Thread(check, "backend-health-check");
         worker.setDaemon(true);
         worker.start();
+    }
+
+    /**
+     * Swaps the splash for the unpacking screen.
+     *
+     * <p>Unpacking is the whole of the terminal today: 3,583 units are expected and none can be
+     * sold until someone has opened the cartons and read an MRP off each pack. Checkout comes
+     * later, and there is nothing to check out until this is done.
+     */
+    private void showUnpacking(javafx.scene.Scene scene) {
+        scene.setRoot(new UnpackingScreen(backend).getRoot());
     }
 
     @Override

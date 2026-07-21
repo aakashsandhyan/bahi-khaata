@@ -22,6 +22,7 @@ import com.bahikhaata.backend.inventory.allocation.Allocation;
 import com.bahikhaata.backend.inventory.allocation.AllocationLine;
 import com.bahikhaata.backend.inventory.allocation.CostAllocator;
 import com.bahikhaata.contracts.CostBasis;
+import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.Money;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -101,7 +102,7 @@ public class LotClosing {
      * allowed, but only deliberately: the cartons are reported and the caller must confirm.
      */
     @Transactional
-    public ClosingOutcome close(UUID lotId, boolean confirmUnopenedCartons, Instant at) {
+    public DeliveryClosed close(UUID lotId, boolean confirmUnopenedCartons, Instant at) {
         Lot lot = lots.findById(lotId)
                 .orElseThrow(() -> new IllegalArgumentException("no such lot: " + lotId));
         if (!lot.isOpen()) {
@@ -168,11 +169,11 @@ public class LotClosing {
 
         lot.close(at);
 
-        return new ClosingOutcome(
+        return new DeliveryClosed(
                 lotId,
                 received.size(),
                 received.stream().mapToLong(Batch::getQuantityReceived).sum(),
-                lot.getAmountPaid().plus(lot.getFreight()),
+                lot.getAmountPaid().plus(lot.getFreight()).paise(),
                 estimatedCount,
                 unopened);
     }
@@ -252,12 +253,4 @@ public class LotClosing {
         }
     }
 
-    /** What closing did. */
-    public record ClosingOutcome(
-            UUID lotId,
-            int batchesCosted,
-            long unitsCosted,
-            Money amountApportioned,
-            long batchesWeighedAtLotAverage,
-            List<String> unopenedCartons) {}
 }

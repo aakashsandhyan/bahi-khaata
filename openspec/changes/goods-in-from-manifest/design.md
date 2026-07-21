@@ -129,6 +129,29 @@ Two states need to be obvious without being read: an item that does not match an
 
 Rollback is `git revert` plus a re-import, for as long as no sale has been recorded. After the first sale, rollback is a data migration and this window closes.
 
+## What changed during implementation
+
+Recorded because the design was written before the code and two things did not survive contact.
+
+- **Counts are held per expected line, not derived from the batch.** A batch is per product per
+  lot, so it sums across every carton a product arrives in — 449 products here came in more than
+  one, one across 24 — which leaves it unable to answer what is still to find in *one* box. That
+  is the question a resumable screen asks constantly, so V14 added the column. The original
+  schema simply could not support the screen this design describes.
+
+- **A manifest line is identified by carton and product together**, not by product. Same cause.
+  The design said "a tracking number identifies a physical box carrying one or more expected
+  lines" without noticing the converse — that one product spans boxes — which changes the
+  primary key and the count of lines from 1,878 to 2,897.
+
+- **The MRP is asked once per product per delivery**, not per unit. Every pack in one delivery
+  carries the same printed price, and asking again for each unit is friction with nothing behind
+  it. Friction is what stops people recording things.
+
+- **Per-line pinned costs were dropped.** No manifest states one, `expected_line` has no column
+  for it, and the weight it supplied is now `stated_value_paise`. Recorded in the importer's
+  Javadoc so its absence stays a decision rather than becoming an oversight.
+
 ## Open Questions
 
 - **How is a wrong MRP caught?** A typo in a legal ceiling has legal consequences. A plausibility check against the observed online price is possible but is not verification.

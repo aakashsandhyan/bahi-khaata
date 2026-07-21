@@ -42,7 +42,17 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>All of it in one transaction. A lot whose batches exist but whose stock never arrived, or
  * batches carrying costs that do not sum to what was paid, are both worse than a failed
  * receipt — the first is invisible stock, the second is a book that does not balance.
- */
+ * <p><strong>Not the path a consignment takes.</strong> This receives a complete, known
+ * delivery in one transaction — you already know what arrived, at what cost, and record it.
+ * That still fits a small hand-entered delivery from a local supplier.
+ *
+ * <p>A supplier's manifest does not work that way. It states what is <em>coming</em>, the
+ * cartons arrive later, and what is inside them routinely differs. Those go through
+ * {@link ConsignmentImporter} to record the expectation, {@link GoodsInCounting} to record what
+ * was actually found, and {@link LotClosing} to settle the cost across it. Using this method for
+ * one would assert quantities nobody has counted.
+ *
+  */
 @Service
 public class GoodsInService {
 

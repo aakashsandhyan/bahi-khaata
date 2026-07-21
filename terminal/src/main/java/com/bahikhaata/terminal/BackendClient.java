@@ -17,7 +17,12 @@
  */
 package com.bahikhaata.terminal;
 
+import com.bahikhaata.contracts.CartonProgress;
+import com.bahikhaata.contracts.CountOutcome;
+import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.HealthResponse;
+import com.bahikhaata.contracts.UnpackingCarton;
+import com.bahikhaata.contracts.UnpackingLine;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -25,8 +30,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * The terminal's only route to data.
@@ -99,6 +109,170 @@ public class BackendClient {
         } catch (IOException e) {
             throw new BackendUnavailableException(
                     "Backend at " + baseUri + " returned a response this terminal cannot read", e);
+        }
+    }
+
+    // ---- unpacking -------------------------------------------------------------------
+    //
+    // A refusal from the backend is not a fault here: counting against a closed delivery, or
+    // closing one with cartons unopened, are things the operator needs told plainly. They come
+    // back as RefusedException carrying the backend's own sentence, which is written to be read
+    // by the person at the counter rather than by a developer.
+
+    /** Cartons bearing a scanned tracking number. Empty when the number is not this delivery's. */
+    public List<UnpackingCarton> cartonsByTracking(String trackingNumber) {
+        return getList(
+                "/api/unpacking/boxes/by-tracking/" + encode(trackingNumber),
+                UnpackingCarton.class);
+    }
+
+    /** What should be inside one carton, and how much of it has been found. */
+    public List<UnpackingLine> linesIn(UUID boxId) {
+        return getList("/api/unpacking/boxes/" + boxId + "/lines", UnpackingLine.class);
+    }
+
+    /** Every carton in a delivery, and where each has got to. */
+    public List<CartonProgress> cartonsInDelivery(UUID lotId) {
+        return getList("/api/unpacking/lots/" + lotId + "/boxes", CartonProgress.class);
+    }
+
+    /** Records units found against something the manifest named. */
+    public CountOutcome count(UUID lineId, long quantity, Long mrpPaise) {
+        return post(
+                "/api/unpacking/lines/" + lineId + "/count",
+                Map.of(
+                        "quantity", quantity,
+                        "mrpPaise", mrpPaise == null ? "" : mrpPaise,
+                        "mrpIsEstimate", false),
+                CountOutcome.class);
+    }
+
+    /** Records something found in a carton that the manifest does not mention. */
+    public CountOutcome countUnlisted(
+            UUID boxId, String code, String name, String categoryCode, long quantity,
+            Long mrpPaise) {
+        return post(
+                "/api/unpacking/boxes/" + boxId + "/unlisted",
+                Map.of(
+                        "code", code,
+                        "name", name,
+                        "categoryCode", categoryCode,
+                        "quantity", quantity,
+                        "mrpPaise", mrpPaise == null ? "" : mrpPaise,
+                        "mrpIsEstimate", false),
+                CountOutcome.class);
+    }
+
+    public void finishCarton(UUID boxId) {
+        post("/api/unpacking/boxes/" + boxId + "/finish", Map.of(), Void.class);
+    }
+
+    public void reopenCarton(UUID boxId) {
+        post("/api/unpacking/boxes/" + boxId + "/reopen", Map.of(), Void.class);
+    }
+
+    /** Finishes a delivery and settles what it cost. */
+    public DeliveryClosed closeDelivery(UUID lotId, boolean confirmUnopened) {
+        return post(
+                "/api/unpacking/lots/" + lotId + "/close?confirm=" + confirmUnopened,
+                Map.of(),
+                DeliveryClosed.class);
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private <T> List<T> getList(String path, Class<T> element) {
+        HttpResponse<String> response =
+                send(HttpRequest.newBuilder(baseUri.resolve(path)).timeout(REQUEST_TIMEOUT).GET());
+        if (response.statusCode() == 404) {
+            return List.of();
+        }
+        requireOk(response);
+        try {
+            return json.readValue(
+                    response.body(),
+                    json.getTypeFactory().constructCollectionType(List.class, element));
+        } catch (IOException e) {
+            throw new BackendUnavailableException("Unreadable response from " + path, e);
+        }
+    }
+
+    private <T> T post(String path, Map<String, Object> body, Class<T> type) {
+        String payload;
+        try {
+            payload = json.writeValueAsString(body);
+        } catch (IOException e) {
+            throw new IllegalStateException("could not build the request body", e);
+        }
+        HttpResponse<String> response =
+                send(
+                        HttpRequest.newBuilder(baseUri.resolve(path))
+                                .timeout(REQUEST_TIMEOUT)
+                                .header("Content-Type", "application/json")
+                                .POST(HttpRequest.BodyPublishers.ofString(payload)));
+        requireOk(response);
+        if (type == Void.class || response.body() == null || response.body().isBlank()) {
+            return null;
+        }
+        try {
+            return json.readValue(response.body(), type);
+        } catch (IOException e) {
+            throw new BackendUnavailableException("Unreadable response from " + path, e);
+        }
+    }
+
+    private HttpResponse<String> send(HttpRequest.Builder request) {
+        try {
+            return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+        } catch (IOException e) {
+            throw new BackendUnavailableException("Could not reach the backend at " + baseUri, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BackendUnavailableException("Interrupted while contacting the backend", e);
+        }
+    }
+
+    /**
+     * Turns a refusal into something sayable.
+     *
+     * <p>400 and 409 carry a sentence the backend wrote for a person — that a delivery is
+     * closed, that cartons are unopened. Passing it straight through beats inventing a
+     * terminal-side paraphrase that will drift out of step with the rule it describes.
+     */
+    private void requireOk(HttpResponse<String> response) {
+        int status = response.statusCode();
+        if (status >= 200 && status < 300) {
+            return;
+        }
+        if (status == 400 || status == 409) {
+            throw new RefusedException(readMessage(response.body()));
+        }
+        throw new BackendUnavailableException(
+                "Backend at " + baseUri + " answered HTTP " + status);
+    }
+
+    private String readMessage(String body) {
+        if (body == null || body.isBlank()) {
+            return "The backend refused that, without saying why.";
+        }
+        // Some refusals are a bare sentence, some are a JSON object carrying one.
+        try {
+            var node = json.readTree(body);
+            if (node.isObject() && node.has("message")) {
+                return node.get("message").asText();
+            }
+        } catch (IOException ignored) {
+            // Not JSON, so it is already the sentence.
+        }
+        return body;
+    }
+
+    /** The backend declined, and the reason is worth showing the operator verbatim. */
+    public static class RefusedException extends RuntimeException {
+        public RefusedException(String message) {
+            super(message);
         }
     }
 }

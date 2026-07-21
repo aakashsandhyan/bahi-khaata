@@ -21,7 +21,11 @@ import com.bahikhaata.backend.catalog.Barcode;
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
+import com.bahikhaata.contracts.CartonProgress;
+import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.UnpackingCarton;
+import com.bahikhaata.contracts.UnpackingLine;
 import com.bahikhaata.contracts.Origin;
 import java.time.Instant;
 import java.util.List;
@@ -170,27 +174,42 @@ public class GoodsInCounting {
      * outside a transaction has no session to load it with.
      */
     @Transactional(readOnly = true)
-    public List<LineToFind> linesIn(UUID boxId) {
+    public List<UnpackingLine> linesIn(UUID boxId) {
         return expectedLines.findByBoxIdOrderByCode(boxId).stream()
                 .map(
                         line ->
-                                new LineToFind(
+                                new UnpackingLine(
                                         line.getId(),
                                         line.getCode(),
                                         line.getProduct().getName(),
                                         line.getQuantityExpected(),
                                         line.getQuantityCounted(),
-                                        line.getQuantityOutstanding()))
+                                        line.getQuantityOutstanding(),
+                                        needsMrp(line)))
                 .toList();
+    }
+
+    /**
+     * Whether the printed price still has to be read off these goods.
+     *
+     * <p>Per product per delivery rather than per unit: the figure is printed on the pack and
+     * every pack in one delivery carries the same one. Asking again for each unit would be
+     * friction with nothing behind it, and friction is what makes people stop recording things.
+     */
+    private boolean needsMrp(ExpectedLine line) {
+        return batches
+                .findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
+                .map(batch -> batch.getMrp() == null)
+                .orElse(true);
     }
 
     /** Cartons bearing a tracking number, for the scan that starts unpacking. */
     @Transactional(readOnly = true)
-    public List<CartonFound> findByTracking(String trackingNumber) {
+    public List<UnpackingCarton> findByTracking(String trackingNumber) {
         return boxes.findByTrackingNumberOrderByCreatedAt(trackingNumber).stream()
                 .map(
                         box ->
-                                new CartonFound(
+                                new UnpackingCarton(
                                         box.getId(),
                                         box.getTrackingNumber(),
                                         box.getLot().getId(),
@@ -200,7 +219,7 @@ public class GoodsInCounting {
 
     /** Where a lot has got to: every carton, what it holds, and whether anyone has been in it. */
     @Transactional(readOnly = true)
-    public List<BoxProgress> progressOf(UUID lotId) {
+    public List<CartonProgress> progressOf(UUID lotId) {
         Map<UUID, List<ExpectedLine>> linesByBox =
                 expectedLines.findByLotIdOrderByCode(lotId).stream()
                         .collect(
@@ -220,7 +239,7 @@ public class GoodsInCounting {
                                     unlistedFinds.findByBoxId(box.getId()).stream()
                                             .mapToLong(UnlistedFind::getQuantity)
                                             .sum();
-                            return new BoxProgress(
+                            return new CartonProgress(
                                     box.getId(),
                                     box.getTrackingNumber(),
                                     lines.size(),
@@ -284,41 +303,4 @@ public class GoodsInCounting {
                         });
     }
 
-    /** One thing to look for in a carton, in the terms the screen shows it. */
-    public record LineToFind(
-            UUID lineId,
-            String code,
-            String name,
-            long expected,
-            long counted,
-            long outstanding) {}
-
-    /** A carton matched by the number printed on it. */
-    public record CartonFound(
-            UUID boxId, String trackingNumber, UUID lotId, boolean finished) {}
-
-    /** What a count did, in the terms the screen needs: expected, found so far, difference. */
-    public record CountOutcome(
-            UUID batchId, long quantityExpected, long quantityCounted, long discrepancy) {}
-
-    /** One carton's state. */
-    public record BoxProgress(
-            UUID boxId,
-            String trackingNumber,
-            int lines,
-            long unitsExpected,
-            long unitsCounted,
-            long unitsUnlisted,
-            boolean finished) {
-
-        /** Nobody has been in it yet. */
-        public boolean isNotStarted() {
-            return unitsCounted == 0 && unitsUnlisted == 0 && !finished;
-        }
-
-        /** Someone has counted part of it and stopped — a normal state, not an error. */
-        public boolean isInProgress() {
-            return !finished && (unitsCounted > 0 || unitsUnlisted > 0);
-        }
-    }
 }

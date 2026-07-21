@@ -55,19 +55,19 @@
 
 ## 6. The unpacking screen
 
-- [ ] 6.1 Add the terminal's screen scaffolding — navigation, a scan input that holds focus, and the Devanagari-capable font already bundled. No unpacking logic yet.
-- [ ] 6.2 Extend `BackendClient` with the counting operations from 3.7, each failing loudly and legibly when the backend is unreachable.
-- [ ] 6.3 Build the box screen: scan or choose a tracking number, then show what is expected in it. Build for the median box of one line, and confirm the one-line case is two scans and no typing.
-- [ ] 6.4 Implement scanning an item within a box: match it to an expected line, take a count where it is not one, and take the MRP read off the pack.
-- [ ] 6.5 Implement the unmatched-scan state — an item that is not on the sheet — visibly distinct and recordable as unlisted without leaving the screen.
-- [ ] 6.6 Implement finishing a box, showing what was short or surplus before it is marked finished.
-- [ ] 6.7 Implement resuming: reopening a part-counted box shows what remains, and closing the application mid-box loses nothing.
-- [ ] 6.8 Implement the lot view: which boxes remain, and closing the lot with the confirmation from 4.7 when boxes are unopened.
-- [ ] 6.9 Review every string on the screen against the design's vocabulary rule — no batch, lot, allocation, FIFO or ledger — and check the finished and unmatched states are legible from across a room.
-- [ ] 6.10 Walk the whole path against real data on a booted backend: import, open a box, count short, count a surplus, finish, close the lot, and confirm the costs land where section 4 says they should.
+- [x] 6.1 Add the terminal's screen scaffolding — navigation, a scan input that holds focus, and the Devanagari-capable font already bundled. No unpacking logic yet.
+- [x] 6.2 Extend `BackendClient` with the counting operations from 3.7, each failing loudly and legibly when the backend is unreachable.
+- [x] 6.3 Build the box screen: scan or choose a tracking number, then show what is expected in it. Build for the median box of one line, and confirm the one-line case is two scans and no typing.
+- [x] 6.4 Implement scanning an item within a box: match it to an expected line, take a count where it is not one, and take the MRP read off the pack.
+- [x] 6.5 Implement the unmatched-scan state — an item that is not on the sheet — visibly distinct and recordable as unlisted without leaving the screen.
+- [x] 6.6 Implement finishing a box, showing what was short or surplus before it is marked finished.
+- [x] 6.7 Implement resuming: reopening a part-counted box shows what remains, and closing the application mid-box loses nothing.
+- [x] 6.8 Implement the lot view: which boxes remain, and closing the lot with the confirmation from 4.7 when boxes are unopened.
+- [x] 6.9 Review every string on the screen against the design's vocabulary rule — no batch, lot, allocation, FIFO or ledger — and check the finished and unmatched states are legible from across a room.
+- [x] 6.10 Walk the whole path against real data on a booted backend: import, open a box, count short, count a surplus, finish, close the lot, and confirm the costs land where section 4 says they should.
 
 ## 7. Superseding the one-act path
 
-- [ ] 7.1 Mark task 4.13 in `foundation-and-first-sale` superseded by section 6, with a line saying why, so the older goods-in screen is not built against a replaced model.
-- [ ] 7.2 Keep `GoodsInService.receive()` for small hand-entered deliveries and document in its Javadoc that consignments go through counting instead. Confirm its tests still pass unchanged.
-- [ ] 7.3 Update `Bachat_Bazar_POS_Report.md` and the change's own design if anything drifted during implementation, so the record matches what was built.
+- [x] 7.1 Mark task 4.13 in `foundation-and-first-sale` superseded by section 6, with a line saying why, so the older goods-in screen is not built against a replaced model.
+- [x] 7.2 Keep `GoodsInService.receive()` for small hand-entered deliveries and document in its Javadoc that consignments go through counting instead. Confirm its tests still pass unchanged.
+- [x] 7.3 Update `Bachat_Bazar_POS_Report.md` and the change's own design if anything drifted during implementation, so the record matches what was built.

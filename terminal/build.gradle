@@ -28,6 +28,13 @@ tasks.register('healthProbe', JavaExec) {
     mainClass = 'com.bahikhaata.terminal.HealthProbe'
 }
 
+tasks.register('unpackingProbe', JavaExec) {
+    group = 'verification'
+    description = 'Walks one carton through the real client. Needs a running backend and a tracking number.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.bahikhaata.terminal.UnpackingProbe'
+}
+
 dependencies {
     implementation project(':contracts')
 
