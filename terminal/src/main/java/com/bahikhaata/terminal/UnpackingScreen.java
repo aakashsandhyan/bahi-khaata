@@ -80,6 +80,15 @@ public class UnpackingScreen {
 
     private final TextField scanField = new TextField();
     private final Label cartonLabel = new Label("Scan a box to start");
+
+    /**
+     * What to do right now, in one line, always on screen.
+     *
+     * <p>Added after someone got stranded mid-carton: the screen had moved on to asking for a
+     * price, and nothing said so. A person who has lost the thread cannot be expected to infer
+     * the state from which controls happen to be visible.
+     */
+    private final Label nextStep = new Label();
     private final Label message = new Label();
     private final VBox lineList = new VBox(8);
     private final Button finishButton = new Button("Box is done");
@@ -184,6 +193,8 @@ public class UnpackingScreen {
         root.setCenter(lineList);
         root.setBottom(footer);
 
+        setNextStep("Scan the number printed on the box.");
+
         // The scanner is a keyboard. If focus drifts, its output goes nowhere.
         Platform.runLater(scanField::requestFocus);
     }
@@ -220,6 +231,7 @@ public class UnpackingScreen {
         }
         carton = found.get(0);
         refreshLines();
+        setNextStep("Scan each item in this box. Press \"Box is done\" when it is empty.");
         if (carton.finished()) {
             say("This box was already marked done. Scanning more will add to it.", WARN);
         } else {
@@ -270,12 +282,56 @@ public class UnpackingScreen {
      */
     private void askForMrp(UnpackingLine line) {
         awaitingMrpFor = line;
-        mrpPrompt.setText("What is the MRP printed on " + shortName(line) + "?");
+        mrpPrompt.setText("MRP printed on " + shortName(line) + "?");
         mrpField.clear();
         mrpBox.setVisible(true);
         mrpBox.setManaged(true);
         hideMessage();
+
+        // The list is cleared so nothing stale is left looking like it still wants a decision.
+        // Only the item being asked about, and the way past it if the price is not there.
+        lineList.getChildren().clear();
+        Label asking = new Label(line.name());
+        asking.setFont(BODY);
+        asking.setWrapText(true);
+        lineList.getChildren().add(asking);
+        lineList.getChildren().add(noMrpButton());
+
+        say("Type the price and press Enter.", OK);
+        setNextStep("Type the MRP printed on the pack, then press Enter.");
         Platform.runLater(mrpField::requestFocus);
+    }
+
+    /**
+     * The way past a missing price.
+     *
+     * <p>Liquidation goods often carry no printed MRP at all, and originally the count simply
+     * waited for one — which stranded whoever was holding an item that would never have a price
+     * on it. The unit is counted either way; it just cannot be sold until someone supplies a
+     * figure, which is already how an unpriced product behaves.
+     */
+    private Button noMrpButton() {
+        Button skip = new Button("No MRP printed on it — count it anyway");
+        skip.setFont(BODY);
+        skip.setMaxWidth(Double.MAX_VALUE);
+        skip.setStyle("-fx-padding:12;-fx-background-radius:6;");
+        skip.setOnAction(event -> {
+            UnpackingLine line = awaitingMrpFor;
+            if (line == null) {
+                return;
+            }
+            closeMrpPrompt();
+            try {
+                record(line, null);
+                say("Counted without a price. It cannot go on the shelf until someone finds"
+                        + " one — the manager will see it on the list.", WARN);
+            } catch (BackendClient.RefusedException e) {
+                say(e.getMessage(), STOP);
+            } finally {
+                Platform.runLater(scanField::requestFocus);
+            }
+        });
+        return skip;
     }
 
     private void onMrpEntered() {
@@ -361,6 +417,7 @@ public class UnpackingScreen {
      */
     private void askWhichItem(String code) {
         untaggedCode = code;
+        setNextStep("Tap the item you are holding.");
         lineList.getChildren().clear();
 
         Label prompt = new Label("Which of these is it? Code on the item: " + code);
@@ -436,6 +493,7 @@ public class UnpackingScreen {
         cartonLabel.setText("Scan a box to start");
         finishButton.setDisable(true);
         leaveButton.setDisable(true);
+        setNextStep("Scan the number printed on the next box.");
         say("Left the box as it is. Everything counted so far is saved. Scan another box.", OK);
         Platform.runLater(scanField::requestFocus);
     }
@@ -457,6 +515,7 @@ public class UnpackingScreen {
             cartonLabel.setText("Scan a box to start");
             finishButton.setDisable(true);
             leaveButton.setDisable(true);
+            setNextStep("Scan the number printed on the next box.");
             if (missing > 0) {
                 say("Box done, with " + missing + " item(s) not found. That has been recorded."
                         + " Scan the next box.", WARN);
@@ -475,6 +534,7 @@ public class UnpackingScreen {
         cartonLabel.setText("Box " + carton.trackingNumber());
         finishButton.setDisable(false);
         leaveButton.setDisable(false);
+        setNextStep("Scan the next item, or press \"Box is done\".");
 
         lineList.getChildren().clear();
         for (UnpackingLine line : lines) {
@@ -518,5 +578,9 @@ public class UnpackingScreen {
 
     private void hideMessage() {
         message.setVisible(false);
+    }
+
+    private void setNextStep(String text) {
+        nextStep.setText("→ " + text);
     }
 }
