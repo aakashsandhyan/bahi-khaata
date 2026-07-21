@@ -30,7 +30,9 @@ package com.bahikhaata.contracts;
  * @param weighingValuePaise what this line is worth relative to its neighbours, for splitting
  *     the lot cost — a selling price for returns, a supplier cost for ordinary supply
  * @param pinnedUnitCostPaise a cost the supplier itemised, or null to have it apportioned
- * @param trackingNumber the box it arrived in, for checking the delivery is complete
+ * @param trackingNumber the carton this line should arrive in. Required: it is how unpacking
+ *     is driven and how completeness is judged, and it is printed on the box and stated in
+ *     every manifest, so there is no reason for it to be absent
  * @param onlinePricePaise what one unit sold for online, where the manifest says so, or null.
  *     Null is the normal case for supply priced at the seller's cost: such a sheet carries no
  *     market figure at all, and writing a cost here would repeat the very conflation that
@@ -52,6 +54,10 @@ public record ImportLine(
         if (onlinePricePaise != null && onlinePriceSource == null) {
             throw new IllegalArgumentException(
                     "an online price needs its marketplace: " + code);
+        }
+        if (trackingNumber == null || trackingNumber.isBlank()) {
+            throw new IllegalArgumentException(
+                    "every line needs the carton it arrives in: " + code);
         }
     }
 }

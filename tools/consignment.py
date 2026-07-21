@@ -67,6 +67,7 @@ class Category:
         for row in rows:
             asin = field(row, "ASIN").strip()
             quantity = field(row, "Quantity").strip()
+            tracking = field(row, "Tracking number").strip()
             if not asin or not quantity:
                 self.skipped += 1
                 continue
@@ -80,9 +81,14 @@ class Category:
                 unit = money(field(row, "ASP"))
                 value = unit * int(money(quantity))
 
-            line = self.lines.get(asin)
+            # Keyed by box as well as product: the same ASIN routinely arrives in several
+            # cartons, and a line is what should be found when one particular box is opened.
+            key = (tracking, asin)
+            line = self.lines.get(key)
             if line is None:
-                line = self.lines[asin] = {
+                line = self.lines[key] = {
+                    "asin": asin,
+                    "tracking": tracking,
                     "name": field(row, "Product").strip(),
                     "product_line": field(row, "Product Line").strip(),
                     "quantity": 0,
@@ -96,6 +102,15 @@ class Category:
         self.paid: Decimal | None = None
         self.declared: Decimal | None = None
         self.scheme: str = ""
+
+    @property
+    def products(self) -> int:
+        """Distinct products. Fewer than the number of lines, since one can span boxes."""
+        return len({line["asin"] for line in self.lines.values()})
+
+    @property
+    def boxes(self) -> int:
+        return len({line["tracking"] for line in self.lines.values()})
 
     @property
     def units(self) -> int:
@@ -118,15 +133,15 @@ class Category:
 
         paid_paise = int((self.paid * 100).to_integral_value(rounding=ROUND_HALF_UP))
         weights = {
-            asin: int((line["value"] * 100).to_integral_value(rounding=ROUND_HALF_UP))
-            for asin, line in self.lines.items()
+            key: int((line["value"] * 100).to_integral_value(rounding=ROUND_HALF_UP))
+            for key, line in self.lines.items()
         }
         total_weight = sum(weights.values())
 
-        shares = {a: paid_paise * w // total_weight for a, w in weights.items()}
+        shares = {k: paid_paise * w // total_weight for k, w in weights.items()}
         remainder = paid_paise - sum(shares.values())
         if remainder:
-            shares[max(shares, key=lambda a: shares[a])] += remainder
+            shares[max(shares, key=lambda k: shares[k])] += remainder
 
         return {a: Decimal(p) / 100 for a, p in shares.items()}
 
@@ -273,7 +288,8 @@ def show_category(category: Category, limit: int) -> int:
         return 0
 
     print()
-    print(f"  {category.name} — {category.units} units, {len(category.lines)} products")
+    print(f"  {category.name} — {category.units} units, {category.products} products"
+          f" in {category.boxes} boxes, {len(category.lines)} lines")
     print(f"  paid ₹{rupees(category.paid)} against ₹{rupees(category.value)}"
           f"  ({describe_scheme(category)})")
     allocated = sum(shares.values())
@@ -298,10 +314,10 @@ def show_category(category: Category, limit: int) -> int:
     print("  " + "-" * 74)
 
     ordered = sorted(category.lines.items(), key=lambda kv: -shares[kv[0]])
-    for asin, line in ordered[:limit]:
-        unit = shares[asin] / line["quantity"]
+    for key, line in ordered[:limit]:
+        unit = shares[key] / line["quantity"]
         print(f"  {line['name'][:44]:<44}{line['quantity']:>4}"
-              f"{rupees(unit):>12}{rupees(shares[asin]):>14}")
+              f"{rupees(unit):>12}{rupees(shares[key]):>14}")
     if len(ordered) > limit:
         print(f"  … and {len(ordered) - limit} more products")
     return 0

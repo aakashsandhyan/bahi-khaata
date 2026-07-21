@@ -86,7 +86,7 @@ def build_request(path: pathlib.Path, supplier: str, received_on: str) -> dict:
             )
 
         lines = []
-        for asin, line in category.lines.items():
+        for (tracking, asin), line in category.lines.items():
             # The line's whole worth, since that is what decides its share. For a cost-based
             # sheet this is the supplier's cost; for a returns sheet, the selling price.
             per_unit = paise(line["value"]) // line["quantity"]
@@ -104,7 +104,9 @@ def build_request(path: pathlib.Path, supplier: str, received_on: str) -> dict:
                     # actually paid, weighted by those same costs, gives each line its cost
                     # plus the markup and reconciles by construction.
                     "pinnedUnitCostPaise": None,
-                    "trackingNumber": None,
+                    # The carton. Every manifest states it and it is printed on the box; it is
+                    # how unpacking is driven and how completeness is judged.
+                    "trackingNumber": tracking,
                     # Only an off-market sheet states a market price. A cost-plus sheet's
                     # figure is the seller's cost, and sending it here would file a cost as
                     # an Amazon price for a third of the catalogue.
@@ -149,10 +151,11 @@ def post(url: str, payload: dict) -> None:
 
     print()
     print(f"  lots recorded      {result['lotsCreated']}")
+    print(f"  cartons expected   {result['boxesCreated']}")
+    print(f"  lines expected     {result['expectedLinesCreated']}")
     print(f"  products created   {result['productsCreated']}")
     print(f"  products matched   {result['productsMatched']}")
-    print(f"  units on hand      {result['unitsReceived']}")
-    print(f"  cost allocated     ₹{result['totalAllocatedPaise'] / 100:,.2f}")
+    print(f"  units expected     {result['unitsExpected']}")
     print()
     for warning in result["warnings"]:
         print(f"  {warning}")
@@ -176,15 +179,16 @@ def main() -> int:
     payload = build_request(args.xlsx, args.supplier, args.received_on)
 
     total_lines = sum(len(lot["lines"]) for lot in payload["lots"])
+    total_boxes = len({l["trackingNumber"] for lot in payload["lots"] for l in lot["lines"]})
     total_units = sum(l["quantity"] for lot in payload["lots"] for l in lot["lines"])
     total_paid = sum(lot["amountPaidPaise"] for lot in payload["lots"])
 
     print()
     print(f"  {args.xlsx.name}")
-    print(f"  {len(payload['lots'])} lots, {total_lines} products, {total_units} units, "
-          f"₹{total_paid / 100:,.2f} paid")
+    print(f"  {len(payload['lots'])} lots, {total_boxes} cartons, {total_lines} lines, "
+          f"{total_units} units, ₹{total_paid / 100:,.2f} paid")
     for lot in payload["lots"]:
-        print(f"    {lot['categoryCode']:<20}{len(lot['lines']):>5} products"
+        print(f"    {lot['categoryCode']:<20}{len(lot['lines']):>5} lines"
               f"{sum(l['quantity'] for l in lot['lines']):>7} units"
               f"   ₹{lot['amountPaidPaise'] / 100:>12,.2f}   {lot['allocationMethod']}")
 
