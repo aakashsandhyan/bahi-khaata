@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.inventory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.contracts.AllocationMethod;
@@ -111,6 +112,66 @@ class ConsignmentImporterTest {
         // Ten units worth 190,000 in total, against one worth 190,000: half the money each.
         assertThat(unitCostOf("SAME")).isEqualTo(9_500);
         assertThat(unitCostOf("OTHER")).isEqualTo(95_000);
+    }
+
+    @Test
+    @DisplayName("Repeated rows average their online price by quantity, not by row order")
+    void onlinePriceIsAveragedNotTakenFromTheLastRow() {
+        // The same product really does sell at different prices on different days — these are
+        // returns, and 41 of 949 lines in the first real consignment did exactly this. Taking
+        // whichever row came last would make the stored figure depend on manifest order.
+        importer.importConsignment(
+                new ImportConsignmentRequest(
+                        "Test supplier",
+                        "2026-07-17",
+                        List.of(
+                                new ImportLot(
+                                        "KITCHEN",
+                                        20_000,
+                                        AllocationMethod.RELATIVE_MRP,
+                                        List.of(
+                                                new ImportLine(
+                                                        "VARIED", "varied", 1, 10_000, null, null,
+                                                        100_000L, Marketplace.AMAZON),
+                                                new ImportLine(
+                                                        "VARIED", "varied", 3, 10_000, null, null,
+                                                        200_000L, Marketplace.AMAZON))))));
+
+        // Three units at 200,000 and one at 100,000: 175,000, not the 200,000 of the last row
+        // nor the 150,000 a plain average of the two rows would give.
+        assertThat(barcodes.findByCode("VARIED").orElseThrow().getProduct().getOnlinePrice().paise())
+                .as("weighted by how many units sold at each price")
+                .isEqualTo(175_000);
+    }
+
+    @Test
+    @DisplayName("Prices from two marketplaces are refused rather than averaged together")
+    void mixedMarketplacesAreRefused() {
+        assertThatThrownBy(
+                        () ->
+                                importer.importConsignment(
+                                        new ImportConsignmentRequest(
+                                                "Test supplier",
+                                                "2026-07-17",
+                                                List.of(
+                                                        new ImportLot(
+                                                                "KITCHEN",
+                                                                20_000,
+                                                                AllocationMethod.RELATIVE_MRP,
+                                                                List.of(
+                                                                        new ImportLine(
+                                                                                "MIXED", "mixed", 1,
+                                                                                10_000, null, null,
+                                                                                100_000L,
+                                                                                Marketplace.AMAZON),
+                                                                        new ImportLine(
+                                                                                "MIXED", "mixed", 1,
+                                                                                10_000, null, null,
+                                                                                200_000L,
+                                                                                Marketplace
+                                                                                        .FLIPKART)))))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("two marketplaces");
     }
 
     @Test

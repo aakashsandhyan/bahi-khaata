@@ -144,11 +144,10 @@ public class ConsignmentImporter {
 
                 // Only where the manifest actually states a market price. A cost-plus sheet
                 // has none, and the field stays null rather than being filled with a cost.
-                if (line.onlinePricePaise != null) {
+                Long onlinePrice = line.averageOnlinePricePaise();
+                if (onlinePrice != null) {
                     product.observeOnlinePrice(
-                            Money.ofPaise(line.onlinePricePaise),
-                            line.onlinePriceSource,
-                            receivedOn);
+                            Money.ofPaise(onlinePrice), line.onlinePriceSource, receivedOn);
                 }
 
                 Batch batch =
@@ -233,7 +232,8 @@ public class ConsignmentImporter {
         private long quantity;
         private long weighingPaise;
         private Long pinnedUnitCostPaise;
-        private Long onlinePricePaise;
+        private long onlinePricePaise;
+        private long onlinePricedQuantity;
         private Marketplace onlinePriceSource;
 
         CombinedLine(String code, String name) {
@@ -249,11 +249,32 @@ public class ConsignmentImporter {
             if (line.pinnedUnitCostPaise() != null) {
                 pinnedUnitCostPaise = line.pinnedUnitCostPaise();
             }
-            // Per unit, so it stays comparable however the rows were split.
+            // Averaged over the units that carried a price, not taken from whichever row came
+            // last. These are returns, so the same product genuinely sold at different prices
+            // on different days, and one arbitrary row is not a fair account of any of them.
+            //
+            // Weighted by quantity, matching how the cost weighing above is combined: a price
+            // seven units sold at should count for more than one a single unit did.
             if (line.onlinePricePaise() != null) {
-                onlinePricePaise = line.onlinePricePaise();
+                if (onlinePriceSource != null && onlinePriceSource != line.onlinePriceSource()) {
+                    throw new IllegalArgumentException(
+                            code
+                                    + ": rows quote prices from two marketplaces ("
+                                    + onlinePriceSource
+                                    + " and "
+                                    + line.onlinePriceSource()
+                                    + "). Averaging across markets would produce a figure that"
+                                    + " holds on neither, so the manifest needs splitting first.");
+                }
+                onlinePricePaise += line.onlinePricePaise() * line.quantity();
+                onlinePricedQuantity += line.quantity();
                 onlinePriceSource = line.onlinePriceSource();
             }
+        }
+
+        /** The average price its units sold at online, or null if no row stated one. */
+        Long averageOnlinePricePaise() {
+            return onlinePricedQuantity == 0 ? null : onlinePricePaise / onlinePricedQuantity;
         }
 
         AllocationLine toAllocationLine() {
