@@ -22,6 +22,7 @@ import com.bahikhaata.backend.persistence.LocalDateIso8601Converter;
 import com.bahikhaata.backend.persistence.MoneyConverter;
 import com.bahikhaata.backend.persistence.UuidEntity;
 import com.bahikhaata.contracts.AllocationMethod;
+import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -73,6 +74,18 @@ public class Lot extends UuidEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "allocation_method", nullable = false, columnDefinition = "text")
     private AllocationMethod allocationMethod;
+
+    /**
+     * Open while boxes are still being counted; closed once the amount paid has been split
+     * across what actually arrived.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "state", nullable = false, columnDefinition = "text")
+    private LotState state = LotState.OPEN;
+
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "closed_at", columnDefinition = "text")
+    private Instant closedAt;
 
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
@@ -127,6 +140,37 @@ public class Lot extends UuidEntity {
 
     public AllocationMethod getAllocationMethod() {
         return allocationMethod;
+    }
+
+    public LotState getState() {
+        return state;
+    }
+
+    public boolean isOpen() {
+        return state == LotState.OPEN;
+    }
+
+    /** When unpacking finished and the cost was apportioned, or null while still open. */
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    /**
+     * Marks this lot closed at the given moment.
+     *
+     * <p>One-way: a lot that has been closed cannot be reopened here, because its apportioned
+     * costs may already have been used to set prices, and quietly changing them would leave
+     * those prices resting on figures that no longer exist. Correcting a closed lot is a
+     * deliberate, recorded act elsewhere, not a side effect of scanning something.
+     */
+    public void close(Instant at) {
+        Objects.requireNonNull(at, "closing time");
+        if (state == LotState.CLOSED) {
+            throw new IllegalStateException(
+                    "lot " + getId() + " was already closed at " + closedAt);
+        }
+        this.state = LotState.CLOSED;
+        this.closedAt = at;
     }
 
     public Instant getCreatedAt() {

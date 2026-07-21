@@ -32,5 +32,16 @@ public enum CostBasis {
     PINNED,
 
     /** Taken from a supplied cost list. */
-    IMPORTED
+    IMPORTED,
+
+    /**
+     * Weighed at the lot's average unit value, because the goods arrived without appearing on
+     * the manifest and so carry no stated value of their own.
+     *
+     * <p>A genuine estimate: right on average and wrong on any particular item, since a
+     * surplus carton of something dear comes out undercosted and something cheap overcosted.
+     * Recorded as its own basis rather than passed off as {@link #ALLOCATED} so a margin
+     * resting on it can be recognised for what it is.
+     */
+    ESTIMATED
 }

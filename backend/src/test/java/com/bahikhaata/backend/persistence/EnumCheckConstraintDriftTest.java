@@ -22,6 +22,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.CostBasis;
+import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Marketplace;
 import com.bahikhaata.contracts.MovementType;
 import com.bahikhaata.contracts.Origin;
@@ -59,6 +60,10 @@ class EnumCheckConstraintDriftTest {
     private static final String LOTS = "/db/migration/V5__lot_and_batch.sql";
     private static final String LEDGER = "/db/migration/V6__stock_ledger.sql";
     private static final String ONLINE_PRICE = "/db/migration/V11__product_online_price.sql";
+    private static final String LOT_STATE =
+            "/db/migration/V12__expectation_boxes_and_lot_state.sql";
+    private static final String BATCH_COST =
+            "/db/migration/V13__batch_cost_becomes_nullable.sql";
 
     private static final Pattern QUOTED = Pattern.compile("'([^']*)'");
 
@@ -66,9 +71,12 @@ class EnumCheckConstraintDriftTest {
         return Stream.of(
                 arguments(Origin.class, "origin", PRODUCTS),
                 arguments(AllocationMethod.class, "allocation_method", LOTS),
-                arguments(CostBasis.class, "cost_basis", LOTS),
                 arguments(MovementType.class, "movement_type", LEDGER),
-                arguments(Marketplace.class, "online_price_source", ONLINE_PRICE));
+                arguments(Marketplace.class, "online_price_source", ONLINE_PRICE),
+                arguments(LotState.class, "state", LOT_STATE),
+                // CostBasis moved to V13 when the batch table was rebuilt, and gained
+                // ESTIMATED there. V5's list is dead text now; this must read the live one.
+                arguments(CostBasis.class, "cost_basis", BATCH_COST));
     }
 
     @ParameterizedTest(name = "{0} matches the {1} CHECK constraint")

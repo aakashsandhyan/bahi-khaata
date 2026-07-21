@@ -66,15 +66,15 @@ public class Batch extends UuidEntity {
      * are stored.
      */
     @Convert(converter = MoneyConverter.class)
-    @Column(name = "allocated_total_paise", nullable = false)
+    @Column(name = "allocated_total_paise")
     private Money allocatedTotal;
 
     @Convert(converter = MoneyConverter.class)
-    @Column(name = "allocated_unit_cost_paise", nullable = false)
+    @Column(name = "allocated_unit_cost_paise")
     private Money allocatedUnitCost;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "cost_basis", nullable = false, columnDefinition = "text")
+    @Column(name = "cost_basis", columnDefinition = "text")
     private CostBasis costBasis;
 
     @Column(name = "quantity_received", nullable = false)
@@ -107,6 +107,38 @@ public class Batch extends UuidEntity {
 
     /** For Hibernate. */
     protected Batch() {}
+
+    /**
+     * Stock that has been counted but not yet costed.
+     *
+     * <p>The normal state between someone opening a box and the lot being closed. A lot's
+     * shares depend on every line in it, so none can be settled while a box is still unopened
+     * — which means there is a real interval where goods are genuinely held at an unknown
+     * cost, and saying so is more honest than inventing a figure.
+     *
+     * <p>The cost is left null rather than zero. Zero would be a lie the reports believe:
+     * every margin computed from it comes out as pure profit.
+     */
+    public static Batch counted(
+            Product product, Lot lot, long quantityCounted, Money mrp, boolean mrpIsEstimate) {
+        return new Batch(product, lot, quantityCounted, mrp, mrpIsEstimate);
+    }
+
+    /** Uncosted stock. Reached through {@link #counted}, which says what it is for. */
+    private Batch(
+            Product product, Lot lot, long quantityCounted, Money mrp, boolean mrpIsEstimate) {
+        super(newId());
+        this.product = Objects.requireNonNull(product, "product");
+        this.lot = Objects.requireNonNull(lot, "lot");
+        if (quantityCounted <= 0) {
+            throw new IllegalArgumentException(
+                    "counted quantity must be positive, was " + quantityCounted);
+        }
+        this.quantityReceived = quantityCounted;
+        this.quantityDamaged = 0;
+        this.mrp = mrp;
+        this.mrpIsEstimate = mrpIsEstimate;
+    }
 
     /**
      * As below, deriving the line total from the unit cost. For batches not produced by an
@@ -181,6 +213,46 @@ public class Batch extends UuidEntity {
     }
 
     /** This line's share of the lot amount — the figure that reconciles. */
+    /**
+     * Whether this batch's share of the lot has been settled.
+     *
+     * <p>False while its lot is still being unpacked. Callers that read a cost must check
+     * this first: an uncosted batch answers null, not zero, and code that treats the two the
+     * same reports a margin of 100%.
+     */
+    public boolean isCosted() {
+        return allocatedTotal != null;
+    }
+
+    /**
+     * Records this batch's share of the lot amount, when the lot is closed.
+     *
+     * <p>Once only. A batch's cost may already have been used to set a price and to record
+     * cost of goods sold, so overwriting it would rewrite margin history.
+     */
+    public void applyAllocation(Money total, Money unitCost, CostBasis basis) {
+        if (isCosted()) {
+            throw new IllegalStateException(
+                    "batch " + getId() + " is already costed at " + allocatedTotal);
+        }
+        this.allocatedTotal = Objects.requireNonNull(total, "allocated total");
+        this.allocatedUnitCost = Objects.requireNonNull(unitCost, "allocated unit cost");
+        this.costBasis = Objects.requireNonNull(basis, "cost basis");
+    }
+
+    /** Adds to what has been counted, as more of the same line is found in a box. */
+    public void addCounted(long quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("counted quantity must be positive, was " + quantity);
+        }
+        if (isCosted()) {
+            throw new IllegalStateException(
+                    "batch " + getId() + " is already costed; its lot has been closed");
+        }
+        this.quantityReceived += quantity;
+    }
+
+    /** This line's share of the lot amount, or null while its lot is still open. */
     public Money getAllocatedTotal() {
         return allocatedTotal;
     }
