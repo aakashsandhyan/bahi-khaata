@@ -23,6 +23,7 @@ import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.CountOutcome;
+import com.bahikhaata.contracts.LearntCode;
 import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.UnpackingCarton;
@@ -323,6 +324,30 @@ public class GoodsInCounting {
         return held.stream()
                 .max(java.util.Comparator.comparingLong(Batch::getQuantityReceived))
                 .orElseThrow();
+    }
+
+    /**
+     * Every code that scans as a line's goods.
+     *
+     * <p>Asked when someone is correcting a mistake, because taking a count back does not undo
+     * the mapping that scan created — and the mapping is the half that keeps causing trouble
+     * afterwards.
+     */
+    @Transactional(readOnly = true)
+    public List<LearntCode> codesFor(UUID expectedLineId) {
+        ExpectedLine line =
+                expectedLines
+                        .findById(expectedLineId)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "no such expected line: " + expectedLineId));
+        return barcodes.findByProductId(line.getProduct().getId()).stream()
+                .map(
+                        barcode ->
+                                new LearntCode(
+                                        barcode.getCode(),
+                                        barcode.getOrigin(),
+                                        barcode.getOrigin() != Origin.MARKETPLACE))
+                .toList();
     }
 
     /**

@@ -19,6 +19,7 @@ package com.bahikhaata.terminal;
 
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.DeliveryProgress;
+import com.bahikhaata.contracts.LearntCode;
 import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
@@ -1240,6 +1241,10 @@ public class UnpackingScreen {
                         forgetLastCount();
                         refreshLines();
                         say("Took one back: " + shortName(line), WARN);
+                        // Taking the count back is only half of it. If a scan put a code on
+                        // these goods, that code still points here — and the next time it is
+                        // scanned it lands on an item it does not belong to, with no clue why.
+                        offerToReleaseCodesFor(line);
                     } catch (BackendClient.RefusedException e) {
                         say(e.getMessage(), STOP);
                     } catch (BackendUnavailableException e) {
@@ -1251,6 +1256,62 @@ public class UnpackingScreen {
         return back;
     }
 
+
+    /**
+     * Offers to give up any code that was put on these goods.
+     *
+     * <p>Shown straight after a count is taken back, because that is when the mistake is in
+     * mind. Undoing a count leaves the mapping behind — deliberately, since which scan taught
+     * which code is not known — and the mapping is the half that causes trouble later: the
+     * sticker keeps resolving to goods it does not belong to, and the person holding it a week
+     * later has no idea why.
+     *
+     * <p>The supplier's own reference is listed but cannot be given up. Losing it would break
+     * the line's link to the manifest, which is a worse problem than the one being fixed.
+     */
+    private void offerToReleaseCodesFor(UnpackingLine line) {
+        List<LearntCode> codes;
+        try {
+            codes = backend.codesFor(line.lineId());
+        } catch (RuntimeException e) {
+            return;
+        }
+        List<LearntCode> releasable = codes.stream().filter(LearntCode::releasable).toList();
+        if (releasable.isEmpty()) {
+            return;
+        }
+
+        Label heading = new Label("Was a code put on this by mistake?");
+        heading.setFont(BODY);
+        heading.setWrapText(true);
+        heading.setStyle(INK);
+        lineList.getChildren().add(0, heading);
+
+        int at = 1;
+        for (LearntCode code : releasable) {
+            Button forget = new Button("Forget " + code.code());
+            forget.setFont(SMALL);
+            forget.setMaxWidth(Double.MAX_VALUE);
+            forget.setStyle("-fx-padding:8 10;-fx-background-radius:6;"
+                    + "-fx-background-color:#ffe0b2;");
+            forget.setOnAction(
+                    event -> {
+                        try {
+                            backend.releaseCode(code.code());
+                            refreshLines();
+                            say("Forgotten " + code.code()
+                                    + ". Scan it again and say which item it really is.", WARN);
+                        } catch (BackendClient.RefusedException e) {
+                            say(e.getMessage(), STOP);
+                        } catch (BackendUnavailableException e) {
+                            say("Cannot reach the system, so nothing has changed.", STOP);
+                        } finally {
+                            Platform.runLater(scanField::requestFocus);
+                        }
+                    });
+            lineList.getChildren().add(at++, forget);
+        }
+    }
 
     /** Nothing to take back once a carton is put down; the offer would be a lie. */
     private void forgetLastCount() {

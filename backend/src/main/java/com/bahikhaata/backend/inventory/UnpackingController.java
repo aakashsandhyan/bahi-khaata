@@ -21,6 +21,7 @@ import com.bahikhaata.backend.lookup.MrpBackfill;
 import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.DeliveryProgress;
+import com.bahikhaata.contracts.LearntCode;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.SuggestedMrp;
@@ -185,6 +186,12 @@ class UnpackingController {
     ResponseEntity<Void> releaseCode(@PathVariable String code) {
         counting.releaseCode(code);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Every code that scans as this line's goods, and which of them may be given up. */
+    @GetMapping("/lines/{lineId}/codes")
+    List<LearntCode> codesFor(@PathVariable UUID lineId) {
+        return counting.codesFor(lineId);
     }
 
     /** Something in the carton that no line names. */

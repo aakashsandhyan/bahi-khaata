@@ -223,6 +223,26 @@ class UndoCountTest {
     }
 
     @Test
+    @DisplayName("A line lists every code that scans as its goods, and which may be given up")
+    void codesAreListedWithWhatCanBeReleased() {
+        // The sequence that caused trouble: a code goes on the wrong goods, the count is taken
+        // back, and the mapping stays. Nothing told anyone it was still there, so the sticker
+        // kept resolving to the wrong item days later.
+        counting.tagAndCount(line("WRONG").getId(), "LPNBOM4N41764381", StockCondition.GOOD, 1,
+                null, false, AT);
+        counting.undoCount(line("WRONG").getId(), null, 1, null, AT);
+
+        var codes = counting.codesFor(line("WRONG").getId());
+
+        assertThat(codes)
+                .as("the mapping outlives the count, which is exactly what needs showing")
+                .anyMatch(c -> c.code().equals("LPNBOM4N41764381") && c.releasable());
+        assertThat(codes)
+                .as("and the manifest's own reference is listed but held back")
+                .anyMatch(c -> c.code().equals("WRONG") && !c.releasable());
+    }
+
+    @Test
     @DisplayName("The supplier's own reference cannot be given away")
     void theManifestReferenceCannotBeReleased() {
         assertThatThrownBy(() -> counting.releaseCode("WRONG"))

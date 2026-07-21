@@ -22,6 +22,7 @@ import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.HealthResponse;
+import com.bahikhaata.contracts.LearntCode;
 import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
@@ -232,6 +233,11 @@ public class BackendClient {
                         "condition", condition,
                         "untagCode", untagCode),
                 Void.class);
+    }
+
+    /** Every code that scans as this line's goods. */
+    public List<LearntCode> codesFor(UUID lineId) {
+        return getList("/api/unpacking/lines/" + lineId + "/codes", LearntCode.class);
     }
 
     /** Forgets a code, so the same sticker can be scanned onto the right item. */
