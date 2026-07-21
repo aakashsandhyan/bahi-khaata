@@ -62,6 +62,15 @@ import javafx.scene.text.FontWeight;
  */
 public class UnpackingScreen {
 
+    /**
+     * A ceiling on what can be typed as an MRP: ₹5,00,000.
+     *
+     * <p>Generous — nothing this shop sells comes close — but low enough that a scanned barcode
+     * or a slipped keystroke cannot pass as a price. MRP is the legal maximum a customer may be
+     * charged, so a junk figure here is worse than none at all.
+     */
+    private static final long MOST_A_PRICE_CAN_BE = 500_000_00L;
+
     private static final Font HEADING = Font.font("System", FontWeight.BOLD, 26);
     private static final Font BIG = Font.font("System", FontWeight.BOLD, 40);
     private static final Font BODY = Font.font("System", 18);
@@ -339,10 +348,25 @@ public class UnpackingScreen {
         if (line == null) {
             return;
         }
-        Long paise = parseRupees(mrpField.getText());
+        String typed = mrpField.getText();
+        if (looksLikeAScannedCode(typed)) {
+            mrpField.clear();
+            say("That is the barcode, not the price. Type the MRP printed on the pack — the"
+                    + " rupee amount, like 249 or 249.50.", STOP);
+            Platform.runLater(mrpField::requestFocus);
+            return;
+        }
+        Long paise = parseRupees(typed);
         if (paise == null) {
             say("That does not look like a price. Type the number printed on the pack, like"
                     + " 249 or 249.50.", WARN);
+            Platform.runLater(mrpField::requestFocus);
+            return;
+        }
+        if (paise > MOST_A_PRICE_CAN_BE) {
+            mrpField.clear();
+            say("₹" + (paise / 100) + " is too large to be an MRP here. Check the pack and type"
+                    + " the printed amount.", STOP);
             Platform.runLater(mrpField::requestFocus);
             return;
         }
@@ -378,6 +402,22 @@ public class UnpackingScreen {
             return null;
         }
         return rupees.movePointRight(2).longValueExact();
+    }
+
+    /**
+     * Whether the typed figure is a barcode rather than a price.
+     *
+     * <p>It happens within minutes of real use: the field is focused, someone pulls the trigger
+     * out of habit, and the scanner types thirteen digits and presses Enter. An LED batten was
+     * recorded at an MRP of ₹6,295,047,541 that way.
+     *
+     * <p>Caught by shape rather than size alone. Retail barcodes are 8, 12, 13 or 14 digits with
+     * no decimal point, and no price in this shop looks remotely like that — so the shape says
+     * plainly what happened, and the message can too.
+     */
+    private boolean looksLikeAScannedCode(String text) {
+        String digits = text == null ? "" : text.trim().replace(",", "");
+        return digits.matches("\\d{8}|\\d{12,14}");
     }
 
     private void record(UnpackingLine match, Long mrpPaise) {

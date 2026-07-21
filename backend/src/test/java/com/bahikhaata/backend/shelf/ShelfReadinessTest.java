@@ -34,6 +34,7 @@ import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
+import com.bahikhaata.contracts.Marketplace;
 import com.bahikhaata.contracts.Money;
 import java.time.Instant;
 import java.util.List;
@@ -197,6 +198,41 @@ class ShelfReadinessTest {
         assertThatThrownBy(() -> shelf.label(batchIn(lot).getId(), AT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no price set");
+    }
+
+    @Test
+    @DisplayName("A scanned barcode is refused as an MRP")
+    void aBarcodeIsNotAPrice() {
+        UUID lot = receive("BARCODE1", 1, 10_000, null);
+        Batch batch = batchIn(lot);
+
+        // What really happened: the price field had focus, someone pulled the scanner trigger
+        // out of habit, and an LED batten was recorded at an MRP of ₹6,295,047,541.
+        assertThatThrownBy(() -> batch.recordMrp(Money.ofPaise(62_950_475_416_700L), false))
+                .as("a junk MRP is worse than none: it puts goods out with a false legal ceiling")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scanned barcode");
+
+        assertThat(batch.getMrp()).isNull();
+    }
+
+    @Test
+    @DisplayName("An MRP wildly above the observed online price is refused")
+    void anImplausibleMrpIsRefused() {
+        UUID lot = receive("ONLINE1", 1, 10_000, null);
+        Batch batch = batchIn(lot);
+        batch.getProduct().observeOnlinePrice(
+                Money.ofPaise(12_893), Marketplace.AMAZON, java.time.LocalDate.of(2026, 7, 17));
+
+        // Typing 24900 meaning ₹249 — under the absolute limit, and still nonsense.
+        assertThatThrownBy(() -> batch.recordMrp(Money.ofPaise(2_490_000), false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("times what these goods sold for online");
+
+        // A steep but real discount is left alone; refusing it would push someone to leave the
+        // MRP blank, which keeps stock off the shelf.
+        batch.recordMrp(Money.ofPaise(128_930), false);
+        assertThat(batch.getMrp()).isEqualTo(Money.ofPaise(128_930));
     }
 
     @Test

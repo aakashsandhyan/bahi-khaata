@@ -333,11 +333,67 @@ public class Batch extends UuidEntity {
         return mrp;
     }
 
-    /** Records the MRP read off the goods. */
+    /**
+     * A ceiling on a recorded MRP: ₹5,00,000.
+     *
+     * <p>Enforced here and not only in the terminal, because a rule that lives in a screen is a
+     * curtain rather than a boundary — any other client, or a replayed request, walks straight
+     * past it.
+     *
+     * <p>It exists because of what actually happened: a scanner fired into a focused price field
+     * and an LED batten was recorded at an MRP of ₹6,295,047,541. A barcode is 8 to 14 digits and
+     * no price here is, so a limit this generous rejects the mistake without ever troubling a
+     * real figure.
+     */
+    private static final long MOST_AN_MRP_CAN_BE = 500_000_00L;
+
+    /**
+     * How far above an observed online price an MRP may sit before it stops being believable.
+     *
+     * <p>Deliberately loose. Liquidation goods do sell online well under their printed price, and
+     * refusing a real figure would push someone to leave the MRP blank instead — which keeps
+     * stock off the shelf. Twenty times catches a digit-slip without troubling a genuine
+     * discount.
+     */
+    private static final long IMPLAUSIBLE_MULTIPLE_OF_ONLINE_PRICE = 20;
+
+    /**
+     * Records the MRP read off the goods.
+     *
+     * <p>Refuses an implausible figure. MRP is the legal maximum a customer may be charged, so a
+     * junk value is worse than none: a missing MRP holds goods off the shelf, while a wrong one
+     * puts them out with a false ceiling and a false saving printed beside it.
+     */
     public void recordMrp(Money printedMrp, boolean isEstimate) {
         Objects.requireNonNull(printedMrp, "mrp");
         if (!printedMrp.isPositive()) {
             throw new IllegalArgumentException("an MRP must be positive, was " + printedMrp);
+        }
+        // Where we know what the goods fetched online, that is a second opinion worth having.
+        // A marketplace price sits at or below the printed MRP in the ordinary case, so an MRP
+        // many times larger is not a ceiling anyone printed — it is a mistyped or scanned
+        // number. Catches the errors the absolute limit cannot: typing 24900 for ₹249.
+        Money online = product.getOnlinePrice();
+        if (online != null
+                && online.isPositive()
+                && printedMrp.paise() > online.paise() * IMPLAUSIBLE_MULTIPLE_OF_ONLINE_PRICE) {
+            throw new IllegalArgumentException(
+                    "an MRP of "
+                            + printedMrp
+                            + " is more than "
+                            + IMPLAUSIBLE_MULTIPLE_OF_ONLINE_PRICE
+                            + " times what these goods sold for online ("
+                            + online
+                            + "), so it is unlikely to be the figure printed on the pack. Check"
+                            + " it and enter it again.");
+        }
+        if (printedMrp.paise() > MOST_AN_MRP_CAN_BE) {
+            throw new IllegalArgumentException(
+                    "an MRP of "
+                            + printedMrp
+                            + " is not a price anyone printed on a pack — a scanned barcode"
+                            + " reaching a price field looks exactly like this. Read the figure"
+                            + " off the goods and enter it again.");
         }
         this.mrp = printedMrp;
         this.mrpIsEstimate = isEstimate;
