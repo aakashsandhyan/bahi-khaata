@@ -105,6 +105,34 @@ Closing a lot while boxes remain uncounted SHALL require explicit confirmation, 
 - **THEN** those lines receive no share of the amount paid
 - **AND** the full amount is carried by the goods that did arrive
 
+### Requirement: Goods not on the manifest are weighted at the lot's average unit value
+
+Goods found in a lot that no expected line names SHALL still receive a share of the amount paid, because the money bought whatever arrived. Having no stated value of their own, they SHALL be weighted at the average per-unit stated value of the lot's named lines, and that weight SHALL be recorded as an estimate rather than as a stated value.
+
+Excluding them would give them a cost of zero and make every margin computed from them meaningless.
+
+#### Scenario: Unlisted goods receive a share of the lot
+
+- **WHEN** a lot containing goods with no expected line is closed
+- **THEN** those goods receive a share of the amount paid
+- **AND** their cost is not zero
+
+#### Scenario: The weight is the average unit value of the named lines
+
+- **WHEN** an unlisted line is weighted
+- **THEN** its per-unit weight is the total stated value of the lot's named lines divided by their total quantity
+
+#### Scenario: A derived weight is marked an estimate
+
+- **WHEN** an unlisted line has been weighted from the lot average
+- **THEN** its cost basis records that the weight was estimated rather than stated
+
+#### Scenario: A lot with no stated values at all cannot derive an average
+
+- **WHEN** a lot is closed in which no line carries a stated value
+- **THEN** closing is refused, reporting that a value must be supplied
+- **AND** no cost is apportioned
+
 ### Requirement: A closed lot does not silently reopen
 
 Once a lot has been closed and its costs apportioned, recording further counts against it SHALL be refused. Correcting a closed lot SHALL be a deliberate, recorded act rather than a side effect of scanning.

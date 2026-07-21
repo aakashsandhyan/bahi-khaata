@@ -85,7 +85,19 @@ MRP is read off the goods and recorded against the batch, since successive deliv
 
 An observed online price exists on the product and must never substitute for it — MRP is the printed legal ceiling and selling above it is unlawful, while a marketplace price is one seller's asking price on one day. This is already held by a test and this change does not weaken it.
 
-### 7. The screen speaks the shop's language, not the schema's
+### 7. A lot may close over unopened boxes, and unlisted goods are weighted at the lot average
+
+Closing reports any uncounted boxes and proceeds on explicit confirmation. It is not prevented: goods that never arrive would otherwise hold a lot open forever, and nothing in that lot could be priced or sold.
+
+Goods found that no line names are weighted at the average per-unit stated value of the lot's named lines, recorded as an estimate.
+
+**Rejected: holding unlisted goods uncosted** until someone assigns a value. Rejected because it leaves stock on the shelf that cannot be priced, and the decision would be deferred to whoever is least equipped to make it — the person unpacking a box.
+
+**Rejected: excluding them from the apportionment**, giving them zero cost. Rejected because a zero cost makes every margin computed from those goods meaningless, and they would look like pure profit.
+
+The lot average is a genuine estimate, not a measurement. It is right on average and wrong on any particular item — a surplus carton of something dear is undercosted, something cheap overcosted. Accepted because the alternative is worse and because surpluses are the rare case.
+
+### 8. The screen speaks the shop's language, not the schema's
 
 No word from the data model appears: not batch, lot, allocation, FIFO, or ledger. The vocabulary is box, delivery, item, count, and the price printed on the pack. MRP itself stays — it is on every Indian pack and every shopkeeper knows it.
 
@@ -119,7 +131,6 @@ Rollback is `git revert` plus a re-import, for as long as no sale has been recor
 
 ## Open Questions
 
-- **What weighs a surplus line?** Goods that arrive unlisted must take a share of the lot cost, but the manifest gives no value for them. Options include the average unit value of the lot, an operator estimate, or holding them uncosted until someone decides. Not settled.
 - **How is a wrong MRP caught?** A typo in a legal ceiling has legal consequences. A plausibility check against the observed online price is possible but is not verification.
 - **Category margins are still placeholders**, as are `pricing.target_margin_percent` and the cart staleness backstop. Real Bachat Baazar figures are needed before pricing can be trusted, and this change makes pricing reachable.
 - **`RELATIVE_MRP` is now a misleading name** for a method no longer weighted by MRP; renaming it to name the weight honestly (supplier cost, market price) was proposed and is undecided.
