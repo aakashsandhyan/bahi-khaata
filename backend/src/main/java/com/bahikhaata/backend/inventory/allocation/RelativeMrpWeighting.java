@@ -44,6 +44,6 @@ public final class RelativeMrpWeighting implements AllocationWeighting {
 
     @Override
     public long weightOf(AllocationLine line) {
-        return Math.multiplyExact(line.quantityReceived(), line.mrp().paise());
+        return Math.multiplyExact(line.quantityReceived(), line.weighingValue().paise());
     }
 }

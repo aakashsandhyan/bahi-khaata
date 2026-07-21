@@ -29,14 +29,19 @@ import com.bahikhaata.contracts.Money;
  * @param reference the caller's key, returned untouched
  * @param quantityReceived how many arrived, damaged included — this is what was paid for
  * @param quantityDamaged how many of those cannot be sold
- * @param mrp printed retail price, or an estimate where none is printed
+ * @param weighingValue what this line is worth, relative to its neighbours, for the purpose
+ *     of splitting the lot cost. A manifest states this differently depending on how it was
+ *     priced: an Amazon selling price for returns, a supplier's own cost for ordinary supply.
+ *     It is emphatically <em>not</em> the MRP — that is a legal figure printed on the goods
+ *     and read off them, and substituting one for the other would put an invented number on
+ *     a shelf card
  * @param pinnedUnitCost a known per-unit cost, or null when the line is to be apportioned
  */
 public record AllocationLine(
         String reference,
         long quantityReceived,
         long quantityDamaged,
-        Money mrp,
+        Money weighingValue,
         Money pinnedUnitCost) {
 
     public AllocationLine {
@@ -48,8 +53,9 @@ public record AllocationLine(
             throw new IllegalArgumentException(
                     "line " + reference + ": damaged must be between zero and received");
         }
-        if (mrp == null || !mrp.isPositive()) {
-            throw new IllegalArgumentException("line " + reference + ": MRP must be positive");
+        if (weighingValue == null || !weighingValue.isPositive()) {
+            throw new IllegalArgumentException(
+                    "line " + reference + ": the value it is weighed by must be positive");
         }
         if (pinnedUnitCost != null && pinnedUnitCost.isNegative()) {
             throw new IllegalArgumentException(
