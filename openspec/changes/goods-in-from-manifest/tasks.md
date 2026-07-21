@@ -31,16 +31,16 @@
 
 ## 4. Closing a lot and apportioning its cost
 
-- [ ] 4.1 Change `CostAllocator`'s caller to allocate over counted quantities rather than expected ones. The allocator itself already takes lines as an input and needs no change.
-- [ ] 4.2 Implement lot closing: apportion the amount paid across the batches actually received, write the allocated totals, unit costs and cost bases, and set the lot to `CLOSED`. One transaction.
-- [ ] 4.3 Test that closing apportions exactly: the shares sum to the amount paid, to the paise, across a lot with mixed quantities and values.
-- [ ] 4.4 Test that a short line raises the per-unit cost of the units that did arrive, and that expected lines never counted receive no share at all.
-- [ ] 4.5 Implement weighting unlisted goods at the average per-unit stated value of the lot's named lines, recording the basis as `ESTIMATED`. Test the average is computed over named lines only.
-- [ ] 4.6 Test that closing a lot in which no line carries a stated value is refused, reporting that a value must be supplied, and that nothing is apportioned.
-- [ ] 4.7 Implement closing over unopened boxes: report the boxes concerned and proceed only on explicit confirmation. Test that unconfirmed closing is refused and confirmed closing succeeds.
-- [ ] 4.8 Implement refusal of counts against a closed lot, and test that stock recorded before closing keeps its apportioned cost.
-- [ ] 4.9 Test that per-unit cost tracks per-unit value and not quantity, against the closing path rather than the allocator directly — the fault this guards was invisible to lot totals.
-- [ ] 4.10 Implement point-in-time valuation reporting uncosted stock separately rather than valuing it at zero, and test a valuation taken while a lot is still open.
+- [x] 4.1 Change `CostAllocator`'s caller to allocate over counted quantities rather than expected ones. The allocator itself already takes lines as an input and needs no change.
+- [x] 4.2 Implement lot closing: apportion the amount paid across the batches actually received, write the allocated totals, unit costs and cost bases, and set the lot to `CLOSED`. One transaction.
+- [x] 4.3 Test that closing apportions exactly: the shares sum to the amount paid, to the paise, across a lot with mixed quantities and values.
+- [x] 4.4 Test that a short line raises the per-unit cost of the units that did arrive, and that expected lines never counted receive no share at all.
+- [x] 4.5 Implement weighting unlisted goods at the average per-unit stated value of the lot's named lines, recording the basis as `ESTIMATED`. Test the average is computed over named lines only.
+- [x] 4.6 Test that closing a lot in which no line carries a stated value is refused, reporting that a value must be supplied, and that nothing is apportioned.
+- [x] 4.7 Implement closing over unopened boxes: report the boxes concerned and proceed only on explicit confirmation. Test that unconfirmed closing is refused and confirmed closing succeeds.
+- [x] 4.8 Implement refusal of counts against a closed lot, and test that stock recorded before closing keeps its apportioned cost.
+- [x] 4.9 Test that per-unit cost tracks per-unit value and not quantity, against the closing path rather than the allocator directly — the fault this guards was invisible to lot totals.
+- [x] 4.10 Implement point-in-time valuation reporting uncosted stock separately rather than valuing it at zero, and test a valuation taken while a lot is still open.
 
 ## 5. Shelf readiness
 

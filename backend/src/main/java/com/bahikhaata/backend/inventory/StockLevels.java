@@ -97,14 +97,49 @@ public class StockLevels {
      */
     @Transactional(readOnly = true)
     public Money valuationAsAt(UUID productId, Instant asAt) {
-        Money total = Money.ZERO;
+        return valuationDetailAsAt(productId, asAt).valued();
+    }
+
+    /**
+     * A product's value, with stock whose cost is not yet settled reported separately.
+     *
+     * <p>Goods counted out of a carton hold no cost until their lot is closed, and there is no
+     * honest single number covering both. Adding them in at zero would understate the stock and
+     * make every margin computed from it read as pure profit; leaving them out silently would
+     * make the total look complete when it is not. So they are counted and reported apart, and
+     * the caller has to decide what to do about them.
+     */
+    @Transactional(readOnly = true)
+    public Valuation valuationDetailAsAt(UUID productId, Instant asAt) {
+        Money valued = Money.ZERO;
+        long uncostedUnits = 0;
         for (Batch batch : batches.findByProductIdInFifoOrder(productId)) {
             long remaining = ledger.quantityOnHandForBatchAsAt(batch.getId(), asAt);
-            if (remaining > 0) {
-                total = total.plus(batch.getAllocatedUnitCost().times(remaining));
+            if (remaining <= 0) {
+                continue;
+            }
+            if (batch.isCosted()) {
+                valued = valued.plus(batch.getAllocatedUnitCost().times(remaining));
+            } else {
+                uncostedUnits += remaining;
             }
         }
-        return total;
+        return new Valuation(valued, uncostedUnits);
+    }
+
+    /**
+     * What stock is worth, and how much of it cannot yet be said.
+     *
+     * @param valued the value of stock whose cost is settled
+     * @param uncostedUnits units held from lots that are still open — excluded from the value
+     *     above rather than counted at zero
+     */
+    public record Valuation(Money valued, long uncostedUnits) {
+
+        /** Whether the figure covers everything on hand, or only part of it. */
+        public boolean isComplete() {
+            return uncostedUnits == 0;
+        }
     }
 
     /**

@@ -42,9 +42,11 @@ import org.springframework.web.bind.annotation.RestController;
 class UnpackingController {
 
     private final GoodsInCounting counting;
+    private final LotClosing closing;
 
-    UnpackingController(GoodsInCounting counting) {
+    UnpackingController(GoodsInCounting counting, LotClosing closing) {
         this.counting = counting;
+        this.closing = closing;
     }
 
     /** Every carton in a delivery, and where each has got to. */
@@ -104,6 +106,36 @@ class UnpackingController {
         counting.reopenBox(boxId);
         return ResponseEntity.noContent().build();
     }
+
+    /** Which cartons nobody has opened — asked before closing, so the answer is not a surprise. */
+    @GetMapping("/lots/{lotId}/unopened")
+    List<String> unopened(@PathVariable UUID lotId) {
+        return closing.unopenedCartons(lotId);
+    }
+
+    /**
+     * Finishes a delivery and settles what it cost.
+     *
+     * <p>{@code confirm=true} is required only when cartons remain unopened, and the refusal
+     * names them. Closing is not blocked by them: goods that never arrived would otherwise hold
+     * a delivery open forever and nothing in it could be priced.
+     */
+    @PostMapping("/lots/{lotId}/close")
+    LotClosing.ClosingOutcome closeLot(
+            @PathVariable UUID lotId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false")
+                    boolean confirm) {
+        return closing.close(lotId, confirm, Instant.now());
+    }
+
+    /** Unopened cartons are a decision to be taken, not a validation error. */
+    @ExceptionHandler(LotClosing.UnopenedCartonsException.class)
+    ResponseEntity<UnopenedResponse> unopenedCartons(LotClosing.UnopenedCartonsException e) {
+        return ResponseEntity.status(409)
+                .body(new UnopenedResponse(e.getMessage(), e.getTrackingNumbers()));
+    }
+
+    record UnopenedResponse(String message, List<String> trackingNumbers) {}
 
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<String> badRequest(IllegalArgumentException e) {
