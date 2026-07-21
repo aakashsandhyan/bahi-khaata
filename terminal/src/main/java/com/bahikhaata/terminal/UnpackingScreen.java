@@ -228,8 +228,20 @@ public class UnpackingScreen {
         footer.setPadding(new Insets(16));
         footer.setAlignment(Pos.CENTER_RIGHT);
 
+        // Scrolled, because a carton can hold sixty lines and an unscrolled list simply grows
+        // past the bottom of the window — taking the footer with it, so there was no way to
+        // finish or leave a box once the list was long enough.
+        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(lineList);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        // Without this the pane insists on being as tall as its contents, which is the whole
+        // problem restated.
+        scroll.setMinHeight(0);
+        // The scanner is a keyboard: a scroll pane that takes focus swallows the next scan.
+        scroll.setFocusTraversable(false);
+
         root.setTop(header);
-        root.setCenter(lineList);
+        root.setCenter(scroll);
         root.setBottom(footer);
 
         setNextStep("Scan the number printed on the box.");
@@ -837,9 +849,11 @@ public class UnpackingScreen {
         setNextStep("Scan the next item, or press \"Box is done\".");
 
         lineList.getChildren().clear();
-        for (UnpackingLine line : lines) {
-            lineList.getChildren().add(rowFor(line));
-        }
+        // Still to find first. In a sixty-line carton the done ones are just scenery, and
+        // hunting past them for the next thing is the work this screen exists to remove.
+        lines.stream()
+                .sorted(java.util.Comparator.comparing((UnpackingLine line) -> line.outstanding() == 0))
+                .forEach(line -> lineList.getChildren().add(rowFor(line)));
         refreshDelivery();
     }
 
