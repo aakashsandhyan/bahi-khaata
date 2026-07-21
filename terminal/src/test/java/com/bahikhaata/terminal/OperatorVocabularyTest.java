@@ -78,6 +78,38 @@ class OperatorVocabularyTest {
     }
 
     @Test
+    @DisplayName("Nothing tells an operator to set real goods aside instead of counting them")
+    void goodsAreCountedNotSetAside() throws IOException {
+        // More arriving than the sheet promised is a fact about the delivery. Telling someone
+        // to put it in a corner leaves real stock off the books and the surplus invisible,
+        // which is the opposite of what counting is for — and it is what this screen said until
+        // a real carton produced a second tiffin box.
+        // Two things genuinely belong in a corner: goods nobody can put a name to, and a
+        // carton that is not part of any delivery here. Everything else that arrived should be
+        // counted.
+        List<String> unidentifiable =
+                List.of("not on the sheet", "not part of any delivery");
+
+        List<String> offences =
+                userFacingStringsIn(
+                                Path.of("src/main/java/com/bahikhaata/terminal/UnpackingScreen.java"))
+                        .stream()
+                        .filter(line -> line.toLowerCase(Locale.ROOT).contains("set it aside"))
+                        .filter(
+                                line ->
+                                        unidentifiable.stream()
+                                                .noneMatch(allowed ->
+                                                        line.toLowerCase(Locale.ROOT)
+                                                                .contains(allowed)))
+                        .toList();
+
+        assertThat(offences)
+                .as("goods that arrived should be recorded; only things nobody can identify"
+                        + " belong in a corner")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("MRP survives the vocabulary rule, because every Indian pack carries it")
     void mrpIsAllowed() throws IOException {
         assertThat(userFacingStringsIn(

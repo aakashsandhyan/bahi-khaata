@@ -470,8 +470,8 @@ public class UnpackingScreen {
             // Two very different situations reach here. Either this really is another of
             // something already complete — genuinely extra — or the code is on the wrong item
             // and keeps landing here, which is a dead end unless the code can be given up.
-            say("All " + match.expected() + " of these are already counted: " + shortName(match),
-                    WARN);
+            say("The sheet said " + match.expected() + " of these, and that many are counted: "
+                    + shortName(match), WARN);
             offerToReleaseCode(code, match);
             return;
         }
@@ -953,7 +953,7 @@ public class UnpackingScreen {
     private void offerToReleaseCode(String code, UnpackingLine wrongly) {
         lineList.getChildren().clear();
 
-        Label heading = new Label("Is this really another one?");
+        Label heading = new Label("More of these than the sheet expected");
         heading.setFont(HEADING);
         heading.setStyle(INK);
         lineList.getChildren().add(heading);
@@ -961,9 +961,10 @@ public class UnpackingScreen {
 
         Label explain =
                 new Label(
-                        "This code is on \"" + wrongly.name() + "\", and all of those are"
-                                + " counted. If the item in your hand is something else, this"
-                                + " code was put on the wrong thing.");
+                        "This code is on \"" + wrongly.name() + "\". If another one really did"
+                                + " arrive, count it — extra goods are worth recording. If the"
+                                + " item in your hand is something else, the code was put on the"
+                                + " wrong thing.");
         explain.setFont(SMALL);
         explain.setWrapText(true);
         explain.setStyle(INK);
@@ -993,16 +994,27 @@ public class UnpackingScreen {
                 });
         lineList.getChildren().add(release);
 
-        Button extra = new Button("No, it really is another one — set it aside");
+        Button extra = new Button("Yes — another one really did arrive, count it");
         extra.setFont(BODY);
+        extra.setWrapText(true);
         extra.setMaxWidth(Double.MAX_VALUE);
         extra.setStyle("-fx-padding:12;-fx-background-radius:6;");
         extra.setOnAction(
                 event -> {
-                    refreshLines();
-                    say("Set it aside and tell the manager. More arrived than the sheet says.",
-                            WARN);
-                    Platform.runLater(scanField::requestFocus);
+                    // More arriving than the sheet promised is a fact about the delivery, not
+                    // an error to refuse. Setting it aside would leave real stock off the books
+                    // and the surplus invisible — the opposite of what counting is for.
+                    try {
+                        record(wrongly, null);
+                        say("Counted as extra. The sheet said " + wrongly.expected()
+                                + "; more than that arrived, and that is now recorded.", WARN);
+                    } catch (BackendClient.RefusedException e) {
+                        say(e.getMessage(), STOP);
+                    } catch (BackendUnavailableException e) {
+                        say("Cannot reach the system, so that has not been counted.", STOP);
+                    } finally {
+                        Platform.runLater(scanField::requestFocus);
+                    }
                 });
         lineList.getChildren().add(extra);
     }
