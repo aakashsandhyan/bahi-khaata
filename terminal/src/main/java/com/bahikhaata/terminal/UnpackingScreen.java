@@ -29,6 +29,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -231,7 +232,7 @@ public class UnpackingScreen {
         // Scrolled, because a carton can hold sixty lines and an unscrolled list simply grows
         // past the bottom of the window — taking the footer with it, so there was no way to
         // finish or leave a box once the list was long enough.
-        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(lineList);
+        ScrollPane scroll = new ScrollPane(lineList);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
         // Without this the pane insists on being as tall as its contents, which is the whole

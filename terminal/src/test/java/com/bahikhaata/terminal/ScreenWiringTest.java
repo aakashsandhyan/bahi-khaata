@@ -87,7 +87,7 @@ class ScreenWiringTest {
     private String containerArguments(String code) {
         StringBuilder placed = new StringBuilder();
         Matcher constructed =
-                Pattern.compile("new (?:VBox|HBox|BorderPane|StackPane)\\(([^;]*?)\\)")
+                Pattern.compile("new (?:[\\w.]+\\.)?(?:VBox|HBox|BorderPane|StackPane|ScrollPane)\\(([^;]*?)\\)")
                         .matcher(code);
         while (constructed.find()) {
             placed.append(constructed.group(1)).append(' ');
