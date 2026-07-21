@@ -824,6 +824,26 @@ public class UnpackingScreen {
         }
     }
 
+    /**
+     * The whole name, on hover.
+     *
+     * <p>Manifest names run past two hundred characters and are cut to sixty so a row stays a
+     * row. The tail is often where the difference is — a size, a colour, a pack count — so two
+     * items can read identically until you see the rest of it.
+     *
+     * <p>Shown quickly, because someone holding an item and hovering has already decided they
+     * need it, and a second of stillness is a second of standing there.
+     */
+    private void showFullNameOnHover(javafx.scene.control.Control control, UnpackingLine line) {
+        javafx.scene.control.Tooltip tooltip = new javafx.scene.control.Tooltip(line.name());
+        tooltip.setWrapText(true);
+        tooltip.setMaxWidth(560);
+        tooltip.setFont(BODY);
+        tooltip.setShowDelay(javafx.util.Duration.millis(250));
+        tooltip.setShowDuration(javafx.util.Duration.seconds(30));
+        control.setTooltip(tooltip);
+    }
+
     private Button choiceFor(UnpackingLine line) {
         String priced =
                 line.onlinePricePaise() == null
@@ -837,6 +857,7 @@ public class UnpackingScreen {
         choice.setMaxWidth(Double.MAX_VALUE);
         choice.setStyle("-fx-padding:12;-fx-background-radius:6;");
         choice.setOnAction(event -> tagChosen(line));
+        showFullNameOnHover(choice, line);
         return choice;
     }
 
@@ -964,8 +985,10 @@ public class UnpackingScreen {
     }
 
     private HBox rowFor(UnpackingLine line) {
-        VBox detail =
-                new VBox(0, selectable(shortName(line), BODY), selectable(sheetSays(line), SMALL));
+        javafx.scene.control.TextField nameField = selectable(shortName(line), BODY);
+        showFullNameOnHover(nameField, line);
+
+        VBox detail = new VBox(0, nameField, selectable(sheetSays(line), SMALL));
         HBox.setHgrow(detail, Priority.ALWAYS);
         detail.setMaxWidth(Double.MAX_VALUE);
 
