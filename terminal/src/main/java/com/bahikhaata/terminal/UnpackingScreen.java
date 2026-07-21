@@ -79,6 +79,15 @@ public class UnpackingScreen {
     private static final Font BODY = Font.font("System", 18);
     private static final Font SMALL = Font.font("System", 14);
 
+    /**
+     * Ordinary text, stated rather than inherited.
+     *
+     * <p>JavaFX derives its default text colour from the background through a ladder, so a
+     * container styled transparent hands its children white text. Saying the colour outright
+     * costs nothing and cannot be undone by a parent's styling.
+     */
+    private static final String INK = "-fx-text-fill:#212121;";
+
     /** Loud enough to read across a room, which is where the operator usually is. */
     private static final String OK = "-fx-background-color:#1b5e20;-fx-text-fill:white;"
             + "-fx-padding:14;-fx-background-radius:6;";
@@ -234,7 +243,10 @@ public class UnpackingScreen {
         // finish or leave a box once the list was long enough.
         ScrollPane scroll = new ScrollPane(lineList);
         scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        // A concrete colour, never "transparent". JavaFX derives text colour from -fx-background
+        // through a ladder(), so a transparent background resolves to white text — which turned
+        // the whole delivery overview invisible on a light page.
+        scroll.setStyle("-fx-background: white; -fx-background-color: white;");
         // Without this the pane insists on being as tall as its contents, which is the whole
         // problem restated.
         scroll.setMinHeight(0);
@@ -278,6 +290,7 @@ public class UnpackingScreen {
 
         Label heading = new Label("Deliveries waiting to be unpacked");
         heading.setFont(HEADING);
+        heading.setStyle(INK);
         lineList.getChildren().add(heading);
         lineList.getChildren().add(overviewRow(
                 "Delivery", "Boxes", "Items", "Waiting on a price", true, false));
@@ -323,22 +336,23 @@ public class UnpackingScreen {
         Label nameLabel = new Label(name);
         nameLabel.setFont(font);
         nameLabel.setMinWidth(200);
+        nameLabel.setStyle(INK);
 
         Label boxesLabel = new Label(boxes);
         boxesLabel.setFont(font);
         boxesLabel.setMinWidth(140);
+        boxesLabel.setStyle(INK);
 
         Label itemsLabel = new Label(items);
         itemsLabel.setFont(font);
         itemsLabel.setMinWidth(160);
+        itemsLabel.setStyle(INK);
 
         Label waitingLabel = new Label(waiting);
         waitingLabel.setFont(font);
         // Orange, because an item with no price is stock that cannot be sold — a queue, not a
         // statistic.
-        if (!waiting.equals("—") && !bold) {
-            waitingLabel.setStyle("-fx-text-fill:#e65100;");
-        }
+        waitingLabel.setStyle(waiting.equals("—") || bold ? INK : "-fx-text-fill:#e65100;");
 
         HBox row = new HBox(12, nameLabel, boxesLabel, itemsLabel, waitingLabel);
         row.setAlignment(Pos.CENTER_LEFT);
