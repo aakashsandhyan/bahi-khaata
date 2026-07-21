@@ -144,6 +144,14 @@ public class UnpackingScreen {
     /** A code chosen for tagging whose price is still being asked for. */
     private String pendingTagCode;
 
+    /**
+     * The line tagged most recently, offered first next time.
+     *
+     * <p>Units of one product come out of a carton together, so the last answer is the best
+     * guess at the next one.
+     */
+    private UUID lastTaggedLineId;
+
     public UnpackingScreen(BackendClient backend) {
         this.backend = backend;
         build();
@@ -575,6 +583,20 @@ public class UnpackingScreen {
      * someone's hand is far likelier to be one of many than the last of one.
      */
     private void askWhichItem(String code) {
+        List<UnpackingLine> outstanding =
+                lines.stream().filter(line -> line.outstanding() > 0).toList();
+
+        // On returns the sticker covers the printed barcode, so every unit scans as a code
+        // nothing has seen before and this question would otherwise be asked on every single
+        // item. Where one thing is left to find, there is only one answer, and asking for it is
+        // just a tap standing between someone and the next item. 310 of 531 unfinished cartons
+        // in this consignment are in exactly that state.
+        if (outstanding.size() == 1) {
+            untaggedCode = code;
+            tagChosen(outstanding.get(0));
+            return;
+        }
+
         untaggedCode = code;
         setNextStep("Tap the item you are holding.");
         lineList.getChildren().clear();
@@ -591,9 +613,14 @@ public class UnpackingScreen {
         why.setWrapText(true);
         lineList.getChildren().add(why);
 
-        lines.stream()
-                .filter(line -> line.outstanding() > 0)
-                .sorted((a, b) -> Long.compare(b.outstanding(), a.outstanding()))
+        // The item just tagged comes first: units of one product arrive together, so the next
+        // scan is far likelier to be another of the same than anything else in the carton.
+        outstanding.stream()
+                .sorted(
+                        java.util.Comparator
+                                .comparing((UnpackingLine line) ->
+                                        !line.lineId().equals(lastTaggedLineId))
+                                .thenComparing(line -> -line.outstanding()))
                 .forEach(line -> lineList.getChildren().add(choiceFor(line)));
 
         Button none = new Button("None of these — not on the sheet");
@@ -620,6 +647,7 @@ public class UnpackingScreen {
     private void tagChosen(UnpackingLine line) {
         String code = untaggedCode;
         untaggedCode = null;
+        lastTaggedLineId = line.lineId();
         if (code == null) {
             return;
         }

@@ -172,6 +172,50 @@ class BarcodeTaggingTest {
     }
 
     @Test
+    @DisplayName("A returns sticker is recorded as a unit label, not a manufacturer code")
+    void aReturnsStickerIsAUnitLabel() {
+        ExpectedLine line = lineFor("B07KT9Q54M");
+
+        counting.tagAndCount(line.getId(), "LPNBLR5Q0994129", StockCondition.GOOD, 1, null,
+                false, AT);
+
+        assertThat(barcodes.findByCode("LPNBLR5Q0994129").orElseThrow().getOrigin())
+                .as("it names one physical item and will never be seen again, so it is not the"
+                        + " product's barcode however well it resolves today")
+                .isEqualTo(Origin.UNIT_LABEL);
+    }
+
+    @Test
+    @DisplayName("Many unit labels may point at one product")
+    void manyUnitLabelsOneProduct() {
+        // The sticker covers the printed barcode, so every unit of a product scans as something
+        // new. That is workable only because a product was never limited to one code.
+        ExpectedLine line = lineFor("B07KT9Q54M");
+        counting.tagAndCount(line.getId(), "LPNBLR5Q0000001", StockCondition.GOOD, 1, null, false, AT);
+        counting.tagAndCount(line.getId(), "LPNBLR5Q0000002", StockCondition.GOOD, 1, null, false, AT);
+        counting.tagAndCount(line.getId(), "LPNBLR5Q0000003", StockCondition.GOOD, 1, null, false, AT);
+
+        UUID productId = line.getProduct().getId();
+        assertThat(barcodes.findByCode("LPNBLR5Q0000001").orElseThrow().getProduct().getId())
+                .isEqualTo(productId);
+        assertThat(barcodes.findByCode("LPNBLR5Q0000003").orElseThrow().getProduct().getId())
+                .as("any of them resolves the same product, which is what checkout needs")
+                .isEqualTo(productId);
+        assertThat(stock.onHand(productId)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("A printed barcode is still recorded as the manufacturer's")
+    void aPrintedBarcodeIsStillTheManufacturers() {
+        counting.tagAndCount(lineFor("B07KT9Q54M").getId(), "8901234567890", StockCondition.GOOD,
+                1, null, false, AT);
+
+        assertThat(barcodes.findByCode("8901234567890").orElseThrow().getOrigin())
+                .as("an EAN names the product and will appear on every future delivery of it")
+                .isEqualTo(Origin.MANUFACTURER);
+    }
+
+    @Test
     @DisplayName("Tagging against a closed delivery is refused")
     void taggingAgainstAClosedLotIsRefused() {
         Lot lot = lots.findById(lotId).orElseThrow();

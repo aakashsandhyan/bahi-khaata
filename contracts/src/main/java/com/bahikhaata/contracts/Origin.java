@@ -44,5 +44,20 @@ public enum Origin {
      * because it is how a line is matched back to the supplier's manifest, and kept distinct so
      * nobody mistakes it for something scannable.
      */
-    MARKETPLACE
+    MARKETPLACE,
+
+    /**
+     * A label identifying one physical unit, applied by a marketplace or warehouse — an Amazon
+     * LPN and the like.
+     *
+     * <p>Scannable, unlike an ASIN, and on returns it is usually the only thing that is: the
+     * sticker goes over the manufacturer's barcode. But it names a single item, so the next of
+     * the same product carries a different one. Many of these may point at one product, which is
+     * why a product was never limited to a single code.
+     *
+     * <p>Kept apart from {@link #MANUFACTURER} because it cannot be reused. Goods going onto the
+     * shelf need a code that will still mean something on the next delivery, which is what
+     * {@link #INTERNAL} is for.
+     */
+    UNIT_LABEL
 }

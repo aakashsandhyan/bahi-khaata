@@ -178,12 +178,24 @@ public class GoodsInCounting {
                                                 + " mapping corrected.");
                             }
                         },
-                        // The code that is genuinely printed on the pack, so MANUFACTURER —
-                        // unlike the marketplace identifier the manifest supplied.
                         () -> barcodes.save(
-                                new Barcode(product, scannedCode, Origin.MANUFACTURER)));
+                                new Barcode(product, scannedCode, originOf(scannedCode))));
 
         return countExpected(expectedLineId, condition, quantity, mrp, mrpIsEstimate, at);
+    }
+
+    /**
+     * What kind of code was scanned.
+     *
+     * <p>A returns label names one physical unit and will never be seen again; a manufacturer's
+     * barcode names the product and will appear on every future delivery of it. Both resolve to
+     * the same product, but only one is worth reusing, so the difference is recorded rather than
+     * flattened.
+     */
+    private Origin originOf(String scannedCode) {
+        return scannedCode.toUpperCase(java.util.Locale.ROOT).startsWith("LPN")
+                ? Origin.UNIT_LABEL
+                : Origin.MANUFACTURER;
     }
 
     /**
