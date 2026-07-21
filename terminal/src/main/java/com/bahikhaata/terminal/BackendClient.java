@@ -172,9 +172,9 @@ public class BackendClient {
             UUID lineId, long quantity, Long mrpPaise, String condition, boolean mrpIsEstimate) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/count",
-                Map.of(
+                body(
                         "quantity", quantity,
-                        "mrpPaise", mrpPaise == null ? "" : mrpPaise,
+                        "mrpPaise", mrpPaise,
                         // Whether the figure was read off the pack or looked up. A looked-up
                         // price is evidence about the printed one, not the printed one, and a
                         // label built on it should be recognisable as such later.
@@ -195,10 +195,10 @@ public class BackendClient {
             boolean mrpIsEstimate) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/tag",
-                Map.of(
+                body(
                         "scannedCode", scannedCode,
                         "quantity", quantity,
-                        "mrpPaise", mrpPaise == null ? "" : mrpPaise,
+                        "mrpPaise", mrpPaise,
                         "mrpIsEstimate", mrpIsEstimate,
                         "condition", condition),
                 CountOutcome.class);
@@ -210,12 +210,12 @@ public class BackendClient {
             Long mrpPaise) {
         return post(
                 "/api/unpacking/boxes/" + boxId + "/unlisted",
-                Map.of(
+                body(
                         "code", code,
                         "name", name,
                         "categoryCode", categoryCode,
                         "quantity", quantity,
-                        "mrpPaise", mrpPaise == null ? "" : mrpPaise,
+                        "mrpPaise", mrpPaise,
                         "mrpIsEstimate", false),
                 CountOutcome.class);
     }
@@ -224,28 +224,29 @@ public class BackendClient {
     public void undo(UUID lineId, long quantity, String condition, String untagCode) {
         post(
                 "/api/unpacking/lines/" + lineId + "/undo",
-                Map.of(
+                body(
                         "quantity", quantity,
-                        // Empty means "whichever it was counted as", which is what a row on
-                        // screen knows: three counted, not how the three were split.
-                        "condition", condition == null ? "" : condition,
-                        "untagCode", untagCode == null ? "" : untagCode),
+                        // Left out entirely when unknown, which means "whichever it was counted
+                        // as" — what a row on screen knows is three counted, not how the three
+                        // were split.
+                        "condition", condition,
+                        "untagCode", untagCode),
                 Void.class);
     }
 
     public void finishCarton(UUID boxId) {
-        post("/api/unpacking/boxes/" + boxId + "/finish", Map.of(), Void.class);
+        post("/api/unpacking/boxes/" + boxId + "/finish", body(), Void.class);
     }
 
     public void reopenCarton(UUID boxId) {
-        post("/api/unpacking/boxes/" + boxId + "/reopen", Map.of(), Void.class);
+        post("/api/unpacking/boxes/" + boxId + "/reopen", body(), Void.class);
     }
 
     /** Finishes a delivery and settles what it cost. */
     public DeliveryClosed closeDelivery(UUID lotId, boolean confirmUnopened) {
         return post(
                 "/api/unpacking/lots/" + lotId + "/close?confirm=" + confirmUnopened,
-                Map.of(),
+                body(),
                 DeliveryClosed.class);
     }
 
@@ -278,6 +279,25 @@ public class BackendClient {
         } catch (IOException e) {
             throw new BackendUnavailableException("Unreadable response from " + path, e);
         }
+    }
+
+    /**
+     * A request body, omitting anything absent.
+     *
+     * <p>Map.of refuses null values, so absent fields were being sent as empty strings — which
+     * looks harmless and is not: an empty string is not a valid enum, so the backend failed to
+     * read the request at all and answered with a framework error before any of its own code
+     * ran. A field that is not there should not be there.
+     */
+    private static Map<String, Object> body(Object... keysAndValues) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            Object value = keysAndValues[i + 1];
+            if (value != null) {
+                body.put((String) keysAndValues[i], value);
+            }
+        }
+        return body;
     }
 
     private <T> T post(String path, Map<String, Object> body, Class<T> type) {
@@ -338,11 +358,17 @@ public class BackendClient {
         if (body == null || body.isBlank()) {
             return "The backend refused that, without saying why.";
         }
-        // Some refusals are a bare sentence, some are a JSON object carrying one.
+        // A refusal this system wrote is a bare sentence meant for a person. One the framework
+        // wrote is a JSON object about paths and timestamps, which is no use to somebody holding
+        // a carton — so it is turned into something sayable rather than shown raw.
         try {
             var node = json.readTree(body);
-            if (node.isObject() && node.has("message")) {
-                return node.get("message").asText();
+            if (node.isObject()) {
+                if (node.hasNonNull("message") && !node.get("message").asText().isBlank()) {
+                    return node.get("message").asText();
+                }
+                return "The system could not do that, and did not say why. Tell the manager"
+                        + " what you were doing.";
             }
         } catch (IOException ignored) {
             // Not JSON, so it is already the sentence.
