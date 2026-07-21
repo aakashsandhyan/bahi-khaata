@@ -30,6 +30,7 @@ import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
 import com.bahikhaata.contracts.ImportResult;
+import com.bahikhaata.contracts.Marketplace;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
 import java.time.LocalDate;
@@ -141,6 +142,15 @@ public class ConsignmentImporter {
                     matched++;
                 }
 
+                // Only where the manifest actually states a market price. A cost-plus sheet
+                // has none, and the field stays null rather than being filled with a cost.
+                if (line.onlinePricePaise != null) {
+                    product.observeOnlinePrice(
+                            Money.ofPaise(line.onlinePricePaise),
+                            line.onlinePriceSource,
+                            receivedOn);
+                }
+
                 Batch batch =
                         batches.save(
                                 new Batch(
@@ -206,9 +216,16 @@ public class ConsignmentImporter {
     /**
      * A product's rows within one lot, added together.
      *
-     * <p>The weighing value is summed rather than averaged, because it is the line's whole
-     * worth that decides its share — three units at ₹100 should attract three times what one
-     * does.
+     * <p>The weighing value handed on is <em>per unit</em>, not the line's total. Three units
+     * at ₹100 do attract three times what one does, but that multiplication belongs to the
+     * weighting strategy, which already applies {@code quantityReceived}. Passing a total here
+     * applies it twice: the weight becomes value × quantity², multi-unit lines take an
+     * inflated share, and single-unit lines are squeezed to make room.
+     *
+     * <p>Nothing about the lot's total gives this away — the shares still sum to what was
+     * paid, because they are shares. Only the distribution is wrong, which is why
+     * {@code QuantityIsNotCountedTwiceTest} compares lines against each other rather than
+     * against the total.
      */
     private static final class CombinedLine {
         private final String code;
@@ -216,6 +233,8 @@ public class ConsignmentImporter {
         private long quantity;
         private long weighingPaise;
         private Long pinnedUnitCostPaise;
+        private Long onlinePricePaise;
+        private Marketplace onlinePriceSource;
 
         CombinedLine(String code, String name) {
             this.code = code;
@@ -224,9 +243,16 @@ public class ConsignmentImporter {
 
         void add(ImportLine line) {
             quantity += line.quantity();
+            // Accumulated as a total so rows of differing value average correctly, then
+            // handed back per unit below.
             weighingPaise += line.weighingValuePaise() * line.quantity();
             if (line.pinnedUnitCostPaise() != null) {
                 pinnedUnitCostPaise = line.pinnedUnitCostPaise();
+            }
+            // Per unit, so it stays comparable however the rows were split.
+            if (line.onlinePricePaise() != null) {
+                onlinePricePaise = line.onlinePricePaise();
+                onlinePriceSource = line.onlinePriceSource();
             }
         }
 
@@ -235,7 +261,7 @@ public class ConsignmentImporter {
                     code,
                     quantity,
                     0,
-                    Money.ofPaise(weighingPaise),
+                    Money.ofPaise(weighingPaise / quantity),
                     pinnedUnitCostPaise == null ? null : Money.ofPaise(pinnedUnitCostPaise));
         }
     }

@@ -18,15 +18,20 @@
 package com.bahikhaata.backend.catalog;
 
 import com.bahikhaata.backend.persistence.InstantIso8601Converter;
+import com.bahikhaata.backend.persistence.LocalDateIso8601Converter;
 import com.bahikhaata.backend.persistence.MoneyConverter;
 import com.bahikhaata.backend.persistence.UuidEntity;
 import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.Marketplace;
 import com.bahikhaata.contracts.Money;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.Objects;
 import org.hibernate.annotations.CreationTimestamp;
@@ -70,6 +75,26 @@ public class Product extends UuidEntity {
 
     @Column(name = "hsn_code", columnDefinition = "text")
     private String hsnCode;
+
+    /**
+     * What one unit last sold for on an online marketplace, or null where nobody has seen a
+     * figure. An input to deciding a shelf price, never an authority for one.
+     */
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "online_price_paise")
+    private Money onlinePrice;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "online_price_source", columnDefinition = "text")
+    private Marketplace onlinePriceSource;
+
+    /**
+     * When that price was seen. Stored because the number decays: a price observed a year ago
+     * is not evidence today, and without its date nobody can tell how much to trust it.
+     */
+    @Convert(converter = LocalDateIso8601Converter.class)
+    @Column(name = "online_price_observed_on", columnDefinition = "text")
+    private LocalDate onlinePriceObservedOn;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "attributes")
@@ -164,6 +189,47 @@ public class Product extends UuidEntity {
             throw new IllegalArgumentException("selling price must be positive, was " + price);
         }
         this.sellingPrice = price;
+    }
+
+    /** What one unit last sold for online, or null if nobody has seen a figure. */
+    public Money getOnlinePrice() {
+        return onlinePrice;
+    }
+
+    public Marketplace getOnlinePriceSource() {
+        return onlinePriceSource;
+    }
+
+    /** When the online price was seen, or null if there is none. */
+    public LocalDate getOnlinePriceObservedOn() {
+        return onlinePriceObservedOn;
+    }
+
+    /**
+     * Records what this sold for online.
+     *
+     * <p>Latest observation wins, and an older one is ignored rather than allowed to overwrite
+     * a newer: consignments are imported in whatever order the paperwork turns up, so arrival
+     * order is not observation order.
+     *
+     * <p>This deliberately cannot make a product sellable. A marketplace price is one seller's
+     * asking price on one day; MRP is the printed legal ceiling. If this were ever allowed to
+     * stand in for a missing MRP it would be a way around the rule rather than an input to it
+     * — {@code OnlinePriceDoesNotGrantSellabilityTest} holds that line.
+     */
+    public void observeOnlinePrice(Money price, Marketplace source, LocalDate observedOn) {
+        Objects.requireNonNull(price, "online price");
+        Objects.requireNonNull(source, "marketplace (a price cannot be judged without it)");
+        Objects.requireNonNull(observedOn, "observation date (a price without one outlives it)");
+        if (!price.isPositive()) {
+            throw new IllegalArgumentException("online price must be positive, was " + price);
+        }
+        if (onlinePriceObservedOn != null && observedOn.isBefore(onlinePriceObservedOn)) {
+            return;
+        }
+        this.onlinePrice = price;
+        this.onlinePriceSource = source;
+        this.onlinePriceObservedOn = observedOn;
     }
 
     public String getHsnCode() {

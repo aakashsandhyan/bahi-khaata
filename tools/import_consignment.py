@@ -105,6 +105,11 @@ def build_request(path: pathlib.Path, supplier: str, received_on: str) -> dict:
                     # plus the markup and reconciles by construction.
                     "pinnedUnitCostPaise": None,
                     "trackingNumber": None,
+                    # Only an off-market sheet states a market price. A cost-plus sheet's
+                    # figure is the seller's cost, and sending it here would file a cost as
+                    # an Amazon price for a third of the catalogue.
+                    "onlinePricePaise": None if category.cost_based else per_unit,
+                    "onlinePriceSource": None if category.cost_based else "AMAZON",
                 }
             )
 

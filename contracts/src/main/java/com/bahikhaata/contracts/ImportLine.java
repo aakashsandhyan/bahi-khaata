@@ -31,6 +31,12 @@ package com.bahikhaata.contracts;
  *     the lot cost — a selling price for returns, a supplier cost for ordinary supply
  * @param pinnedUnitCostPaise a cost the supplier itemised, or null to have it apportioned
  * @param trackingNumber the box it arrived in, for checking the delivery is complete
+ * @param onlinePricePaise what one unit sold for online, where the manifest says so, or null.
+ *     Null is the normal case for supply priced at the seller's cost: such a sheet carries no
+ *     market figure at all, and writing a cost here would repeat the very conflation that
+ *     making MRP nullable was meant to end.
+ * @param onlinePriceSource which marketplace that price was seen on; required when a price is
+ *     given, since the number cannot be judged without it
  */
 public record ImportLine(
         String code,
@@ -38,4 +44,14 @@ public record ImportLine(
         long quantity,
         long weighingValuePaise,
         Long pinnedUnitCostPaise,
-        String trackingNumber) {}
+        String trackingNumber,
+        Long onlinePricePaise,
+        Marketplace onlinePriceSource) {
+
+    public ImportLine {
+        if (onlinePricePaise != null && onlinePriceSource == null) {
+            throw new IllegalArgumentException(
+                    "an online price needs its marketplace: " + code);
+        }
+    }
+}

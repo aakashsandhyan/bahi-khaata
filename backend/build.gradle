@@ -26,3 +26,21 @@ dependencies {
 
     testImplementation libs.spring.boot.starter.test
 }
+
+tasks.named('test') {
+    // Every Spring test names its own database under build/, so they never touch the real
+    // one. Those files outlive a plain `build`, though, and a rerun then meets its own
+    // leftovers — a UNIQUE barcode inserted last time, a counter already advanced. The suite
+    // passed only on a clean build, which is not the same as passing.
+    //
+    // Deleting them here means every run starts where a new machine would: an empty file,
+    // schema built by the migrations, nothing carried over.
+    doFirst {
+        delete(fileTree(layout.buildDirectory) { include '*.db' })
+    }
+
+    // A safety net for any future test that forgets to name its own: without this it would
+    // fall through to data/bahi-khaata.db, the live shop database.
+    systemProperty 'bahikhaata.db.path',
+            layout.buildDirectory.file('test-default.db').get().asFile.absolutePath
+}
