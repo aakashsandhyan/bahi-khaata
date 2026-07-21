@@ -845,15 +845,20 @@ public class UnpackingScreen {
     }
 
     private Button choiceFor(UnpackingLine line) {
-        String priced =
-                line.onlinePricePaise() == null
-                        ? ""
-                        : "   ·   online ₹" + line.onlinePricePaise() / 100;
+        // The same figures the ordinary rows carry. This is the moment someone is deciding
+        // which of two near-identical names they are holding, so withholding what each one cost
+        // here — and showing it only after the choice is made — helps at exactly the wrong time.
         Button choice =
                 new Button(
-                        shortName(line) + "   (" + line.outstanding() + " to find)" + priced);
+                        shortName(line)
+                                + "   ("
+                                + line.outstanding()
+                                + " to find)\n"
+                                + sheetSays(line));
         choice.setFont(BODY);
         choice.setWrapText(true);
+        choice.setTextAlignment(javafx.scene.text.TextAlignment.LEFT);
+        choice.setAlignment(Pos.CENTER_LEFT);
         choice.setMaxWidth(Double.MAX_VALUE);
         choice.setStyle("-fx-padding:12;-fx-background-radius:6;");
         choice.setOnAction(event -> tagChosen(line));
