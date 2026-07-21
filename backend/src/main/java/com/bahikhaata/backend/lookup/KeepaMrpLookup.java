@@ -49,6 +49,8 @@ import org.springframework.stereotype.Component;
  * {@code LIST_PRICE_INDEX} and the domain code as the two things most likely to be wrong.
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "bahikhaata.mrp.source", havingValue = "keepa")
 public class KeepaMrpLookup implements MrpLookup {
 
     private static final Logger log = LoggerFactory.getLogger(KeepaMrpLookup.class);
