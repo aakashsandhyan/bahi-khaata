@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.catalog;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,6 +28,13 @@ public interface BarcodeRepository extends JpaRepository<Barcode, UUID> {
 
     /** A scanned code to its barcode, or empty if unrecognised. */
     Optional<Barcode> findByCode(String code);
+
+    /**
+     * Every code that resolves to a product. More than one is ordinary: the supplier's
+     * marketplace reference, a manufacturer's printed barcode, and one returns sticker per
+     * physical unit can all point at the same thing.
+     */
+    List<Barcode> findByProductId(UUID productId);
 
     /**
      * The checkout hot path: a scanned code straight to its product, or empty if the code is

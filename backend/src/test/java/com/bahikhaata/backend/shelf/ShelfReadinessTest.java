@@ -20,6 +20,7 @@ package com.bahikhaata.backend.shelf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bahikhaata.backend.catalog.Barcode;
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
@@ -36,6 +37,7 @@ import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
 import com.bahikhaata.contracts.Marketplace;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.Origin;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -233,6 +235,75 @@ class ShelfReadinessTest {
         // MRP blank, which keeps stock off the shelf.
         batch.recordMrp(Money.ofPaise(128_930), false);
         assertThat(batch.getMrp()).isEqualTo(Money.ofPaise(128_930));
+    }
+
+    @Test
+    @DisplayName("A label carries a code that will still scan next month")
+    void labelCarriesADurableCode() {
+        UUID lot = receive("LPNONLY", 1, 10_000, 100_000L);
+        closing.close(lot, false, AT);
+        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+
+        // What arrives on returns: the supplier's marketplace reference, which was never
+        // scannable, and a sticker naming this one unit. Neither survives onto a shelf label.
+        var product = batchIn(lot).getProduct();
+        barcodes.save(new Barcode(product, "LPNBLR5Q1111111", Origin.UNIT_LABEL));
+
+        var label = shelf.label(batchIn(lot).getId(), AT);
+
+        assertThat(label.code())
+                .as("a returns sticker dies with its unit and a marketplace reference never"
+                        + " scanned, so neither can go on a label that must work next month")
+                .startsWith("BBZ-");
+    }
+
+    @Test
+    @DisplayName("A printed manufacturer barcode is used rather than minting our own")
+    void anExistingBarcodeIsReused() {
+        UUID lot = receive("HASEAN", 1, 10_000, 100_000L);
+        closing.close(lot, false, AT);
+        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+        var product = batchIn(lot).getProduct();
+        barcodes.save(new Barcode(product, "8901234567891", Origin.MANUFACTURER));
+
+        assertThat(shelf.label(batchIn(lot).getId(), AT).code())
+                .as("it is already on the goods and will be on the next delivery too")
+                .isEqualTo("8901234567891");
+    }
+
+    @Test
+    @DisplayName("Relabelling a product prints the same code, not a new one")
+    void relabellingKeepsTheCode() {
+        UUID lot = receive("SAMECODE", 2, 10_000, 100_000L);
+        closing.close(lot, false, AT);
+        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+
+        String first = shelf.label(batchIn(lot).getId(), AT).code();
+        String again = shelf.contentOf(batchIn(lot).getId()).code();
+
+        assertThat(again)
+                .as("two labels for one product showing different codes would resolve to the"
+                        + " same thing but look like two products on a shelf")
+                .isEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("Damaged goods need their own price before they can be labelled")
+    void damagedGoodsNeedTheirOwnPrice() {
+        UUID lot = receive("DAMAGED1", 2, 10_000, 100_000L);
+        // The sound price is set; the scratched ones are still undecided.
+        closing.close(lot, false, AT);
+        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+
+        Batch damaged = batches.save(
+                Batch.counted(batchIn(lot).getProduct(), lots.findById(lot).orElseThrow(),
+                        com.bahikhaata.contracts.StockCondition.DAMAGED, 1,
+                        Money.ofPaise(100_000), false));
+
+        assertThat(shelf.of(damaged.getId()).priced())
+                .as("a sound price says nothing about what the scratched ones are worth")
+                .isFalse();
+        assertThat(shelf.of(damaged.getId()).missing()).contains("no price set");
     }
 
     @Test

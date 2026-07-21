@@ -17,10 +17,14 @@
  */
 package com.bahikhaata.backend.shelf;
 
+import com.bahikhaata.backend.catalog.Barcode;
+import com.bahikhaata.backend.catalog.BarcodeRepository;
+import com.bahikhaata.backend.catalog.InternalBarcodeGenerator;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.Origin;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,9 +47,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class ShelfReadiness {
 
     private final BatchRepository batches;
+    private final BarcodeRepository barcodes;
+    private final InternalBarcodeGenerator internalBarcodes;
 
-    ShelfReadiness(BatchRepository batches) {
+    ShelfReadiness(
+            BatchRepository batches,
+            BarcodeRepository barcodes,
+            InternalBarcodeGenerator internalBarcodes) {
         this.batches = batches;
+        this.barcodes = barcodes;
+        this.internalBarcodes = internalBarcodes;
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +88,32 @@ public class ShelfReadiness {
                             + String.join(", ", readiness.missingBeforeLabelling()));
         }
         batch.markLabelled(at);
-        return contentFor(batch);
+        return contentFor(batch, codeToPrint(batch.getProduct()));
+    }
+
+    /**
+     * The code that goes on the label — and, where none exists, a new one.
+     *
+     * <p>A label has to still scan next month, so it can only carry a code that will still mean
+     * something. Most of what arrives here cannot supply one: a returns sticker names a single
+     * unit and dies with it, and a marketplace reference was never scannable at all. Only a
+     * manufacturer's printed barcode survives, and on returns it is usually underneath the
+     * sticker.
+     *
+     * <p>So an internal code is generated when there is nothing durable to print. Minted here
+     * rather than at goods-in because this is the first moment it is genuinely needed, and a
+     * code minted for goods that never reach the shelf is a number spent for nothing.
+     *
+     * <p>Once minted it is kept: the product carries it into every future delivery, and a second
+     * label for the same product prints the same code.
+     */
+    private String codeToPrint(Product product) {
+        return barcodes.findByProductId(product.getId()).stream()
+                .filter(barcode -> barcode.getOrigin() == Origin.MANUFACTURER
+                        || barcode.getOrigin() == Origin.INTERNAL)
+                .map(Barcode::getCode)
+                .findFirst()
+                .orElseGet(() -> internalBarcodes.generateFor(product).getCode());
     }
 
     /** What a label says, without touching a printer. */
@@ -90,31 +126,39 @@ public class ShelfReadiness {
             throw new IllegalStateException(
                     "batch " + batchId + " has no recorded MRP, so a label has no saving to show");
         }
-        if (batch.getProduct().getSellingPrice() == null) {
+        if (batch.sellingPrice() == null) {
             throw new IllegalStateException(
-                    "batch " + batchId + " belongs to an unpriced product, so a label has no"
-                            + " price to show");
+                    "batch "
+                            + batchId
+                            + (batch.isDamaged()
+                                    ? " holds damaged goods and nobody has said what they are"
+                                            + " worth yet"
+                                    : " belongs to an unpriced product")
+                            + ", so a label has no price to show");
         }
-        return contentFor(batch);
+        return contentFor(batch, codeToPrint(batch.getProduct()));
     }
 
     private Readiness readinessOf(Batch batch) {
-        Product product = batch.getProduct();
-        boolean priced = product.getSellingPrice() != null;
+        // The price that applies to *these* goods: damaged stock is priced separately, so a
+        // sound price set on the product says nothing about whether the scratched ones are
+        // ready. Reading the ordinary price here would have put them on the floor unpriced.
+        boolean priced = batch.sellingPrice() != null;
         boolean hasMrp = batch.getMrp() != null;
         boolean labelled = batch.isLabelled();
         return new Readiness(batch.getId(), priced, hasMrp, labelled);
     }
 
-    private LabelContent contentFor(Batch batch) {
+    private LabelContent contentFor(Batch batch, String code) {
         Money mrp = batch.getMrp();
-        Money price = batch.getProduct().getSellingPrice();
+        Money price = batch.sellingPrice();
         long saving = mrp.paise() - price.paise();
         // Rounded to a whole percent, downward, so the figure on the tag is never larger than
         // the saving actually given.
         long percent = mrp.paise() == 0 ? 0 : (saving * 100) / mrp.paise();
         return new LabelContent(
                 batch.getId(),
+                code,
                 batch.getProduct().getName(),
                 mrp,
                 price,
@@ -169,6 +213,8 @@ public class ShelfReadiness {
      */
     public record LabelContent(
             UUID batchId,
+            /** The code printed on the label: a manufacturer's barcode, or one of ours. */
+            String code,
             String productName,
             Money mrp,
             Money sellingPrice,
