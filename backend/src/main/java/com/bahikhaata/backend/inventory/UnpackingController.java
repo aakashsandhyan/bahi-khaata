@@ -62,6 +62,12 @@ class UnpackingController {
         return counting.progressOf(lotId);
     }
 
+    /** Every delivery, and how far each has been unpacked. */
+    @GetMapping("/deliveries")
+    List<DeliveryProgress> deliveries() {
+        return counting.allDeliveries();
+    }
+
     /** How far a delivery has been unpacked. */
     @GetMapping("/lots/{lotId}/progress")
     DeliveryProgress deliveryProgress(@PathVariable UUID lotId) {

@@ -18,6 +18,7 @@
 package com.bahikhaata.terminal;
 
 import com.bahikhaata.contracts.CountOutcome;
+import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import java.util.List;
@@ -223,9 +224,107 @@ public class UnpackingScreen {
         root.setBottom(footer);
 
         setNextStep("Scan the number printed on the box.");
+        showOverview();
 
         // The scanner is a keyboard. If focus drifts, its output goes nowhere.
         Platform.runLater(scanField::requestFocus);
+    }
+
+    /**
+     * How every delivery stands, shown whenever no carton is open.
+     *
+     * <p>That is where someone stands between cartons, and it was blank. The question it answers
+     * — how far have we got — is one people ask constantly and had no way to ask here.
+     *
+     * <p>The last column is the one that matters. Empty cartons are not the finish line: nothing
+     * can be priced, labelled or sold until an MRP has been read off it, so that queue is what
+     * actually stands between a pallet and the shelf.
+     */
+    private void showOverview() {
+        lineList.getChildren().clear();
+
+        List<DeliveryProgress> deliveries;
+        try {
+            deliveries = backend.deliveries();
+        } catch (RuntimeException e) {
+            // Not worth an error screen. Someone is here to scan a box, and they still can.
+            return;
+        }
+        if (deliveries.isEmpty()) {
+            return;
+        }
+
+        Label heading = new Label("Deliveries waiting to be unpacked");
+        heading.setFont(HEADING);
+        lineList.getChildren().add(heading);
+        lineList.getChildren().add(overviewRow(
+                "Delivery", "Boxes", "Items", "Waiting on a price", true, false));
+
+        long boxesDone = 0;
+        long boxesTotal = 0;
+        long itemsFound = 0;
+        long itemsTotal = 0;
+        long waiting = 0;
+        for (DeliveryProgress delivery : deliveries) {
+            boolean finished = delivery.cartonsFinished() == delivery.cartonsTotal();
+            lineList.getChildren().add(
+                    overviewRow(
+                            delivery.category(),
+                            delivery.cartonsFinished() + " of " + delivery.cartonsTotal(),
+                            delivery.unitsCounted() + " of " + delivery.unitsExpected(),
+                            delivery.itemsWithoutMrp() == 0 ? "—"
+                                    : String.valueOf(delivery.itemsWithoutMrp()),
+                            false,
+                            finished));
+            boxesDone += delivery.cartonsFinished();
+            boxesTotal += delivery.cartonsTotal();
+            itemsFound += delivery.unitsCounted();
+            itemsTotal += delivery.unitsExpected();
+            waiting += delivery.itemsWithoutMrp();
+        }
+
+        lineList.getChildren().add(
+                overviewRow(
+                        "Everything",
+                        boxesDone + " of " + boxesTotal,
+                        itemsFound + " of " + itemsTotal,
+                        waiting == 0 ? "—" : String.valueOf(waiting),
+                        true,
+                        false));
+    }
+
+    private HBox overviewRow(
+            String name, String boxes, String items, String waiting, boolean bold,
+            boolean finished) {
+        Font font = bold ? Font.font("System", FontWeight.BOLD, 16) : Font.font("System", 16);
+
+        Label nameLabel = new Label(name);
+        nameLabel.setFont(font);
+        nameLabel.setMinWidth(200);
+
+        Label boxesLabel = new Label(boxes);
+        boxesLabel.setFont(font);
+        boxesLabel.setMinWidth(140);
+
+        Label itemsLabel = new Label(items);
+        itemsLabel.setFont(font);
+        itemsLabel.setMinWidth(160);
+
+        Label waitingLabel = new Label(waiting);
+        waitingLabel.setFont(font);
+        // Orange, because an item with no price is stock that cannot be sold — a queue, not a
+        // statistic.
+        if (!waiting.equals("—") && !bold) {
+            waitingLabel.setStyle("-fx-text-fill:#e65100;");
+        }
+
+        HBox row = new HBox(12, nameLabel, boxesLabel, itemsLabel, waitingLabel);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(6, 10, 6, 10));
+        if (finished) {
+            row.setStyle("-fx-background-color:#e8f5e9;-fx-background-radius:6;");
+        }
+        return row;
     }
 
     private void onScan(String scanned) {
@@ -555,6 +654,7 @@ public class UnpackingScreen {
         leaveButton.setDisable(true);
         damagedToggle.setDisable(true);
         setNextStep("Scan the number printed on the next box.");
+        showOverview();
         say("Left the box as it is. Everything counted so far is saved. Scan another box.", OK);
         Platform.runLater(scanField::requestFocus);
     }
@@ -578,6 +678,7 @@ public class UnpackingScreen {
             leaveButton.setDisable(true);
             damagedToggle.setDisable(true);
             setNextStep("Scan the number printed on the next box.");
+            showOverview();
             if (missing > 0) {
                 say("Box done, with " + missing + " item(s) not found. That has been recorded."
                         + " Scan the next box.", WARN);

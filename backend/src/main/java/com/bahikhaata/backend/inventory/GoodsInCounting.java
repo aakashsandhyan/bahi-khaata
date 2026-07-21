@@ -369,6 +369,20 @@ public class GoodsInCounting {
                 !lot.isOpen());
     }
 
+    /**
+     * Every delivery and how far each has been unpacked.
+     *
+     * <p>Ordered largest first, since that is the order they will be worked through and the one
+     * that makes the remaining effort legible at a glance.
+     */
+    @Transactional(readOnly = true)
+    public List<DeliveryProgress> allDeliveries() {
+        return lots.findAll().stream()
+                .map(lot -> progressOfDelivery(lot.getId()))
+                .sorted((a, b) -> Long.compare(b.unitsExpected(), a.unitsExpected()))
+                .toList();
+    }
+
     private void requireOpen(Lot lot) {
         if (!lot.isOpen()) {
             throw new IllegalStateException(

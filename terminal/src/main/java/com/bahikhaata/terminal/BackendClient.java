@@ -132,6 +132,11 @@ public class BackendClient {
         return getList("/api/unpacking/boxes/" + boxId + "/lines", UnpackingLine.class);
     }
 
+    /** Every delivery, and how far each has been unpacked. */
+    public List<DeliveryProgress> deliveries() {
+        return getList("/api/unpacking/deliveries", DeliveryProgress.class);
+    }
+
     /** How far a delivery has been unpacked. */
     public DeliveryProgress deliveryProgress(UUID lotId) {
         return get("/api/unpacking/lots/" + lotId + "/progress", DeliveryProgress.class);
