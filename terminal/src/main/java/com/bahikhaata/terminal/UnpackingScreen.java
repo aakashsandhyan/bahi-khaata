@@ -601,10 +601,10 @@ public class UnpackingScreen {
         setNextStep("Tap the item you are holding.");
         lineList.getChildren().clear();
 
-        Label prompt = new Label("Which of these is it? Code on the item: " + code);
+        Label prompt = new Label("Which of these is it?");
         prompt.setFont(HEADING);
-        prompt.setWrapText(true);
         lineList.getChildren().add(prompt);
+        lineList.getChildren().add(selectable("Code on the item: " + code, BODY));
 
         Label why = new Label(
                 "The list uses the supplier's own reference, not the code printed on the item."
@@ -635,7 +635,13 @@ public class UnpackingScreen {
     }
 
     private Button choiceFor(UnpackingLine line) {
-        Button choice = new Button(shortName(line) + "   (" + line.outstanding() + " to find)");
+        String priced =
+                line.onlinePricePaise() == null
+                        ? ""
+                        : "   ·   online ₹" + line.onlinePricePaise() / 100;
+        Button choice =
+                new Button(
+                        shortName(line) + "   (" + line.outstanding() + " to find)" + priced);
         choice.setFont(BODY);
         choice.setWrapText(true);
         choice.setMaxWidth(Double.MAX_VALUE);
@@ -766,18 +772,16 @@ public class UnpackingScreen {
     }
 
     private HBox rowFor(UnpackingLine line) {
-        Label name = new Label(shortName(line));
-        name.setFont(BODY);
-        name.setWrapText(true);
-        HBox.setHgrow(name, Priority.ALWAYS);
-        name.setMaxWidth(Double.MAX_VALUE);
+        VBox detail = new VBox(2, selectable(shortName(line), BODY), selectable(sheetSays(line), SMALL));
+        HBox.setHgrow(detail, Priority.ALWAYS);
+        detail.setMaxWidth(Double.MAX_VALUE);
 
         Label count = new Label(line.counted() + " / " + line.expected());
         count.setFont(Font.font("System", FontWeight.BOLD, 22));
 
         // Done reads green from across the room; still-to-find stays plain. Nothing is red,
         // because nothing here is yet a mistake — a box in progress is just a box in progress.
-        HBox row = new HBox(12, name, count);
+        HBox row = new HBox(12, detail, count);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(10));
         row.setStyle(
@@ -785,6 +789,42 @@ public class UnpackingScreen {
                         ? "-fx-background-color:#e8f5e9;-fx-background-radius:6;"
                         : "-fx-background-color:#f5f5f5;-fx-background-radius:6;");
         return row;
+    }
+
+    /**
+     * Text a person can select and copy.
+     *
+     * <p>A JavaFX {@link Label} cannot be selected at all, which is fine for a caption and
+     * useless for a product code someone needs to paste into a search. A read-only text field
+     * stripped of its chrome reads as a label and behaves as text.
+     */
+    private javafx.scene.control.TextField selectable(String text, Font font) {
+        javafx.scene.control.TextField field = new javafx.scene.control.TextField(text);
+        field.setEditable(false);
+        field.setFont(font);
+        field.setStyle(
+                "-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;"
+                        + " -fx-border-width: 0;");
+        field.setPrefWidth(Double.MAX_VALUE);
+        return field;
+    }
+
+    /**
+     * What the supplier's sheet said, and what the goods fetched online.
+     *
+     * <p>Shown beside the item because the person holding it is about to type an MRP, and a
+     * printed price nowhere near what the thing sells for online is worth looking at twice
+     * before it is entered.
+     */
+    private String sheetSays(UnpackingLine line) {
+        StringBuilder said = new StringBuilder(line.code());
+        if (line.onlinePricePaise() != null) {
+            said.append("   ·   online ₹").append(line.onlinePricePaise() / 100);
+        }
+        if (line.statedValuePaise() != null) {
+            said.append("   ·   sheet ₹").append(line.statedValuePaise() / 100);
+        }
+        return said.toString();
     }
 
     /** Manifest names run to two hundred characters. A person needs the first few words. */

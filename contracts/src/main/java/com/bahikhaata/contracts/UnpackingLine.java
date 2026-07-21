@@ -28,6 +28,11 @@ import java.util.UUID;
  * @param needsMrp whether anyone has yet read the printed price off these goods. Asked once per
  *     product per delivery: the figure comes off the pack, and every pack in one delivery
  *     carries the same one, so asking again for each unit would be pure friction.
+ * @param statedValuePaise what the supplier's sheet said this line is worth per unit — a
+ *     marketplace selling price on a returns sheet, a supplier cost on a cost-plus one. Null
+ *     where the sheet stated neither.
+ * @param onlinePricePaise what the goods last sold for online, where that is known. Useful
+ *     beside the MRP being typed: a printed price far from it is worth a second look.
  */
 public record UnpackingLine(
         UUID lineId,
@@ -36,4 +41,6 @@ public record UnpackingLine(
         long expected,
         long counted,
         long outstanding,
-        boolean needsMrp) {}
+        boolean needsMrp,
+        Long statedValuePaise,
+        Long onlinePricePaise) {}

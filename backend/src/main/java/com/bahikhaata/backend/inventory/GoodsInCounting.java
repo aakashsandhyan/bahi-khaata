@@ -281,7 +281,13 @@ public class GoodsInCounting {
                                         line.getQuantityExpected(),
                                         line.getQuantityCounted(),
                                         line.getQuantityOutstanding(),
-                                        needsMrp(line)))
+                                        needsMrp(line),
+                                        line.getStatedValue() == null
+                                                ? null
+                                                : line.getStatedValue().paise(),
+                                        line.getProduct().getOnlinePrice() == null
+                                                ? null
+                                                : line.getProduct().getOnlinePrice().paise()))
                 .toList();
     }
 
