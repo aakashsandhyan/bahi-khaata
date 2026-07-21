@@ -144,6 +144,14 @@ public class ExpectedLine extends UuidEntity {
         return statedValue;
     }
 
+    /** Takes units back off, when a count was a mistake. Never below nothing. */
+    public void removeCounted(long quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("must take off a positive number, was " + quantity);
+        }
+        this.quantityCounted = Math.max(0, this.quantityCounted - quantity);
+    }
+
     public long getQuantityCounted() {
         return quantityCounted;
     }

@@ -294,6 +294,28 @@ public class Batch extends UuidEntity {
         this.costBasis = Objects.requireNonNull(basis, "cost basis");
     }
 
+    /**
+     * Takes units back off, when a count was a mistake.
+     *
+     * <p>Down to nothing, if that is what was counted. The batch stays either way: the receipt
+     * in the ledger cannot be deleted, and it needs something to point at.
+     */
+    public void removeCounted(long quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("must take off a positive number, was " + quantity);
+        }
+        if (quantity > quantityReceived) {
+            throw new IllegalArgumentException(
+                    "cannot take off " + quantity + " when only " + quantityReceived
+                            + " were counted");
+        }
+        if (isCosted()) {
+            throw new IllegalStateException(
+                    "batch " + getId() + " is already costed; its delivery has been closed");
+        }
+        this.quantityReceived -= quantity;
+    }
+
     /** Adds to what has been counted, as more of the same line is found in a box. */
     public void addCounted(long quantity) {
         if (quantity <= 0) {

@@ -126,7 +126,11 @@ public class LotClosing {
                 uncosted.stream().filter(batch -> batch.getCondition() == StockCondition.UNUSABLE)
                         .toList();
         List<Batch> received =
-                uncosted.stream().filter(batch -> batch.getCondition() != StockCondition.UNUSABLE)
+                uncosted.stream()
+                        .filter(batch -> batch.getCondition() != StockCondition.UNUSABLE)
+                        // A batch corrected back to nothing has nothing to carry a share, and
+                        // asking the allocator to divide by zero would fail rather than say so.
+                        .filter(batch -> batch.getQuantityReceived() > 0)
                         .toList();
         if (received.isEmpty()) {
             throw new IllegalStateException(

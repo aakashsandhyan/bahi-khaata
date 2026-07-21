@@ -220,6 +220,17 @@ public class BackendClient {
                 CountOutcome.class);
     }
 
+    /** Takes back a count, and unmaps the code if that scan taught it. */
+    public void undo(UUID lineId, long quantity, String condition, String untagCode) {
+        post(
+                "/api/unpacking/lines/" + lineId + "/undo",
+                Map.of(
+                        "quantity", quantity,
+                        "condition", condition,
+                        "untagCode", untagCode == null ? "" : untagCode),
+                Void.class);
+    }
+
     public void finishCarton(UUID boxId) {
         post("/api/unpacking/boxes/" + boxId + "/finish", Map.of(), Void.class);
     }

@@ -162,6 +162,21 @@ class UnpackingController {
                 Instant.now());
     }
 
+    /**
+     * Takes back a count that should not have happened, and unmaps the code if that scan
+     * taught it.
+     */
+    @PostMapping("/lines/{lineId}/undo")
+    ResponseEntity<Void> undo(@PathVariable UUID lineId, @RequestBody UndoRequest request) {
+        counting.undoCount(
+                lineId,
+                request.condition() == null ? StockCondition.GOOD : request.condition(),
+                request.quantity(),
+                request.untagCode(),
+                Instant.now());
+        return ResponseEntity.noContent().build();
+    }
+
     /** Something in the carton that no line names. */
     @PostMapping("/boxes/{boxId}/unlisted")
     CountOutcome unlisted(
@@ -233,6 +248,8 @@ class UnpackingController {
     /** {@code condition} may be omitted; sound goods are the ordinary case. */
     record CountRequest(
             long quantity, Long mrpPaise, boolean mrpIsEstimate, StockCondition condition) {}
+
+    record UndoRequest(long quantity, StockCondition condition, String untagCode) {}
 
     record TagRequest(
             String scannedCode,

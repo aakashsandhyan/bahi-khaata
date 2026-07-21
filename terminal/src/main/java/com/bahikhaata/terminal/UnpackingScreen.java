@@ -126,6 +126,7 @@ public class UnpackingScreen {
     private final VBox lineList = new VBox(8);
     private final Button finishButton = new Button("Box is done");
     private final Button leaveButton = new Button("Leave this box");
+    private final Button undoButton = new Button("Undo that");
 
     /**
      * What condition scanned items are being recorded in.
@@ -160,6 +161,16 @@ public class UnpackingScreen {
 
     /** A code chosen for tagging whose price is still being asked for. */
     private String pendingTagCode;
+
+    /**
+     * The last thing counted, so it can be taken back.
+     *
+     * <p>A wrong scan is noticed within seconds — the name on screen is not the thing in your
+     * hand. Without this the mistake stands forever and the only remedy is remembering it,
+     * which is not a remedy. Kept for the last scan only, because that is when it is caught;
+     * anything older is a job for a manager and a fuller screen.
+     */
+    private LastCount lastCount;
 
     /**
      * The line tagged most recently, offered first next time.
@@ -200,6 +211,10 @@ public class UnpackingScreen {
         leaveButton.setFont(BODY);
         leaveButton.setDisable(true);
         leaveButton.setOnAction(event -> leaveCarton());
+
+        undoButton.setFont(BODY);
+        undoButton.setDisable(true);
+        undoButton.setOnAction(event -> undoLastCount());
 
         for (ToggleButton button : List.of(goodButton, damagedButton, unusableButton)) {
             button.setFont(BODY);
@@ -257,7 +272,7 @@ public class UnpackingScreen {
         setConditionButtonsDisabled(true);
 
         HBox footer =
-                new HBox(12, goodButton, damagedButton, unusableButton, leaveButton,
+                new HBox(12, goodButton, damagedButton, unusableButton, undoButton, leaveButton,
                         finishButton);
         footer.setPadding(new Insets(16));
         footer.setAlignment(Pos.CENTER_RIGHT);
@@ -687,7 +702,10 @@ public class UnpackingScreen {
                         ? backend.count(match.lineId(), 1, mrpPaise, condition, mrpIsEstimate)
                         : backend.tag(
                                 match.lineId(), code, 1, mrpPaise, condition, mrpIsEstimate);
+        // Remembered before the list is rebuilt, since that is what makes it undoable.
+        lastCount = new LastCount(match.lineId(), shortName(match), condition, code);
         refreshLines();
+        undoButton.setDisable(false);
         sayCounted(match, outcome);
     }
 
@@ -891,8 +909,38 @@ public class UnpackingScreen {
         }
     }
 
+    /**
+     * Takes back the last count.
+     *
+     * <p>Removes the code mapping too, where that scan created it — a code pointing at the
+     * wrong goods is worse than no code, since it will keep resolving confidently.
+     */
+    private void undoLastCount() {
+        LastCount last = lastCount;
+        if (last == null) {
+            return;
+        }
+        try {
+            backend.undo(last.lineId(), 1, last.condition(), last.taggedCode());
+            lastCount = null;
+            undoButton.setDisable(true);
+            refreshLines();
+            say("Took that back" + (last.taggedCode() == null
+                            ? ""
+                            : " and forgot the code, so it can be scanned to the right item")
+                    + ": " + last.itemName(), WARN);
+        } catch (BackendClient.RefusedException e) {
+            say(e.getMessage(), STOP);
+        } catch (BackendUnavailableException e) {
+            say("Cannot reach the system, so that has not been taken back yet.", STOP);
+        } finally {
+            Platform.runLater(scanField::requestFocus);
+        }
+    }
+
     private void leaveCarton() {
         goodButton.setSelected(true);
+        forgetLastCount();
         carton = null;
         lines = List.of();
         untaggedCode = null;
@@ -916,6 +964,7 @@ public class UnpackingScreen {
         try {
             backend.finishCarton(carton.boxId());
             goodButton.setSelected(true);
+            forgetLastCount();
             long missing = lines.stream().mapToLong(UnpackingLine::outstanding).sum();
             carton = null;
             lines = List.of();
@@ -1058,6 +1107,15 @@ public class UnpackingScreen {
         return said.toString();
     }
 
+    /**
+     * What was counted last, and what it taught.
+     *
+     * @param taggedCode the code that scan mapped, or null where the code was already known —
+     *     undoing must unmap the first and leave the second alone
+     */
+    private record LastCount(
+            UUID lineId, String itemName, String condition, String taggedCode) {}
+
     /** Manifest names run to two hundred characters. A person needs the first few words. */
     private String shortName(UnpackingLine line) {
         String name = line.name();
@@ -1072,6 +1130,12 @@ public class UnpackingScreen {
 
     private void hideMessage() {
         message.setVisible(false);
+    }
+
+    /** Nothing to take back once a carton is put down; the offer would be a lie. */
+    private void forgetLastCount() {
+        lastCount = null;
+        undoButton.setDisable(true);
     }
 
     private void setConditionButtonsDisabled(boolean disabled) {

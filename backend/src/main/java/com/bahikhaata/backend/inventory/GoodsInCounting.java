@@ -243,6 +243,62 @@ public class GoodsInCounting {
     }
 
     /**
+     * Takes back a count that should not have happened.
+     *
+     * <p>Somebody tags a code to the wrong product, or counts an item against the wrong line,
+     * and sees it a second later. Without a way back the mistake stands forever and the only
+     * remedy is remembering it — which is not a remedy.
+     *
+     * <p>The receipt is <em>not</em> deleted. The ledger is append-only and a correction is a
+     * new entry against the same batch, so what actually happened stays visible: it was counted,
+     * then it was taken off. That is the truth, and an erased row would not be.
+     *
+     * @param untagCode a code to unmap as part of the same correction, where the count also
+     *     taught the system that code. Barcodes are not history and a wrong mapping should
+     *     simply cease to exist — leaving it would keep resolving the wrong goods.
+     */
+    @Transactional
+    public void undoCount(
+            UUID expectedLineId,
+            StockCondition condition,
+            long quantity,
+            String untagCode,
+            Instant at) {
+        ExpectedLine line =
+                expectedLines
+                        .findById(expectedLineId)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "no such expected line: " + expectedLineId));
+        requireOpen(line.getLot());
+
+        Batch batch =
+                batches.findByLotIdAndProductIdAndCondition(
+                                line.getLot().getId(), line.getProduct().getId(), condition)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "nothing was counted for that item in this delivery"));
+
+        batch.removeCounted(quantity);
+        line.removeCounted(quantity);
+
+        // Unusable goods never reached the ledger, so there is nothing there to correct.
+        if (condition != StockCondition.UNUSABLE) {
+            ledger.save(
+                    StockLedgerEntry.adjustment(
+                            line.getProduct(), batch, -quantity, at));
+        }
+
+        if (untagCode != null && !untagCode.isBlank()) {
+            barcodes.findByCode(untagCode)
+                    .filter(barcode -> barcode.getProduct().getId()
+                            .equals(line.getProduct().getId()))
+                    // Only a code this correction is responsible for. A manufacturer's barcode
+                    // that arrived with the goods is not ours to remove.
+                    .filter(barcode -> barcode.getOrigin() != Origin.MARKETPLACE)
+                    .ifPresent(barcodes::delete);
+        }
+    }
+
+    /**
      * Marks a carton finished.
      *
      * <p>Does not require everything expected to have been found. The goods simply may not be
