@@ -27,6 +27,7 @@ import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +89,28 @@ public class GoodsInCounting {
     @Transactional
     public CountOutcome countExpected(
             UUID expectedLineId, long quantity, Money mrp, boolean mrpIsEstimate, Instant at) {
+        return countExpected(
+                expectedLineId, StockCondition.GOOD, quantity, mrp, mrpIsEstimate, at);
+    }
+
+    /**
+     * As above, in a stated condition.
+     *
+     * <p>Damaged goods are held as their own stock rather than as a count against the sound
+     * ones, because selling one has to draw from the damaged pile and leave the good pile
+     * alone — and the ledger, which keys on batch, could not otherwise say which kind left.
+     *
+     * <p>The operator makes this call and needs no judgement for it: an item is marked or it is
+     * not. What a damaged unit is then worth is decided later by someone who can see cost.
+     */
+    @Transactional
+    public CountOutcome countExpected(
+            UUID expectedLineId,
+            StockCondition condition,
+            long quantity,
+            Money mrp,
+            boolean mrpIsEstimate,
+            Instant at) {
         ExpectedLine line =
                 expectedLines
                         .findById(expectedLineId)
@@ -95,8 +118,13 @@ public class GoodsInCounting {
                                 "no such expected line: " + expectedLineId));
         requireOpen(line.getLot());
 
+        // Counted against the expectation either way: a damaged unit still arrived, and a line
+        // short by one damaged item is not short at all.
         line.recordCounted(quantity);
-        Batch batch = addToBatch(line.getLot(), line.getProduct(), quantity, mrp, mrpIsEstimate, at);
+        Batch batch =
+                addToBatch(
+                        line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
+                        at);
 
         return new CountOutcome(
                 batch.getId(),
@@ -122,8 +150,8 @@ public class GoodsInCounting {
      */
     @Transactional
     public CountOutcome tagAndCount(
-            UUID expectedLineId, String scannedCode, long quantity, Money mrp,
-            boolean mrpIsEstimate, Instant at) {
+            UUID expectedLineId, String scannedCode, StockCondition condition, long quantity,
+            Money mrp, boolean mrpIsEstimate, Instant at) {
         ExpectedLine line =
                 expectedLines
                         .findById(expectedLineId)
@@ -151,7 +179,7 @@ public class GoodsInCounting {
                         () -> barcodes.save(
                                 new Barcode(product, scannedCode, Origin.MANUFACTURER)));
 
-        return countExpected(expectedLineId, quantity, mrp, mrpIsEstimate, at);
+        return countExpected(expectedLineId, condition, quantity, mrp, mrpIsEstimate, at);
     }
 
     /**
@@ -186,7 +214,10 @@ public class GoodsInCounting {
             find.add(quantity);
         }
 
-        Batch batch = addToBatch(box.getLot(), product, quantity, mrp, mrpIsEstimate, at);
+        Batch batch =
+                addToBatch(
+                        box.getLot(), product, StockCondition.GOOD, quantity, mrp, mrpIsEstimate,
+                        at);
 
         return new CountOutcome(batch.getId(), 0, find.getQuantity(), find.getQuantity());
     }
@@ -246,10 +277,12 @@ public class GoodsInCounting {
      * friction with nothing behind it, and friction is what makes people stop recording things.
      */
     private boolean needsMrp(ExpectedLine line) {
-        return batches
-                .findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
-                .map(batch -> batch.getMrp() == null)
-                .orElse(true);
+        // Asked once per product per delivery whatever condition the units turn out to be in:
+        // the MRP is printed on the pack, and a dented box carries the same printed price as a
+        // clean one.
+        return batches.findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
+                .stream()
+                .noneMatch(batch -> batch.getMrp() != null);
     }
 
     /** Cartons bearing a tracking number, for the scan that starts unpacking. */
@@ -318,8 +351,16 @@ public class GoodsInCounting {
      * already found a second time.
      */
     private Batch addToBatch(
-            Lot lot, Product product, long quantity, Money mrp, boolean mrpIsEstimate, Instant at) {
-        Optional<Batch> existing = batches.findByLotIdAndProductId(lot.getId(), product.getId());
+            Lot lot,
+            Product product,
+            StockCondition condition,
+            long quantity,
+            Money mrp,
+            boolean mrpIsEstimate,
+            Instant at) {
+        Optional<Batch> existing =
+                batches.findByLotIdAndProductIdAndCondition(
+                        lot.getId(), product.getId(), condition);
         Batch batch;
         if (existing.isPresent()) {
             batch = existing.get();
@@ -328,7 +369,8 @@ public class GoodsInCounting {
                 batch.recordMrp(mrp, mrpIsEstimate);
             }
         } else {
-            batch = batches.save(Batch.counted(product, lot, quantity, mrp, mrpIsEstimate));
+            batch = batches.save(
+                    Batch.counted(product, lot, condition, quantity, mrp, mrpIsEstimate));
         }
         ledger.save(StockLedgerEntry.receipt(product, batch, quantity, at));
         return batch;

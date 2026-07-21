@@ -21,6 +21,7 @@ import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.StockCondition;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import java.time.Instant;
@@ -79,6 +80,7 @@ class UnpackingController {
             @PathVariable UUID lineId, @RequestBody CountRequest request) {
         return counting.countExpected(
                 lineId,
+                request.condition() == null ? StockCondition.GOOD : request.condition(),
                 request.quantity(),
                 request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
                 request.mrpIsEstimate(),
@@ -97,6 +99,7 @@ class UnpackingController {
         return counting.tagAndCount(
                 lineId,
                 request.scannedCode(),
+                request.condition() == null ? StockCondition.GOOD : request.condition(),
                 request.quantity(),
                 request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
                 request.mrpIsEstimate(),
@@ -171,10 +174,16 @@ class UnpackingController {
         return ResponseEntity.status(409).body(e.getMessage());
     }
 
-    record CountRequest(long quantity, Long mrpPaise, boolean mrpIsEstimate) {}
+    /** {@code condition} may be omitted; sound goods are the ordinary case. */
+    record CountRequest(
+            long quantity, Long mrpPaise, boolean mrpIsEstimate, StockCondition condition) {}
 
     record TagRequest(
-            String scannedCode, long quantity, Long mrpPaise, boolean mrpIsEstimate) {}
+            String scannedCode,
+            long quantity,
+            Long mrpPaise,
+            boolean mrpIsEstimate,
+            StockCondition condition) {}
 
     record UnlistedRequest(
             String code,

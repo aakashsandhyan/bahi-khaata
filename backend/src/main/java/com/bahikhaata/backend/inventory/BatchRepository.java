@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.contracts.StockCondition;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,7 +35,15 @@ public interface BatchRepository extends JpaRepository<Batch, UUID> {
      * product out of several cartons of one delivery accumulates into a single batch, since a
      * batch is one product's arrival in one lot however many boxes it was split between.
      */
-    Optional<Batch> findByLotIdAndProductId(UUID lotId, UUID productId);
+    /**
+     * A product's batches within a lot — one per condition it arrived in, so at most two.
+     * Sound and damaged goods are held apart because they sell for different amounts and the
+     * ledger has to be able to say which kind left.
+     */
+    List<Batch> findByLotIdAndProductId(UUID lotId, UUID productId);
+
+    Optional<Batch> findByLotIdAndProductIdAndCondition(
+            UUID lotId, UUID productId, StockCondition condition);
 
     /**
      * A product's batches in FIFO order: oldest delivery first, by the lot's business date

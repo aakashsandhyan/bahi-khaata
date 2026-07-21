@@ -26,6 +26,7 @@ import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Marketplace;
 import com.bahikhaata.contracts.MovementType;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.StockCondition;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -76,7 +77,11 @@ class EnumCheckConstraintDriftTest {
                 arguments(LotState.class, "state", LOT_STATE),
                 // CostBasis moved to V13 when the batch table was rebuilt, and gained
                 // ESTIMATED there. V5's list is dead text now; this must read the live one.
-                arguments(CostBasis.class, "cost_basis", BATCH_COST));
+                arguments(CostBasis.class, "cost_basis", BATCH_COST),
+                arguments(
+                        StockCondition.class,
+                        "condition",
+                        "/db/migration/V17__stock_condition.sql"));
     }
 
     @ParameterizedTest(name = "{0} matches the {1} CHECK constraint")

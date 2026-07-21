@@ -70,7 +70,7 @@ public final class UnpackingProbe {
             UnpackingLine first = lines.get(0);
             if (first.outstanding() > 0) {
                 CountOutcome counted =
-                        backend.count(first.lineId(), 1, first.needsMrp() ? 24_900L : null);
+                        backend.count(first.lineId(), 1, first.needsMrp() ? 24_900L : null, false);
                 System.out.println("  count one      " + counted.quantityCounted() + " of "
                         + counted.quantityExpected());
 

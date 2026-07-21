@@ -23,6 +23,7 @@ import com.bahikhaata.backend.persistence.MoneyConverter;
 import com.bahikhaata.backend.persistence.UuidEntity;
 import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.StockCondition;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -58,6 +59,14 @@ public class Batch extends UuidEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "lot_id", nullable = false)
     private Lot lot;
+
+    /**
+     * Sound or damaged. Damaged goods are stock worth less rather than stock lost: they carry
+     * the same cost as clean ones and differ only in what they sell for.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "condition", nullable = false, columnDefinition = "text")
+    private StockCondition condition = StockCondition.GOOD;
 
     /**
      * This line's whole share of the lot amount. Authoritative: the shares of a lot's batches
@@ -131,13 +140,30 @@ public class Batch extends UuidEntity {
      */
     public static Batch counted(
             Product product, Lot lot, long quantityCounted, Money mrp, boolean mrpIsEstimate) {
-        return new Batch(product, lot, quantityCounted, mrp, mrpIsEstimate);
+        return counted(product, lot, StockCondition.GOOD, quantityCounted, mrp, mrpIsEstimate);
+    }
+
+    /** As above, in a stated condition. Damaged goods are held apart so they can be sold apart. */
+    public static Batch counted(
+            Product product,
+            Lot lot,
+            StockCondition condition,
+            long quantityCounted,
+            Money mrp,
+            boolean mrpIsEstimate) {
+        return new Batch(product, lot, condition, quantityCounted, mrp, mrpIsEstimate);
     }
 
     /** Uncosted stock. Reached through {@link #counted}, which says what it is for. */
     private Batch(
-            Product product, Lot lot, long quantityCounted, Money mrp, boolean mrpIsEstimate) {
+            Product product,
+            Lot lot,
+            StockCondition condition,
+            long quantityCounted,
+            Money mrp,
+            boolean mrpIsEstimate) {
         super(newId());
+        this.condition = Objects.requireNonNull(condition, "condition");
         this.product = Objects.requireNonNull(product, "product");
         this.lot = Objects.requireNonNull(lot, "lot");
         if (quantityCounted <= 0) {
@@ -210,6 +236,24 @@ public class Batch extends UuidEntity {
      * cost is allocated, so their share is absorbed by these — the full lot was paid for
      * regardless of how much of it earns.
      */
+    public StockCondition getCondition() {
+        return condition;
+    }
+
+    public boolean isDamaged() {
+        return condition == StockCondition.DAMAGED;
+    }
+
+    /**
+     * What these goods sell for: the product's damaged price when they are damaged, its ordinary
+     * price otherwise. Null when nobody has set the one that applies.
+     */
+    public Money sellingPrice() {
+        return isDamaged()
+                ? product.getDamagedSellingPrice()
+                : product.getSellingPrice();
+    }
+
     public long sellableQuantity() {
         return quantityReceived - quantityDamaged;
     }

@@ -137,13 +137,14 @@ public class BackendClient {
     }
 
     /** Records units found against something the manifest named. */
-    public CountOutcome count(UUID lineId, long quantity, Long mrpPaise) {
+    public CountOutcome count(UUID lineId, long quantity, Long mrpPaise, boolean damaged) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/count",
                 Map.of(
                         "quantity", quantity,
                         "mrpPaise", mrpPaise == null ? "" : mrpPaise,
-                        "mrpIsEstimate", false),
+                        "mrpIsEstimate", false,
+                        "condition", damaged ? "DAMAGED" : "GOOD"),
                 CountOutcome.class);
     }
 
@@ -154,14 +155,16 @@ public class BackendClient {
      * time an item is scanned nothing matches. Someone holding it says which line it is, and
      * from then on the real code resolves by itself.
      */
-    public CountOutcome tag(UUID lineId, String scannedCode, long quantity, Long mrpPaise) {
+    public CountOutcome tag(
+            UUID lineId, String scannedCode, long quantity, Long mrpPaise, boolean damaged) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/tag",
                 Map.of(
                         "scannedCode", scannedCode,
                         "quantity", quantity,
                         "mrpPaise", mrpPaise == null ? "" : mrpPaise,
-                        "mrpIsEstimate", false),
+                        "mrpIsEstimate", false,
+                        "condition", damaged ? "DAMAGED" : "GOOD"),
                 CountOutcome.class);
     }
 

@@ -73,6 +73,20 @@ public class Product extends UuidEntity {
     @Column(name = "selling_price_paise")
     private Money sellingPrice;
 
+    /**
+     * What damaged units of this product sell for, or null if nobody has decided yet.
+     *
+     * <p>A second price rather than a price on the batch: "selling price belongs to the product,
+     * never to a batch" is a settled decision that FIFO costing depends on, and it holds. The
+     * product simply carries two prices now, one per condition.
+     *
+     * <p>Set separately and later. The person unpacking marks an item damaged and moves on;
+     * what it is then worth is a judgement for someone who can see what it cost.
+     */
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "damaged_selling_price_paise")
+    private Money damagedSellingPrice;
+
     @Column(name = "hsn_code", columnDefinition = "text")
     private String hsnCode;
 
@@ -230,6 +244,27 @@ public class Product extends UuidEntity {
         this.onlinePrice = price;
         this.onlinePriceSource = source;
         this.onlinePriceObservedOn = observedOn;
+    }
+
+    /** What damaged units sell for, or null while nobody has decided. */
+    public Money getDamagedSellingPrice() {
+        return damagedSellingPrice;
+    }
+
+    /**
+     * Sets what damaged units sell for.
+     *
+     * <p>Deliberately separate from {@link #setSellingPrice}: the two are decided at different
+     * moments, and a shop that sells seconds needs to be able to reprice them without touching
+     * what sound goods cost a customer.
+     */
+    public void setDamagedSellingPrice(Money price) {
+        Objects.requireNonNull(price, "damaged selling price");
+        if (!price.isPositive()) {
+            throw new IllegalArgumentException(
+                    "damaged selling price must be positive, was " + price);
+        }
+        this.damagedSellingPrice = price;
     }
 
     public String getHsnCode() {

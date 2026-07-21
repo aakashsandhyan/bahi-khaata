@@ -28,6 +28,7 @@ import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
 import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -87,7 +88,9 @@ class LotClosingTest {
 
     private Batch batchFor(UUID lotId, String code) {
         UUID productId = barcodes.findByCode(code).orElseThrow().getProduct().getId();
-        return batches.findByLotIdAndProductId(lotId, productId).orElseThrow();
+        return batches
+                .findByLotIdAndProductIdAndCondition(lotId, productId, StockCondition.GOOD)
+                .orElseThrow();
     }
 
     @Test

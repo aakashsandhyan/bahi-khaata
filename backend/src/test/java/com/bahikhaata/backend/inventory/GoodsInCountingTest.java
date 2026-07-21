@@ -140,7 +140,7 @@ class GoodsInCountingTest {
                 .isEqualTo(12);
         assertThat(batches.findByLotIdAndProductId(lotId, lineFor("KADAI").getProduct().getId()))
                 .as("one batch, however many sittings it took")
-                .isPresent();
+                .hasSize(1);
     }
 
     @Test

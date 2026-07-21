@@ -85,6 +85,17 @@ public class UnpackingScreen {
     private final Button finishButton = new Button("Box is done");
     private final Button leaveButton = new Button("Leave this box");
 
+    /**
+     * Held down, in effect, while damaged items are being counted.
+     *
+     * <p>A toggle rather than a question after each scan, because damaged goods arrive in runs —
+     * a crushed carton is rarely one item — and asking every time would make the common case
+     * slower to spare the rare one. It stays on until switched off, and says so loudly, because
+     * the failure that matters is forgetting it is on.
+     */
+    private final javafx.scene.control.ToggleButton damagedToggle =
+            new javafx.scene.control.ToggleButton("Marking damaged");
+
     private final Label mrpPrompt = new Label();
     private final TextField mrpField = new TextField();
     private final VBox mrpBox = new VBox(6);
@@ -136,6 +147,18 @@ public class UnpackingScreen {
         leaveButton.setDisable(true);
         leaveButton.setOnAction(event -> leaveCarton());
 
+        damagedToggle.setFont(BODY);
+        damagedToggle.selectedProperty().addListener((observable, was, isDamaged) -> {
+            damagedToggle.setStyle(isDamaged ? WARN : "");
+            if (isDamaged) {
+                say("Marking items as damaged. They will be counted in, and priced lower"
+                        + " later. Switch this off for undamaged items.", WARN);
+            } else {
+                hideMessage();
+            }
+            Platform.runLater(scanField::requestFocus);
+        });
+
         Label hint = new Label("Scan the number on the box, then scan each item inside it.");
         hint.setFont(SMALL);
 
@@ -153,7 +176,7 @@ public class UnpackingScreen {
 
         lineList.setPadding(new Insets(16));
 
-        HBox footer = new HBox(12, leaveButton, finishButton);
+        HBox footer = new HBox(12, damagedToggle, leaveButton, finishButton);
         footer.setPadding(new Insets(16));
         footer.setAlignment(Pos.CENTER_RIGHT);
 
@@ -306,21 +329,27 @@ public class UnpackingScreen {
         // unit are recorded together rather than in two steps that could half-fail.
         String code = pendingTagCode;
         pendingTagCode = null;
+        boolean damaged = damagedToggle.isSelected();
         CountOutcome outcome =
                 code == null
-                        ? backend.count(match.lineId(), 1, mrpPaise)
-                        : backend.tag(match.lineId(), code, 1, mrpPaise);
+                        ? backend.count(match.lineId(), 1, mrpPaise, damaged)
+                        : backend.tag(match.lineId(), code, 1, mrpPaise, damaged);
         refreshLines();
         sayCounted(match, outcome);
     }
 
     private void sayCounted(UnpackingLine match, CountOutcome outcome) {
+        // Damaged counts keep the warning colour, so a toggle left on is visible on every
+        // single scan rather than only when it was switched.
+        String mark = damagedToggle.isSelected() ? " (damaged)" : "";
+        String style = damagedToggle.isSelected() ? WARN : OK;
         long left = Math.max(0, outcome.quantityExpected() - outcome.quantityCounted());
         if (left == 0) {
-            say(shortName(match) + " — all " + outcome.quantityCounted() + " found.", OK);
+            say(shortName(match) + mark + " — all " + outcome.quantityCounted() + " found.",
+                    style);
         } else {
-            say(shortName(match) + " — " + outcome.quantityCounted() + " of "
-                    + outcome.quantityExpected() + ", " + left + " still to find.", OK);
+            say(shortName(match) + mark + " — " + outcome.quantityCounted() + " of "
+                    + outcome.quantityExpected() + ", " + left + " still to find.", style);
         }
     }
 
@@ -384,7 +413,8 @@ public class UnpackingScreen {
                 askForMrp(line);
                 return;
             }
-            CountOutcome outcome = backend.tag(line.lineId(), code, 1, null);
+            CountOutcome outcome =
+                    backend.tag(line.lineId(), code, 1, null, damagedToggle.isSelected());
             refreshLines();
             sayCounted(line, outcome);
         } catch (BackendClient.RefusedException e) {
@@ -396,6 +426,7 @@ public class UnpackingScreen {
     }
 
     private void leaveCarton() {
+        damagedToggle.setSelected(false);
         carton = null;
         lines = List.of();
         untaggedCode = null;
@@ -415,6 +446,7 @@ public class UnpackingScreen {
         }
         try {
             backend.finishCarton(carton.boxId());
+            damagedToggle.setSelected(false);
             long missing = lines.stream().mapToLong(UnpackingLine::outstanding).sum();
             carton = null;
             lines = List.of();

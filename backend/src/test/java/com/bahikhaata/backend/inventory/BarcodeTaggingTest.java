@@ -28,6 +28,7 @@ import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -95,7 +96,8 @@ class BarcodeTaggingTest {
         ExpectedLine line = lineFor("B07KT9Q54M");
 
         var outcome = counting.tagAndCount(
-                line.getId(), "8901234567890", 1, Money.ofPaise(24_900), false, AT);
+                line.getId(), "8901234567890", StockCondition.GOOD, 1,
+                Money.ofPaise(24_900), false, AT);
 
         assertThat(outcome.quantityCounted()).isEqualTo(1);
         Barcode tagged = barcodes.findByCode("8901234567890").orElseThrow();
@@ -110,7 +112,8 @@ class BarcodeTaggingTest {
     @DisplayName("Once tagged, the real code resolves on its own and needs no second answer")
     void taggedCodeResolvesAfterwards() {
         ExpectedLine line = lineFor("B07KT9Q54M");
-        counting.tagAndCount(line.getId(), "8901234567890", 1, Money.ofPaise(24_900), false, AT);
+        counting.tagAndCount(line.getId(), "8901234567890", StockCondition.GOOD, 1,
+                Money.ofPaise(24_900), false, AT);
 
         // What the screen does on every later scan: resolve the code, then count against the
         // line it already knows.
@@ -125,7 +128,8 @@ class BarcodeTaggingTest {
     @DisplayName("A product ends up holding both codes, and both find it")
     void bothCodesFindTheProduct() {
         ExpectedLine line = lineFor("B07KT9Q54M");
-        counting.tagAndCount(line.getId(), "8901234567890", 1, Money.ofPaise(24_900), false, AT);
+        counting.tagAndCount(line.getId(), "8901234567890", StockCondition.GOOD, 1,
+                Money.ofPaise(24_900), false, AT);
 
         UUID productId = line.getProduct().getId();
         assertThat(barcodes.findByCode("B07KT9Q54M").orElseThrow().getProduct().getId())
@@ -139,11 +143,14 @@ class BarcodeTaggingTest {
     @Test
     @DisplayName("A code already meaning something else is refused, naming what it means")
     void aCodeCannotMeanTwoThings() {
-        counting.tagAndCount(lineFor("B07KT9Q54M").getId(), "8901234567890", 1, null, false, AT);
+        counting.tagAndCount(lineFor("B07KT9Q54M").getId(), "8901234567890",
+                StockCondition.GOOD, 1, null, false, AT);
         UUID earbuds = lineFor("B0DBHYTM2X").getId();
 
         assertThatThrownBy(
-                        () -> counting.tagAndCount(earbuds, "8901234567890", 1, null, false, AT))
+                        () -> counting.tagAndCount(
+                                earbuds, "8901234567890", StockCondition.GOOD, 1, null, false,
+                                AT))
                 .as("a code resolving to two products resolves to neither")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Garbage bags");
@@ -153,8 +160,10 @@ class BarcodeTaggingTest {
     @DisplayName("Tagging the same code to the same line again is harmless")
     void taggingTwiceIsHarmless() {
         ExpectedLine line = lineFor("B07KT9Q54M");
-        counting.tagAndCount(line.getId(), "8901234567890", 1, Money.ofPaise(24_900), false, AT);
-        counting.tagAndCount(line.getId(), "8901234567890", 1, null, false, AT);
+        counting.tagAndCount(line.getId(), "8901234567890", StockCondition.GOOD, 1,
+                Money.ofPaise(24_900), false, AT);
+        counting.tagAndCount(line.getId(), "8901234567890", StockCondition.GOOD, 1, null,
+                false, AT);
 
         assertThat(stock.onHand(line.getProduct().getId())).isEqualTo(2);
         assertThat(barcodes.findAll().stream()
@@ -170,7 +179,8 @@ class BarcodeTaggingTest {
         lots.save(lot);
         UUID lineId = lineFor("B07KT9Q54M").getId();
 
-        assertThatThrownBy(() -> counting.tagAndCount(lineId, "8901234567890", 1, null, false, AT))
+        assertThatThrownBy(() -> counting.tagAndCount(
+                                lineId, "8901234567890", StockCondition.GOOD, 1, null, false, AT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("closed");
     }
