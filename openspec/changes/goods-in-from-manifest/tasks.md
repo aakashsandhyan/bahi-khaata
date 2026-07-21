@@ -44,14 +44,14 @@
 
 ## 5. Shelf readiness
 
-- [ ] 5.1 Add the labelled state to `product` or `batch` as the design requires, with the migration reviewed before the entity.
-- [ ] 5.2 Implement the sellability gate as price plus recorded MRP plus label, and make the missing element reportable. Extend the existing sellability tests rather than replacing them.
-- [ ] 5.3 Refuse setting a price while the product's lot is open, reporting that the cost is not yet known, and test both sides of closing.
-- [ ] 5.4 Refuse a selling price above the recorded MRP, and test the boundary exactly at the MRP.
-- [ ] 5.5 Implement MRP capture against the batch during counting, including marking a looked-up figure as an estimate, and test that a batch without an MRP holds its product off the floor.
-- [ ] 5.6 Implement label content — MRP, selling price, and the saving in both rupees and percent — as a rendered model, without touching printer hardware. Test the saving arithmetic, including the rounding of the percentage.
-- [ ] 5.7 Refuse producing a label without a recorded MRP, and test it.
-- [ ] 5.8 Implement resolving a product's origin: its batches, their lots, and the suppliers. Test that a scanned label reaches the supplier, and that with two batches on hand the batch is attributed by consumption order rather than determined from the code.
+- [x] 5.1 Add the labelled state to `product` or `batch` as the design requires, with the migration reviewed before the entity.
+- [x] 5.2 Implement the sellability gate as price plus recorded MRP plus label, and make the missing element reportable. Extend the existing sellability tests rather than replacing them.
+- [x] 5.3 Refuse setting a price while the product's lot is open, reporting that the cost is not yet known, and test both sides of closing.
+- [x] 5.4 Refuse a selling price above the recorded MRP, and test the boundary exactly at the MRP.
+- [x] 5.5 Implement MRP capture against the batch during counting, including marking a looked-up figure as an estimate, and test that a batch without an MRP holds its product off the floor.
+- [x] 5.6 Implement label content — MRP, selling price, and the saving in both rupees and percent — as a rendered model, without touching printer hardware. Test the saving arithmetic, including the rounding of the percentage.
+- [x] 5.7 Refuse producing a label without a recorded MRP, and test it.
+- [x] 5.8 Implement resolving a product's origin: its batches, their lots, and the suppliers. Test that a scanned label reaches the supplier, and that with two batches on hand the batch is attributed by consumption order rather than determined from the code.
 
 ## 6. The unpacking screen
 

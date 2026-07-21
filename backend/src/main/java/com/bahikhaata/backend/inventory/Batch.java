@@ -95,6 +95,16 @@ public class Batch extends UuidEntity {
     @Column(name = "mrp_is_estimate", nullable = false)
     private boolean mrpIsEstimate;
 
+    /**
+     * When labels were printed for these goods, or null if they have not been.
+     *
+     * <p>The gate onto the shop floor. A label carries the MRP, and MRP is per batch, so
+     * labelling one delivery says nothing about the next.
+     */
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "labelled_at", columnDefinition = "text")
+    private Instant labelledAt;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -291,6 +301,30 @@ public class Batch extends UuidEntity {
 
     public boolean isMrpEstimate() {
         return mrpIsEstimate;
+    }
+
+    public boolean isLabelled() {
+        return labelledAt != null;
+    }
+
+    public Instant getLabelledAt() {
+        return labelledAt;
+    }
+
+    /**
+     * Records that labels have been printed for these goods.
+     *
+     * <p>Refused without an MRP: a label shows the saving against the printed maximum retail
+     * price, so there is nothing to print and nothing for a customer to check it against.
+     */
+    public void markLabelled(Instant at) {
+        Objects.requireNonNull(at, "labelling time");
+        if (mrp == null) {
+            throw new IllegalStateException(
+                    "batch " + getId() + " has no recorded MRP, so a label would have nothing to"
+                            + " show the saving against");
+        }
+        this.labelledAt = at;
     }
 
     public Instant getCreatedAt() {

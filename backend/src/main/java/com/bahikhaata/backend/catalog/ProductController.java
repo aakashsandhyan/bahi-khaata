@@ -19,6 +19,7 @@ package com.bahikhaata.backend.catalog;
 
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CreateProductRequest;
+import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.ProductResponse;
 import com.bahikhaata.contracts.SetPriceRequest;
@@ -47,10 +48,12 @@ class ProductController {
 
     private final ProductRepository products;
     private final BarcodeResolver resolver;
+    private final ProductPricing pricing;
 
-    ProductController(ProductRepository products, BarcodeResolver resolver) {
+    ProductController(ProductRepository products, BarcodeResolver resolver, ProductPricing pricing) {
         this.products = products;
         this.resolver = resolver;
+        this.pricing = pricing;
     }
 
     /**
@@ -81,17 +84,34 @@ class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ProductResponses.of(saved));
     }
 
-    /** Sets a product's selling price. A non-positive amount is refused as a bad request. */
+    /**
+     * Sets a product's selling price.
+     *
+     * <p>Routed through {@link ProductPricing} rather than setting it here, because a price
+     * depends on things this package cannot see: whether the delivery it came from has been
+     * closed, so its cost is known, and what MRP is printed on the goods now going out.
+     *
+     * <p>A non-positive amount, an unknown cost, or a price above the printed MRP are all
+     * refused as bad requests.
+     */
     @PutMapping("/{id}/price")
     ResponseEntity<ProductResponse> setPrice(
             @PathVariable UUID id, @RequestBody SetPriceRequest request) {
-        return products.findById(id)
-                .map(
-                        product -> {
-                            product.setSellingPrice(Money.ofPaise(request.sellingPricePaise()));
-                            return ResponseEntity.ok(ProductResponses.of(products.save(product)));
-                        })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        if (products.findById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(
+                ProductResponses.of(
+                        pricing.setSellingPrice(id, Money.ofPaise(request.sellingPricePaise()))));
+    }
+
+    /**
+     * Pricing goods whose cost is not yet settled is a sequencing mistake, not a bad value:
+     * the caller has to finish unpacking first, which the message says.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<String> notYet(IllegalStateException e) {
+        return ResponseEntity.status(409).body(e.getMessage());
     }
 
     /**
