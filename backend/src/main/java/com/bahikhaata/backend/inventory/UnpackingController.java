@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.backend.lookup.MrpBackfill;
 import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.DeliveryProgress;
@@ -50,16 +51,31 @@ class UnpackingController {
 
     private final GoodsInCounting counting;
     private final LotClosing closing;
+    private final MrpBackfill backfill;
 
-    UnpackingController(GoodsInCounting counting, LotClosing closing) {
+    UnpackingController(
+            GoodsInCounting counting, LotClosing closing, MrpBackfill backfill) {
         this.counting = counting;
         this.closing = closing;
+        this.backfill = backfill;
     }
 
     /** Every carton in a delivery, and where each has got to. */
     @GetMapping("/lots/{lotId}/boxes")
     List<CartonProgress> boxesOf(@PathVariable UUID lotId) {
         return counting.progressOf(lotId);
+    }
+
+    /**
+     * Looks up printed prices for items nobody has read yet, and records them as estimates.
+     *
+     * <p>Deliberate rather than automatic: it costs money per call and must never compete with
+     * someone unpacking. Safe to call again — it only touches items that still have no price.
+     */
+    @PostMapping("/lookup-prices")
+    MrpBackfill.Outcome lookUpPrices(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int limit) {
+        return backfill.run(limit);
     }
 
     /** Every delivery, and how far each has been unpacked. */
