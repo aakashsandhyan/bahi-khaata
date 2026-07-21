@@ -326,6 +326,37 @@ public class GoodsInCounting {
     }
 
     /**
+     * Forgets a code, so it can be scanned onto something else.
+     *
+     * <p>The dead end this exists for: a sticker was tagged to the wrong goods, the count was
+     * taken back, and the sticker still pointed at those goods — so scanning it again landed on
+     * a line with nothing left to count and there was nowhere to go.
+     *
+     * <p>Only codes learnt here. A supplier's own reference came with the manifest and is how a
+     * line is matched back to it; removing that would break the delivery rather than fix a
+     * mistake.
+     *
+     * <p>Barcodes are not history. A mapping that points at the wrong thing should cease to
+     * exist rather than be marked wrong, because anything left behind will go on resolving
+     * confidently.
+     */
+    @Transactional
+    public void releaseCode(String code) {
+        Barcode barcode =
+                barcodes.findByCode(code)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "nothing is scanning as " + code));
+        if (barcode.getOrigin() == Origin.MARKETPLACE) {
+            throw new IllegalArgumentException(
+                    code
+                            + " is the supplier's own reference for these goods, not a code from"
+                            + " the item. It is how the line is matched to the manifest and"
+                            + " cannot be given away.");
+        }
+        barcodes.delete(barcode);
+    }
+
+    /**
      * Marks a carton finished.
      *
      * <p>Does not require everything expected to have been found. The goods simply may not be

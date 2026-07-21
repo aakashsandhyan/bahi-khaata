@@ -234,6 +234,11 @@ public class BackendClient {
                 Void.class);
     }
 
+    /** Forgets a code, so the same sticker can be scanned onto the right item. */
+    public void releaseCode(String code) {
+        post("/api/unpacking/codes/" + encode(code) + "/release", body(), Void.class);
+    }
+
     public void finishCarton(UUID boxId) {
         post("/api/unpacking/boxes/" + boxId + "/finish", body(), Void.class);
     }

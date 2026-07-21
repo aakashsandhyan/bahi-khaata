@@ -176,6 +176,17 @@ class UnpackingController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Forgets a code, so the same sticker can be scanned onto the right item.
+     *
+     * <p>Where someone goes when a scan keeps resolving to goods it does not belong to.
+     */
+    @PostMapping("/codes/{code}/release")
+    ResponseEntity<Void> releaseCode(@PathVariable String code) {
+        counting.releaseCode(code);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Something in the carton that no line names. */
     @PostMapping("/boxes/{boxId}/unlisted")
     CountOutcome unlisted(

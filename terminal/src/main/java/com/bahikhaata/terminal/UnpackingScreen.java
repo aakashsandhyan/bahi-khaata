@@ -467,8 +467,12 @@ public class UnpackingScreen {
         }
 
         if (match.outstanding() == 0) {
-            say("All " + match.expected() + " of these are already counted. Anything more is"
-                    + " extra — set it aside.", WARN);
+            // Two very different situations reach here. Either this really is another of
+            // something already complete — genuinely extra — or the code is on the wrong item
+            // and keeps landing here, which is a dead end unless the code can be given up.
+            say("All " + match.expected() + " of these are already counted: " + shortName(match),
+                    WARN);
+            offerToReleaseCode(code, match);
             return;
         }
 
@@ -936,6 +940,71 @@ public class UnpackingScreen {
         } finally {
             Platform.runLater(scanField::requestFocus);
         }
+    }
+
+    /**
+     * Offers to forget a code that keeps landing on the wrong goods.
+     *
+     * <p>Shown at the moment the mistake bites: the sticker resolves to something already
+     * counted, so there is nothing to add and no way forward. Taking the count back does not
+     * help on its own — the sticker still points where it did, and every rescan lands here
+     * again.
+     */
+    private void offerToReleaseCode(String code, UnpackingLine wrongly) {
+        lineList.getChildren().clear();
+
+        Label heading = new Label("Is this really another one?");
+        heading.setFont(HEADING);
+        heading.setStyle(INK);
+        lineList.getChildren().add(heading);
+        lineList.getChildren().add(selectable("Code on the item: " + code, BODY));
+
+        Label explain =
+                new Label(
+                        "This code is on \"" + wrongly.name() + "\", and all of those are"
+                                + " counted. If the item in your hand is something else, this"
+                                + " code was put on the wrong thing.");
+        explain.setFont(SMALL);
+        explain.setWrapText(true);
+        explain.setStyle(INK);
+        lineList.getChildren().add(explain);
+
+        Button release = new Button("Wrong item — forget this code and let me scan it again");
+        release.setFont(BODY);
+        release.setWrapText(true);
+        release.setMaxWidth(Double.MAX_VALUE);
+        release.setStyle("-fx-padding:12;-fx-background-radius:6;-fx-background-color:#ffe0b2;");
+        release.setOnAction(
+                event -> {
+                    try {
+                        backend.releaseCode(code);
+                        forgetLastCount();
+                        refreshLines();
+                        say("Forgotten. Scan it again and say which item it really is."
+                                + " If you already counted one against the wrong item, take"
+                                + " that back too.", WARN);
+                    } catch (BackendClient.RefusedException e) {
+                        say(e.getMessage(), STOP);
+                    } catch (BackendUnavailableException e) {
+                        say("Cannot reach the system, so nothing has changed.", STOP);
+                    } finally {
+                        Platform.runLater(scanField::requestFocus);
+                    }
+                });
+        lineList.getChildren().add(release);
+
+        Button extra = new Button("No, it really is another one — set it aside");
+        extra.setFont(BODY);
+        extra.setMaxWidth(Double.MAX_VALUE);
+        extra.setStyle("-fx-padding:12;-fx-background-radius:6;");
+        extra.setOnAction(
+                event -> {
+                    refreshLines();
+                    say("Set it aside and tell the manager. More arrived than the sheet says.",
+                            WARN);
+                    Platform.runLater(scanField::requestFocus);
+                });
+        lineList.getChildren().add(extra);
     }
 
     private void leaveCarton() {

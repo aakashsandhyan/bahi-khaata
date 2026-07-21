@@ -198,6 +198,49 @@ class UndoCountTest {
     }
 
     @Test
+    @DisplayName("A code put on the wrong item can be given up and used again")
+    void aMisplacedCodeCanBeReleased() {
+        // The dead end: a sticker tagged to the wrong goods, the count taken back, and the
+        // sticker still pointing where it did — so every rescan lands on something already
+        // counted with nowhere to go.
+        counting.tagAndCount(line("WRONG").getId(), "LPNBLR5Q0002222", StockCondition.GOOD, 1,
+                null, false, AT);
+        counting.undoCount(line("WRONG").getId(), null, 1, null, AT);
+        assertThat(barcodes.findByCode("LPNBLR5Q0002222"))
+                .as("taking the count back leaves the mapping behind, which is the trap")
+                .isPresent();
+
+        counting.releaseCode("LPNBLR5Q0002222");
+
+        assertThat(barcodes.findByCode("LPNBLR5Q0002222")).isEmpty();
+
+        // And the same sticker now goes where it belongs.
+        counting.tagAndCount(line("RIGHT").getId(), "LPNBLR5Q0002222", StockCondition.GOOD, 1,
+                null, false, AT);
+        assertThat(barcodes.findByCode("LPNBLR5Q0002222").orElseThrow().getProduct().getId())
+                .isEqualTo(line("RIGHT").getProduct().getId());
+        assertThat(onHand("RIGHT")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("The supplier's own reference cannot be given away")
+    void theManifestReferenceCannotBeReleased() {
+        assertThatThrownBy(() -> counting.releaseCode("WRONG"))
+                .as("it is how the line is matched to the manifest; losing it breaks the"
+                        + " delivery rather than fixing a mistake")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("supplier's own reference");
+    }
+
+    @Test
+    @DisplayName("Releasing a code nothing scans as is refused")
+    void unknownCodeCannotBeReleased() {
+        assertThatThrownBy(() -> counting.releaseCode("NEVERSEEN"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("nothing is scanning as");
+    }
+
+    @Test
     @DisplayName("Taking back more than was counted is refused")
     void cannotUndoMoreThanHappened() {
         counting.countExpected(line("WRONG").getId(), StockCondition.GOOD, 1, null, false, AT);
