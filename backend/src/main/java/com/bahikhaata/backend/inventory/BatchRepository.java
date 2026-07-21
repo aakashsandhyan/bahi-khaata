@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.inventory;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -27,6 +28,13 @@ public interface BatchRepository extends JpaRepository<Batch, UUID> {
 
     /** Every batch of a lot — the lines whose costs must reconcile to the lot amount. */
     List<Batch> findByLotId(UUID lotId);
+
+    /**
+     * The one batch a product has within a lot. Unique by constraint: counting the same
+     * product out of several cartons of one delivery accumulates into a single batch, since a
+     * batch is one product's arrival in one lot however many boxes it was split between.
+     */
+    Optional<Batch> findByLotIdAndProductId(UUID lotId, UUID productId);
 
     /**
      * A product's batches in FIFO order: oldest delivery first, by the lot's business date

@@ -1,33 +1,33 @@
 ## 1. Schema for expectation, boxes and lot state
 
-- [ ] 1.1 Write the V12 migration creating `EXPECTED_LINE` (UUID PK, `lot_id`, `product_id`, supplier `code`, `quantity_expected` BIGINT, `stated_value_paise` BIGINT nullable, `tracking_number` text, timestamps) with a foreign key to `lot` and `product`. Review the SQL before any entity exists.
-- [ ] 1.2 Extend V12 with `BOX` (UUID PK, `lot_id`, `tracking_number`, `finished_at` nullable, timestamps) and a unique constraint on `(lot_id, tracking_number)`. A box is per-lot because one tracking number carries goods from a single category sheet.
-- [ ] 1.3 Extend V12 with `lot.state` (`OPEN`/`CLOSED`, CHECK-constrained, defaulting to `OPEN`) and `lot.closed_at` nullable. Add `AllocationState` or reuse a plain enum in contracts, and add the drift-test row so the enum and the CHECK cannot diverge.
-- [ ] 1.4 Make `batch.allocated_total_paise`, `batch.allocated_unit_cost_paise` and `batch.cost_basis` nullable in V12, since a batch now carries stock before its lot is closed. Verify under `ddl-auto=validate` that Hibernate still starts.
-- [ ] 1.5 Add `ESTIMATED` to `CostBasis` and its CHECK constraint, for lines weighted from the lot average rather than from a stated value, and update the drift test.
-- [ ] 1.6 Map `ExpectedLine` and `Box` entities following the existing converter and declared-type conventions, and test that both round-trip.
-- [ ] 1.7 Test at the database level that an uncosted batch is distinguishable from a zero-cost one: a batch with null allocated cost reads back as null, not as `Money.ZERO`.
+- [x] 1.1 Write the V12 migration creating `EXPECTED_LINE` (UUID PK, `lot_id`, `product_id`, supplier `code`, `quantity_expected` BIGINT, `stated_value_paise` BIGINT nullable, `tracking_number` text, timestamps) with a foreign key to `lot` and `product`. Review the SQL before any entity exists.
+- [x] 1.2 Extend V12 with `BOX` (UUID PK, `lot_id`, `tracking_number`, `finished_at` nullable, timestamps) and a unique constraint on `(lot_id, tracking_number)`. A box is per-lot because one tracking number carries goods from a single category sheet.
+- [x] 1.3 Extend V12 with `lot.state` (`OPEN`/`CLOSED`, CHECK-constrained, defaulting to `OPEN`) and `lot.closed_at` nullable. Add `AllocationState` or reuse a plain enum in contracts, and add the drift-test row so the enum and the CHECK cannot diverge.
+- [x] 1.4 Make `batch.allocated_total_paise`, `batch.allocated_unit_cost_paise` and `batch.cost_basis` nullable in V12, since a batch now carries stock before its lot is closed. Verify under `ddl-auto=validate` that Hibernate still starts.
+- [x] 1.5 Add `ESTIMATED` to `CostBasis` and its CHECK constraint, for lines weighted from the lot average rather than from a stated value, and update the drift test.
+- [x] 1.6 Map `ExpectedLine` and `Box` entities following the existing converter and declared-type conventions, and test that both round-trip.
+- [x] 1.7 Test at the database level that an uncosted batch is distinguishable from a zero-cost one: a batch with null allocated cost reads back as null, not as `Money.ZERO`.
 
 ## 2. Manifest import becomes an expectation
 
-- [ ] 2.1 Extend `tools/consignment.py` to read the `Tracking number` column it currently discards, keyed per line, and confirm against the real workbook that 533 distinct boxes are found across 3,583 units.
-- [ ] 2.2 Extend `ImportLine` in contracts with the tracking number, and `ImportResult` with counts of boxes and expected lines recorded.
-- [ ] 2.3 Rewrite `ConsignmentImporter` to write the lot, its boxes, its expected lines, and the products and barcodes — and no stock ledger entries at all. Keep the whole import in one transaction.
-- [ ] 2.4 Test that importing a manifest writes no ledger entry and leaves stock on hand unchanged for every product it names.
-- [ ] 2.5 Test that a product named by the manifest is created with no stock, that an already-known code is matched rather than duplicated, and that a never-counted line leaves a catalogue entry rather than an error.
-- [ ] 2.6 Test that an unmapped supplier product-line code fails the import reporting that code, and that nothing from the manifest is recorded.
-- [ ] 2.7 Keep the existing online-price behaviour under the new shape: recorded only from off-market manifests, averaged by quantity across repeated rows, refused when two marketplaces disagree. Re-run the existing tests against the rewritten importer.
-- [ ] 2.8 Re-import the Sushil consignment against a fresh database and verify 7 lots, 533 boxes, 1,878 products, 1,878 expected lines totalling 3,583 expected units, and **zero** units on hand.
+- [x] 2.1 Extend `tools/consignment.py` to read the `Tracking number` column it currently discards, keyed per line, and confirm against the real workbook that 533 distinct boxes are found across 3,583 units.
+- [x] 2.2 Extend `ImportLine` in contracts with the tracking number, and `ImportResult` with counts of boxes and expected lines recorded.
+- [x] 2.3 Rewrite `ConsignmentImporter` to write the lot, its boxes, its expected lines, and the products and barcodes — and no stock ledger entries at all. Keep the whole import in one transaction.
+- [x] 2.4 Test that importing a manifest writes no ledger entry and leaves stock on hand unchanged for every product it names.
+- [x] 2.5 Test that a product named by the manifest is created with no stock, that an already-known code is matched rather than duplicated, and that a never-counted line leaves a catalogue entry rather than an error.
+- [x] 2.6 Test that an unmapped supplier product-line code fails the import reporting that code, and that nothing from the manifest is recorded.
+- [x] 2.7 Keep the existing online-price behaviour under the new shape: recorded only from off-market manifests, averaged by quantity across repeated rows, refused when two marketplaces disagree. Re-run the existing tests against the rewritten importer.
+- [x] 2.8 Re-import the Sushil consignment against a fresh database and verify 7 lots, 533 boxes, 1,878 products, 1,878 expected lines totalling 3,583 expected units, and **zero** units on hand.
 
 ## 3. Counting what actually arrived
 
-- [ ] 3.1 Add `GoodsInCounting` in `backend`, with an operation recording a counted quantity for one expected line: it creates or updates the batch, writes the receipt to the ledger, and leaves the allocated cost null.
-- [ ] 3.2 Test the three count outcomes against one expected line of twelve: counting twelve, counting eleven, and counting thirteen. In each case stock on hand equals the counted quantity, and the difference from expected is readable.
-- [ ] 3.3 Implement recording goods found in a box that no expected line names, against the lot, distinguishable from expected goods. Test that they reach the ledger and are identifiable as unlisted.
-- [ ] 3.4 Implement per-line count persistence so a part-counted box retains its counts, and test that reopening it reports only the lines still to count.
-- [ ] 3.5 Implement marking a box finished, and test that a finished box keeps any shortfall or surplus visible rather than clearing it.
-- [ ] 3.6 Implement the per-lot completeness report: boxes not started, part counted, and finished. Test each state, including that a box with a single line behaves identically to one with many.
-- [ ] 3.7 Add the counting endpoints to `ConsignmentController` — record a count, record an unlisted item, finish a box, read a lot's completeness — and verify them against a booted backend with `curl`, not only by MockMvc.
+- [x] 3.1 Add `GoodsInCounting` in `backend`, with an operation recording a counted quantity for one expected line: it creates or updates the batch, writes the receipt to the ledger, and leaves the allocated cost null.
+- [x] 3.2 Test the three count outcomes against one expected line of twelve: counting twelve, counting eleven, and counting thirteen. In each case stock on hand equals the counted quantity, and the difference from expected is readable.
+- [x] 3.3 Implement recording goods found in a box that no expected line names, against the lot, distinguishable from expected goods. Test that they reach the ledger and are identifiable as unlisted.
+- [x] 3.4 Implement per-line count persistence so a part-counted box retains its counts, and test that reopening it reports only the lines still to count.
+- [x] 3.5 Implement marking a box finished, and test that a finished box keeps any shortfall or surplus visible rather than clearing it.
+- [x] 3.6 Implement the per-lot completeness report: boxes not started, part counted, and finished. Test each state, including that a box with a single line behaves identically to one with many.
+- [x] 3.7 Add the counting endpoints to `ConsignmentController` — record a count, record an unlisted item, finish a box, read a lot's completeness — and verify them against a booted backend with `curl`, not only by MockMvc.
 
 ## 4. Closing a lot and apportioning its cost
 

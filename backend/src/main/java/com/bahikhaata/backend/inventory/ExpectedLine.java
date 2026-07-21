@@ -65,6 +65,17 @@ public class ExpectedLine extends UuidEntity {
     private long quantityExpected;
 
     /**
+     * How many have actually been found so far. Kept beside the expectation rather than
+     * replacing it, because the difference between them is the thing worth recording.
+     *
+     * <p>Held per line rather than derived from the batch: a batch sums a product across every
+     * carton it arrives in, so it cannot say what is left to find in this particular box —
+     * which is what someone resuming a part-counted carton needs to see.
+     */
+    @Column(name = "quantity_counted", nullable = false)
+    private long quantityCounted;
+
+    /**
      * What the line is worth per unit, used to weigh its share of the lot: a marketplace
      * selling price on a returns sheet, a supplier cost on a cost-plus one.
      *
@@ -131,6 +142,42 @@ public class ExpectedLine extends UuidEntity {
     /** The per-unit weight for apportioning, or null if the manifest stated none. */
     public Money getStatedValue() {
         return statedValue;
+    }
+
+    public long getQuantityCounted() {
+        return quantityCounted;
+    }
+
+    /** What is still to be found here, or zero once everything expected has turned up. */
+    public long getQuantityOutstanding() {
+        return Math.max(0, quantityExpected - quantityCounted);
+    }
+
+    /**
+     * The difference between what was promised and what was found: negative when short,
+     * positive when more turned up than the manifest claimed.
+     */
+    public long getDiscrepancy() {
+        return quantityCounted - quantityExpected;
+    }
+
+    public boolean isFullyCounted() {
+        return quantityCounted >= quantityExpected;
+    }
+
+    /**
+     * Records units found. Additive, so a carton counted in several sittings accumulates
+     * rather than overwriting — someone who counts four, goes home, and counts three more has
+     * found seven.
+     *
+     * <p>Counting beyond the expectation is permitted: more turning up than was promised is a
+     * fact about the delivery, and refusing to record it would force the operator to lie.
+     */
+    public void recordCounted(long quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("counted quantity must be positive, was " + quantity);
+        }
+        this.quantityCounted += quantity;
     }
 
     public Instant getCreatedAt() {
