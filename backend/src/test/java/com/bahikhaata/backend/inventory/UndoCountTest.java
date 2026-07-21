@@ -162,6 +162,42 @@ class UndoCountTest {
     }
 
     @Test
+    @DisplayName("A count can be taken back without saying what condition it was")
+    void conditionNeedNotBeNamed() {
+        // What a row on screen knows is "three counted", not how those three were split. It
+        // should not have to guess in order to correct one.
+        counting.countExpected(line("WRONG").getId(), StockCondition.DAMAGED, 2, null, false, AT);
+
+        counting.undoCount(line("WRONG").getId(), null, 1, null, AT);
+
+        assertThat(line("WRONG").getQuantityCounted()).isEqualTo(1);
+        assertThat(onHand("WRONG")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Taking back an item counted long before the last scan works the same")
+    void anyEarlierCountCanBeTakenBack() {
+        counting.countExpected(line("WRONG").getId(), StockCondition.GOOD, 1, null, false, AT);
+        // Ten more items go by before anyone notices.
+        counting.countExpected(line("RIGHT").getId(), StockCondition.GOOD, 3, null, false, AT);
+
+        counting.undoCount(line("WRONG").getId(), null, 1, null, AT);
+
+        assertThat(onHand("WRONG")).isZero();
+        assertThat(onHand("RIGHT"))
+                .as("correcting one line must leave the others alone")
+                .isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Taking back from an item nothing was counted for is refused")
+    void nothingToTakeBack() {
+        assertThatThrownBy(() -> counting.undoCount(line("WRONG").getId(), null, 1, null, AT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("nothing is counted");
+    }
+
+    @Test
     @DisplayName("Taking back more than was counted is refused")
     void cannotUndoMoreThanHappened() {
         counting.countExpected(line("WRONG").getId(), StockCondition.GOOD, 1, null, false, AT);

@@ -226,7 +226,9 @@ public class BackendClient {
                 "/api/unpacking/lines/" + lineId + "/undo",
                 Map.of(
                         "quantity", quantity,
-                        "condition", condition,
+                        // Empty means "whichever it was counted as", which is what a row on
+                        // screen knows: three counted, not how the three were split.
+                        "condition", condition == null ? "" : condition,
                         "untagCode", untagCode == null ? "" : untagCode),
                 Void.class);
     }

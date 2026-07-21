@@ -168,11 +168,10 @@ class UnpackingController {
      */
     @PostMapping("/lines/{lineId}/undo")
     ResponseEntity<Void> undo(@PathVariable UUID lineId, @RequestBody UndoRequest request) {
+        // A null condition means "whichever it was". A row on screen shows three counted, not
+        // how those three were split.
         counting.undoCount(
-                lineId,
-                request.condition() == null ? StockCondition.GOOD : request.condition(),
-                request.quantity(),
-                request.untagCode(),
+                lineId, request.condition(), request.quantity(), request.untagCode(),
                 Instant.now());
         return ResponseEntity.noContent().build();
     }

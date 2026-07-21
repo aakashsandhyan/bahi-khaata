@@ -271,17 +271,14 @@ public class GoodsInCounting {
                                 "no such expected line: " + expectedLineId));
         requireOpen(line.getLot());
 
-        Batch batch =
-                batches.findByLotIdAndProductIdAndCondition(
-                                line.getLot().getId(), line.getProduct().getId(), condition)
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "nothing was counted for that item in this delivery"));
+        Batch batch = batchToCorrect(line, condition);
 
+        StockCondition actual = batch.getCondition();
         batch.removeCounted(quantity);
         line.removeCounted(quantity);
 
         // Unusable goods never reached the ledger, so there is nothing there to correct.
-        if (condition != StockCondition.UNUSABLE) {
+        if (actual != StockCondition.UNUSABLE) {
             ledger.save(
                     StockLedgerEntry.adjustment(
                             line.getProduct(), batch, -quantity, at));
@@ -296,6 +293,36 @@ public class GoodsInCounting {
                     .filter(barcode -> barcode.getOrigin() != Origin.MARKETPLACE)
                     .ifPresent(barcodes::delete);
         }
+    }
+
+    /**
+     * Which batch a correction should come off.
+     *
+     * <p>A caller that names a condition means it. One that does not — a row on screen showing
+     * only "3 counted", with no idea how those three were split between sound, damaged and
+     * broken — gets the one holding the most, which is nearly always the only one.
+     */
+    private Batch batchToCorrect(ExpectedLine line, StockCondition condition) {
+        List<Batch> held =
+                batches.findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
+                        .stream()
+                        .filter(batch -> batch.getQuantityReceived() > 0)
+                        .toList();
+        if (held.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "nothing is counted for that item in this delivery, so there is nothing to"
+                            + " take back");
+        }
+        if (condition != null) {
+            return held.stream()
+                    .filter(batch -> batch.getCondition() == condition)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "nothing was counted as " + condition + " for that item"));
+        }
+        return held.stream()
+                .max(java.util.Comparator.comparingLong(Batch::getQuantityReceived))
+                .orElseThrow();
     }
 
     /**

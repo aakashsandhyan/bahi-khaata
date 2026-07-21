@@ -1052,6 +1052,11 @@ public class UnpackingScreen {
         // Done reads green from across the room; still-to-find stays plain. Nothing is red,
         // because nothing here is yet a mistake — a box in progress is just a box in progress.
         HBox row = new HBox(12, detail, count);
+        // Anything counted can be taken back, not only the last thing scanned — a mistake is
+        // often found ten items later, and by then the undo button is about something else.
+        if (line.counted() > 0) {
+            row.getChildren().add(takeBackButton(line));
+        }
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(6, 10, 6, 10));
         row.setStyle(
@@ -1131,6 +1136,40 @@ public class UnpackingScreen {
     private void hideMessage() {
         message.setVisible(false);
     }
+
+    /**
+     * Takes one unit back off a line that was counted earlier.
+     *
+     * <p>Deliberately one at a time. Taking back a count is undoing a real record, and a button
+     * that empties a line in a single press is one slip away from a bigger mistake than the one
+     * being corrected.
+     *
+     * <p>It does not unmap any code. This is a correction to a count made some time ago, and
+     * which scan taught which code is no longer known — a wrong mapping is a separate job, on a
+     * screen that can show what a product's codes are.
+     */
+    private Button takeBackButton(UnpackingLine line) {
+        Button back = new Button("Take one back");
+        back.setFont(SMALL);
+        back.setStyle("-fx-padding:6 10;-fx-background-radius:6;");
+        back.setOnAction(
+                event -> {
+                    try {
+                        backend.undo(line.lineId(), 1, null, null);
+                        forgetLastCount();
+                        refreshLines();
+                        say("Took one back: " + shortName(line), WARN);
+                    } catch (BackendClient.RefusedException e) {
+                        say(e.getMessage(), STOP);
+                    } catch (BackendUnavailableException e) {
+                        say("Cannot reach the system, so nothing has been taken back.", STOP);
+                    } finally {
+                        Platform.runLater(scanField::requestFocus);
+                    }
+                });
+        return back;
+    }
+
 
     /** Nothing to take back once a carton is put down; the offer would be a lie. */
     private void forgetLastCount() {
