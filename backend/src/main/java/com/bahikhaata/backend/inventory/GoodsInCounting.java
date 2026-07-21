@@ -23,6 +23,7 @@ import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.CountOutcome;
+import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
@@ -58,6 +59,7 @@ public class GoodsInCounting {
     private final UnlistedFindRepository unlistedFinds;
     private final BatchRepository batches;
     private final BoxRepository boxes;
+    private final LotRepository lots;
     private final StockLedgerRepository ledger;
     private final ProductRepository products;
     private final BarcodeRepository barcodes;
@@ -67,6 +69,7 @@ public class GoodsInCounting {
             UnlistedFindRepository unlistedFinds,
             BatchRepository batches,
             BoxRepository boxes,
+            LotRepository lots,
             StockLedgerRepository ledger,
             ProductRepository products,
             BarcodeRepository barcodes) {
@@ -74,6 +77,7 @@ public class GoodsInCounting {
         this.unlistedFinds = unlistedFinds;
         this.batches = batches;
         this.boxes = boxes;
+        this.lots = lots;
         this.ledger = ledger;
         this.products = products;
         this.barcodes = barcodes;
@@ -331,6 +335,38 @@ public class GoodsInCounting {
                                     box.isFinished());
                         })
                 .toList();
+    }
+
+    /**
+     * How far a delivery has been unpacked.
+     *
+     * <p>Includes the count of items still waiting on a printed price, because that is the queue
+     * that decides when anything can actually be sold — cartons being empty is not the finish
+     * line, an MRP against every item is.
+     */
+    @Transactional(readOnly = true)
+    public DeliveryProgress progressOfDelivery(UUID lotId) {
+        Lot lot = lots.findById(lotId)
+                .orElseThrow(() -> new IllegalArgumentException("no such delivery: " + lotId));
+
+        List<CartonProgress> cartons = progressOf(lotId);
+        List<ExpectedLine> lines = expectedLines.findByLotIdOrderByCode(lotId);
+
+        long withoutMrp =
+                batches.findByLotId(lotId).stream().filter(batch -> batch.getMrp() == null).count();
+
+        return new DeliveryProgress(
+                lotId,
+                lot.getSupplier(),
+                lines.isEmpty() ? "" : lines.get(0).getProduct().getCategory().code(),
+                cartons.size(),
+                (int) cartons.stream().filter(CartonProgress::finished).count(),
+                (int) cartons.stream().filter(CartonProgress::inProgress).count(),
+                lines.stream().mapToLong(ExpectedLine::getQuantityExpected).sum(),
+                lines.stream().mapToLong(ExpectedLine::getQuantityCounted).sum(),
+                unlistedFinds.findByLotId(lotId).stream().mapToLong(UnlistedFind::getQuantity).sum(),
+                withoutMrp,
+                !lot.isOpen());
     }
 
     private void requireOpen(Lot lot) {

@@ -19,6 +19,7 @@ package com.bahikhaata.backend.inventory;
 
 import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.DeliveryClosed;
+import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.StockCondition;
@@ -59,6 +60,12 @@ class UnpackingController {
     @GetMapping("/lots/{lotId}/boxes")
     List<CartonProgress> boxesOf(@PathVariable UUID lotId) {
         return counting.progressOf(lotId);
+    }
+
+    /** How far a delivery has been unpacked. */
+    @GetMapping("/lots/{lotId}/progress")
+    DeliveryProgress deliveryProgress(@PathVariable UUID lotId) {
+        return counting.progressOfDelivery(lotId);
     }
 
     /** What should be in one carton — the screen shown after scanning the box. */

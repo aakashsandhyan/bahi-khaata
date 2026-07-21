@@ -98,6 +98,16 @@ public class UnpackingScreen {
      * the state from which controls happen to be visible.
      */
     private final Label nextStep = new Label();
+
+    /**
+     * How the whole delivery is going, kept on screen while a carton is open.
+     *
+     * <p>Someone working through five hundred cartons cannot tell how far they have got from
+     * the carton in front of them, and asking is not something a screen should make them do.
+     * Cartons and items rather than a percentage, because those are the things they can see on
+     * the pallet.
+     */
+    private final Label deliveryLine = new Label();
     private final Label message = new Label();
     private final VBox lineList = new VBox(8);
     private final Button finishButton = new Button("Box is done");
@@ -569,6 +579,36 @@ public class UnpackingScreen {
         }
     }
 
+    private void refreshDelivery() {
+        if (carton == null) {
+            deliveryLine.setText("");
+            return;
+        }
+        try {
+            var progress = backend.deliveryProgress(carton.lotId());
+            String waiting =
+                    progress.itemsWithoutMrp() == 0
+                            ? ""
+                            : "   ·   " + progress.itemsWithoutMrp() + " waiting on a price";
+            deliveryLine.setText(
+                    progress.category()
+                            + "   ·   boxes "
+                            + progress.cartonsFinished()
+                            + " done, "
+                            + progress.cartonsStarted()
+                            + " open, "
+                            + progress.cartonsNotStarted()
+                            + " untouched   ·   items "
+                            + progress.unitsCounted()
+                            + " of "
+                            + progress.unitsExpected()
+                            + waiting);
+        } catch (RuntimeException e) {
+            // Never worth interrupting someone's counting over. The number simply goes blank.
+            deliveryLine.setText("");
+        }
+    }
+
     private void refreshLines() {
         lines = backend.linesIn(carton.boxId());
         cartonLabel.setText("Box " + carton.trackingNumber());
@@ -580,6 +620,7 @@ public class UnpackingScreen {
         for (UnpackingLine line : lines) {
             lineList.getChildren().add(rowFor(line));
         }
+        refreshDelivery();
     }
 
     private HBox rowFor(UnpackingLine line) {

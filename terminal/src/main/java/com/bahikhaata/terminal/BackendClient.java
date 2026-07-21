@@ -20,6 +20,7 @@ package com.bahikhaata.terminal;
 import com.bahikhaata.contracts.CartonProgress;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.DeliveryClosed;
+import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.HealthResponse;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
@@ -131,6 +132,11 @@ public class BackendClient {
         return getList("/api/unpacking/boxes/" + boxId + "/lines", UnpackingLine.class);
     }
 
+    /** How far a delivery has been unpacked. */
+    public DeliveryProgress deliveryProgress(UUID lotId) {
+        return get("/api/unpacking/lots/" + lotId + "/progress", DeliveryProgress.class);
+    }
+
     /** Every carton in a delivery, and where each has got to. */
     public List<CartonProgress> cartonsInDelivery(UUID lotId) {
         return getList("/api/unpacking/lots/" + lotId + "/boxes", CartonProgress.class);
@@ -202,6 +208,17 @@ public class BackendClient {
 
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private <T> T get(String path, Class<T> type) {
+        HttpResponse<String> response =
+                send(HttpRequest.newBuilder(baseUri.resolve(path)).timeout(REQUEST_TIMEOUT).GET());
+        requireOk(response);
+        try {
+            return json.readValue(response.body(), type);
+        } catch (IOException e) {
+            throw new BackendUnavailableException("Unreadable response from " + path, e);
+        }
     }
 
     private <T> List<T> getList(String path, Class<T> element) {
