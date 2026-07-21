@@ -23,6 +23,7 @@ import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.StockCondition;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
@@ -76,6 +77,16 @@ class UnpackingController {
     MrpBackfill.Outcome lookUpPrices(
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int limit) {
         return backfill.run(limit);
+    }
+
+    /**
+     * What a lookup thinks these goods' printed price is.
+     *
+     * <p>Offered, never applied. The person asking has the pack in their hand and the pack wins.
+     */
+    @GetMapping("/lines/{lineId}/suggested-mrp")
+    SuggestedMrp suggestedMrp(@PathVariable UUID lineId) {
+        return counting.suggestMrpFor(lineId);
     }
 
     /** Every delivery, and how far each has been unpacked. */

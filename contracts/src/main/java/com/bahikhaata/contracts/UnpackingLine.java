@@ -33,6 +33,10 @@ import java.util.UUID;
  *     where the sheet stated neither.
  * @param onlinePricePaise what the goods last sold for online, where that is known. Useful
  *     beside the MRP being typed: a printed price far from it is worth a second look.
+ * @param indicativeCostPaise roughly what this will have cost per unit — the sheet's value
+ *     scaled by the rate paid for the delivery. <strong>Not the final cost.</strong> That is
+ *     settled only when the delivery closes and is spread across what actually arrived, so a
+ *     line that turns up short ends up costing more per unit than this says.
  */
 public record UnpackingLine(
         UUID lineId,
@@ -43,4 +47,5 @@ public record UnpackingLine(
         long outstanding,
         boolean needsMrp,
         Long statedValuePaise,
-        Long onlinePricePaise) {}
+        Long onlinePricePaise,
+        Long indicativeCostPaise) {}

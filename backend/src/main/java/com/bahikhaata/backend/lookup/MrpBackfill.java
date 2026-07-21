@@ -23,6 +23,7 @@ import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.SuggestedMrp;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -126,6 +127,31 @@ public class MrpBackfill {
                 recorded + " price(s) found and recorded as estimates. Anyone holding the goods"
                         + " should still read the pack — an estimate is evidence, not the"
                         + " printed figure.");
+    }
+
+    /**
+     * Looks up one line's printed price, for someone to accept or ignore.
+     *
+     * <p>Called while the goods are in hand, so it is deliberately not applied: the pack itself
+     * is better evidence than any website, and the person holding it can simply read it. This
+     * exists for the packs where the figure has rubbed off, or was never printed.
+     */
+    @Transactional(readOnly = true)
+    public SuggestedMrp suggestFor(UUID productId) {
+        if (!lookup.isAvailable()) {
+            return SuggestedMrp.none(lookup.unavailableReason());
+        }
+        return marketplaceCodeOf(productId)
+                .map(
+                        asin -> {
+                            Money price = lookup.lookup(List.of(asin)).get(asin);
+                            return price == null
+                                    ? SuggestedMrp.none("No printed price is listed for these"
+                                            + " goods. Read it off the pack.")
+                                    : new SuggestedMrp(price.paise(), "Amazon listing", null);
+                        })
+                .orElseGet(() -> SuggestedMrp.none(
+                        "Nothing to look these up by. Read the price off the pack."));
     }
 
     /** The supplier's marketplace reference for a product, which is what a lookup takes. */

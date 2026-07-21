@@ -22,6 +22,7 @@ import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.HealthResponse;
+import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -137,6 +138,11 @@ public class BackendClient {
         return getList("/api/unpacking/deliveries", DeliveryProgress.class);
     }
 
+    /** What a lookup thinks these goods' printed price is. Offered, never applied. */
+    public SuggestedMrp suggestedMrp(UUID lineId) {
+        return get("/api/unpacking/lines/" + lineId + "/suggested-mrp", SuggestedMrp.class);
+    }
+
     /** How far a delivery has been unpacked. */
     public DeliveryProgress deliveryProgress(UUID lotId) {
         return get("/api/unpacking/lots/" + lotId + "/progress", DeliveryProgress.class);
@@ -148,13 +154,17 @@ public class BackendClient {
     }
 
     /** Records units found against something the manifest named. */
-    public CountOutcome count(UUID lineId, long quantity, Long mrpPaise, boolean damaged) {
+    public CountOutcome count(
+            UUID lineId, long quantity, Long mrpPaise, boolean damaged, boolean mrpIsEstimate) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/count",
                 Map.of(
                         "quantity", quantity,
                         "mrpPaise", mrpPaise == null ? "" : mrpPaise,
-                        "mrpIsEstimate", false,
+                        // Whether the figure was read off the pack or looked up. A looked-up
+                        // price is evidence about the printed one, not the printed one, and a
+                        // label built on it should be recognisable as such later.
+                        "mrpIsEstimate", mrpIsEstimate,
                         "condition", damaged ? "DAMAGED" : "GOOD"),
                 CountOutcome.class);
     }
@@ -167,14 +177,15 @@ public class BackendClient {
      * from then on the real code resolves by itself.
      */
     public CountOutcome tag(
-            UUID lineId, String scannedCode, long quantity, Long mrpPaise, boolean damaged) {
+            UUID lineId, String scannedCode, long quantity, Long mrpPaise, boolean damaged,
+            boolean mrpIsEstimate) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/tag",
                 Map.of(
                         "scannedCode", scannedCode,
                         "quantity", quantity,
                         "mrpPaise", mrpPaise == null ? "" : mrpPaise,
-                        "mrpIsEstimate", false,
+                        "mrpIsEstimate", mrpIsEstimate,
                         "condition", damaged ? "DAMAGED" : "GOOD"),
                 CountOutcome.class);
     }

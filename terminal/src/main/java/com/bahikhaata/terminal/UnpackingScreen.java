@@ -19,6 +19,7 @@ package com.bahikhaata.terminal;
 
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.DeliveryProgress;
+import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import java.util.List;
@@ -436,6 +437,67 @@ public class UnpackingScreen {
         say("Type the price and press Enter.", OK);
         setNextStep("Type the MRP printed on the pack, then press Enter.");
         Platform.runLater(mrpField::requestFocus);
+        offerLookedUpPrice(line);
+    }
+
+    /**
+     * Asks what the goods are listed at, and offers it.
+     *
+     * <p>Off the JavaFX thread and never waited for. The pack is in someone's hand and they can
+     * simply read it — this is for the ones where the figure has rubbed off, or was never
+     * printed. If the answer arrives after they have typed, it is dropped rather than shown,
+     * because by then it is an answer to a question nobody is asking any more.
+     */
+    private void offerLookedUpPrice(UnpackingLine line) {
+        javafx.concurrent.Task<SuggestedMrp> ask =
+                new javafx.concurrent.Task<>() {
+                    @Override
+                    protected SuggestedMrp call() {
+                        return backend.suggestedMrp(line.lineId());
+                    }
+                };
+        ask.setOnSucceeded(
+                event -> {
+                    SuggestedMrp suggestion = ask.getValue();
+                    if (!suggestion.found() || awaitingMrpFor != line) {
+                        return;
+                    }
+                    lineList.getChildren().add(useSuggestionButton(line, suggestion));
+                });
+        // A failed lookup says nothing at all. Someone is holding the goods; the network is not
+        // their problem and must never become their problem.
+        ask.setOnFailed(event -> { });
+
+        Thread worker = new Thread(ask, "mrp-suggestion");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private Button useSuggestionButton(UnpackingLine line, SuggestedMrp suggestion) {
+        Button use =
+                new Button(
+                        "Listed at ₹" + suggestion.pricePaise() / 100
+                                + " — use that, if the pack agrees");
+        use.setFont(BODY);
+        use.setMaxWidth(Double.MAX_VALUE);
+        use.setStyle("-fx-padding:12;-fx-background-radius:6;-fx-background-color:#e3f2fd;");
+        use.setOnAction(
+                event -> {
+                    if (awaitingMrpFor != line) {
+                        return;
+                    }
+                    closeMrpPrompt();
+                    try {
+                        record(line, suggestion.pricePaise(), true);
+                        say("Used the listed price. It is recorded as an estimate — if the pack"
+                                + " says otherwise, the pack is right.", WARN);
+                    } catch (BackendClient.RefusedException e) {
+                        say(e.getMessage(), STOP);
+                    } finally {
+                        Platform.runLater(scanField::requestFocus);
+                    }
+                });
+        return use;
     }
 
     /**
@@ -548,6 +610,15 @@ public class UnpackingScreen {
     }
 
     private void record(UnpackingLine match, Long mrpPaise) {
+        record(match, mrpPaise, false);
+    }
+
+    /**
+     * @param mrpIsEstimate true when the price came from a lookup rather than from the pack. It
+     *     travels with the count so the distinction survives — a label resting on a guess should
+     *     still be recognisable as one months later.
+     */
+    private void record(UnpackingLine match, Long mrpPaise, boolean mrpIsEstimate) {
         // A code waiting to be tagged rides along with the count, so the mapping and the first
         // unit are recorded together rather than in two steps that could half-fail.
         String code = pendingTagCode;
@@ -555,8 +626,9 @@ public class UnpackingScreen {
         boolean damaged = damagedToggle.isSelected();
         CountOutcome outcome =
                 code == null
-                        ? backend.count(match.lineId(), 1, mrpPaise, damaged)
-                        : backend.tag(match.lineId(), code, 1, mrpPaise, damaged);
+                        ? backend.count(match.lineId(), 1, mrpPaise, damaged, mrpIsEstimate)
+                        : backend.tag(
+                                match.lineId(), code, 1, mrpPaise, damaged, mrpIsEstimate);
         refreshLines();
         sayCounted(match, outcome);
     }
@@ -664,7 +736,7 @@ public class UnpackingScreen {
                 return;
             }
             CountOutcome outcome =
-                    backend.tag(line.lineId(), code, 1, null, damagedToggle.isSelected());
+                    backend.tag(line.lineId(), code, 1, null, damagedToggle.isSelected(), false);
             refreshLines();
             sayCounted(line, outcome);
         } catch (BackendClient.RefusedException e) {
@@ -818,11 +890,13 @@ public class UnpackingScreen {
      */
     private String sheetSays(UnpackingLine line) {
         StringBuilder said = new StringBuilder(line.code());
+        if (line.indicativeCostPaise() != null) {
+            // "about", because it is: the real figure is settled when the delivery closes and
+            // is spread over what actually arrived, so a short line ends up costing more.
+            said.append("   ·   cost about ₹").append(line.indicativeCostPaise() / 100);
+        }
         if (line.onlinePricePaise() != null) {
             said.append("   ·   online ₹").append(line.onlinePricePaise() / 100);
-        }
-        if (line.statedValuePaise() != null) {
-            said.append("   ·   sheet ₹").append(line.statedValuePaise() / 100);
         }
         return said.toString();
     }

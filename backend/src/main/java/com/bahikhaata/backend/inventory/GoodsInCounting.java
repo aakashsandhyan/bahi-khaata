@@ -28,6 +28,7 @@ import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
@@ -60,6 +61,7 @@ public class GoodsInCounting {
     private final BatchRepository batches;
     private final BoxRepository boxes;
     private final LotRepository lots;
+    private final com.bahikhaata.backend.lookup.MrpBackfill mrpSuggestions;
     private final StockLedgerRepository ledger;
     private final ProductRepository products;
     private final BarcodeRepository barcodes;
@@ -70,6 +72,7 @@ public class GoodsInCounting {
             BatchRepository batches,
             BoxRepository boxes,
             LotRepository lots,
+            com.bahikhaata.backend.lookup.MrpBackfill mrpSuggestions,
             StockLedgerRepository ledger,
             ProductRepository products,
             BarcodeRepository barcodes) {
@@ -78,6 +81,7 @@ public class GoodsInCounting {
         this.batches = batches;
         this.boxes = boxes;
         this.lots = lots;
+        this.mrpSuggestions = mrpSuggestions;
         this.ledger = ledger;
         this.products = products;
         this.barcodes = barcodes;
@@ -271,7 +275,12 @@ public class GoodsInCounting {
      */
     @Transactional(readOnly = true)
     public List<UnpackingLine> linesIn(UUID boxId) {
-        return expectedLines.findByBoxIdOrderByCode(boxId).stream()
+        List<ExpectedLine> inBox = expectedLines.findByBoxIdOrderByCode(boxId);
+        java.math.BigDecimal rate =
+                inBox.isEmpty()
+                        ? null
+                        : ratePaidFor(inBox.get(0).getLot());
+        return inBox.stream()
                 .map(
                         line ->
                                 new UnpackingLine(
@@ -287,7 +296,8 @@ public class GoodsInCounting {
                                                 : line.getStatedValue().paise(),
                                         line.getProduct().getOnlinePrice() == null
                                                 ? null
-                                                : line.getProduct().getOnlinePrice().paise()))
+                                                : line.getProduct().getOnlinePrice().paise(),
+                                        indicativeCost(line, rate)))
                 .toList();
     }
 
@@ -305,6 +315,58 @@ public class GoodsInCounting {
         return batches.findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
                 .stream()
                 .noneMatch(batch -> batch.getMrp() != null);
+    }
+
+    /**
+     * What fraction of its stated value a delivery was bought at.
+     *
+     * <p>The amount paid over the total the sheet says the goods are worth: a quarter of the
+     * online price on one delivery, ten per cent above the supplier's own cost on another. It
+     * is the same figure the apportionment will arrive at, computed here from what was expected
+     * rather than from what turned up.
+     *
+     * <p>Null when the sheet states no values at all, in which case nothing can be indicated.
+     */
+    private java.math.BigDecimal ratePaidFor(Lot lot) {
+        long stated = 0;
+        for (ExpectedLine line : expectedLines.findByLotIdOrderByCode(lot.getId())) {
+            if (line.getStatedValue() != null) {
+                stated += line.getStatedValue().paise() * line.getQuantityExpected();
+            }
+        }
+        if (stated == 0) {
+            return null;
+        }
+        return java.math.BigDecimal.valueOf(lot.getAmountPaid().plus(lot.getFreight()).paise())
+                .divide(java.math.BigDecimal.valueOf(stated), 8, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Roughly what a unit of this line will have cost.
+     *
+     * <p>An indication, not the cost. The real figure is settled when the delivery closes and is
+     * spread across the goods that actually arrived — so a line that turns up short carries the
+     * same money over fewer units and costs more each than this says. Shown anyway because a
+     * rough figure while the goods are in hand beats an exact one nobody will look up later.
+     */
+    private Long indicativeCost(ExpectedLine line, java.math.BigDecimal rate) {
+        if (rate == null || line.getStatedValue() == null) {
+            return null;
+        }
+        return rate.multiply(java.math.BigDecimal.valueOf(line.getStatedValue().paise()))
+                .setScale(0, java.math.RoundingMode.HALF_UP)
+                .longValue();
+    }
+
+    /** What a lookup thinks this line's goods cost at retail. Offered, never applied. */
+    @Transactional(readOnly = true)
+    public SuggestedMrp suggestMrpFor(UUID expectedLineId) {
+        ExpectedLine line =
+                expectedLines
+                        .findById(expectedLineId)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "no such expected line: " + expectedLineId));
+        return mrpSuggestions.suggestFor(line.getProduct().getId());
     }
 
     /** Cartons bearing a tracking number, for the scan that starts unpacking. */
