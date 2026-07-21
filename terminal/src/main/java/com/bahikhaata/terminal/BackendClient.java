@@ -147,6 +147,24 @@ public class BackendClient {
                 CountOutcome.class);
     }
 
+    /**
+     * Tags a line with the code printed on the goods, and counts one.
+     *
+     * <p>The manifest names goods by a marketplace identifier that is on no pack, so the first
+     * time an item is scanned nothing matches. Someone holding it says which line it is, and
+     * from then on the real code resolves by itself.
+     */
+    public CountOutcome tag(UUID lineId, String scannedCode, long quantity, Long mrpPaise) {
+        return post(
+                "/api/unpacking/lines/" + lineId + "/tag",
+                Map.of(
+                        "scannedCode", scannedCode,
+                        "quantity", quantity,
+                        "mrpPaise", mrpPaise == null ? "" : mrpPaise,
+                        "mrpIsEstimate", false),
+                CountOutcome.class);
+    }
+
     /** Records something found in a carton that the manifest does not mention. */
     public CountOutcome countUnlisted(
             UUID boxId, String code, String name, String categoryCode, long quantity,

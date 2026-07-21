@@ -85,6 +85,24 @@ class UnpackingController {
                 Instant.now());
     }
 
+    /**
+     * Tags a line with the code on the goods and counts one.
+     *
+     * <p>Used the first time an item is scanned and nothing matches: the manifest names it by a
+     * marketplace identifier, and the pack carries the maker's code. After this, ordinary
+     * counting resolves it.
+     */
+    @PostMapping("/lines/{lineId}/tag")
+    CountOutcome tag(@PathVariable UUID lineId, @RequestBody TagRequest request) {
+        return counting.tagAndCount(
+                lineId,
+                request.scannedCode(),
+                request.quantity(),
+                request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
+                request.mrpIsEstimate(),
+                Instant.now());
+    }
+
     /** Something in the carton that no line names. */
     @PostMapping("/boxes/{boxId}/unlisted")
     CountOutcome unlisted(
@@ -154,6 +172,9 @@ class UnpackingController {
     }
 
     record CountRequest(long quantity, Long mrpPaise, boolean mrpIsEstimate) {}
+
+    record TagRequest(
+            String scannedCode, long quantity, Long mrpPaise, boolean mrpIsEstimate) {}
 
     record UnlistedRequest(
             String code,

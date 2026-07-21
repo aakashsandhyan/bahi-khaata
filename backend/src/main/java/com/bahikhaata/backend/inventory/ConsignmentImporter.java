@@ -143,7 +143,7 @@ public class ConsignmentImporter {
                     // The supplier's code becomes the product's barcode. It is already on the
                     // goods and already unique, so minting an internal one would mean two
                     // codes for the same thing.
-                    barcodes.save(new Barcode(product, line.code, Origin.MANUFACTURER));
+                    barcodes.save(new Barcode(product, line.code, Origin.MARKETPLACE));
                     productsCreated++;
                 } else {
                     productsMatched++;

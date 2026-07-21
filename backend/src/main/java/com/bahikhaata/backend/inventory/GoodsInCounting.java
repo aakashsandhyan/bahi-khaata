@@ -106,6 +106,55 @@ public class GoodsInCounting {
     }
 
     /**
+     * Tags a line with the code actually printed on the goods, then counts one.
+     *
+     * <p>The manifest identifies goods by a marketplace identifier, which is not printed on
+     * anything and which no scanner will read. The code on the pack is the maker's, or a sticker
+     * the marketplace applied. They will never match, so the mapping has to be made by someone
+     * holding the item — once per product, and never again.
+     *
+     * <p>This is the point of unpacking, not a workaround for it: it is what ties the stock on
+     * the floor to the line on the sheet. Everything downstream — pricing, labelling, selling —
+     * needs a code that a scanner at the counter will actually read.
+     *
+     * <p>Refused when the code already belongs to a different product, because a code that
+     * resolves to two things resolves to neither.
+     */
+    @Transactional
+    public CountOutcome tagAndCount(
+            UUID expectedLineId, String scannedCode, long quantity, Money mrp,
+            boolean mrpIsEstimate, Instant at) {
+        ExpectedLine line =
+                expectedLines
+                        .findById(expectedLineId)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "no such expected line: " + expectedLineId));
+        requireOpen(line.getLot());
+
+        Product product = line.getProduct();
+        barcodes.findByCode(scannedCode)
+                .ifPresentOrElse(
+                        existing -> {
+                            if (!existing.getProduct().getId().equals(product.getId())) {
+                                throw new IllegalArgumentException(
+                                        "the code "
+                                                + scannedCode
+                                                + " is already on \""
+                                                + existing.getProduct().getName()
+                                                + "\". One code cannot mean two different"
+                                                + " things — check the item, or have the earlier"
+                                                + " mapping corrected.");
+                            }
+                        },
+                        // The code that is genuinely printed on the pack, so MANUFACTURER —
+                        // unlike the marketplace identifier the manifest supplied.
+                        () -> barcodes.save(
+                                new Barcode(product, scannedCode, Origin.MANUFACTURER)));
+
+        return countExpected(expectedLineId, quantity, mrp, mrpIsEstimate, at);
+    }
+
+    /**
      * Records goods found in a carton that no line names.
      *
      * <p>The code is resolved to a product where it is already known and a catalogue entry is

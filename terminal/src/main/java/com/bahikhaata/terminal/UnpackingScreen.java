@@ -83,6 +83,7 @@ public class UnpackingScreen {
     private final Label message = new Label();
     private final VBox lineList = new VBox(8);
     private final Button finishButton = new Button("Box is done");
+    private final Button leaveButton = new Button("Leave this box");
 
     private final Label mrpPrompt = new Label();
     private final TextField mrpField = new TextField();
@@ -93,6 +94,15 @@ public class UnpackingScreen {
 
     /** The item whose printed price is being asked for, or null when nothing is waiting. */
     private UnpackingLine awaitingMrpFor;
+
+    /**
+     * A code scanned off a pack that matched nothing, waiting for someone to say which line it
+     * belongs to. Null when no such question is open.
+     */
+    private String untaggedCode;
+
+    /** A code chosen for tagging whose price is still being asked for. */
+    private String pendingTagCode;
 
     public UnpackingScreen(BackendClient backend) {
         this.backend = backend;
@@ -119,6 +129,13 @@ public class UnpackingScreen {
         finishButton.setDisable(true);
         finishButton.setOnAction(event -> finishCarton());
 
+        // Scanning the wrong box must not trap anyone. Counts are saved as they are taken, so
+        // leaving keeps every one of them and the box simply stays part-counted — which is a
+        // normal state, not an unfinished job needing explanation.
+        leaveButton.setFont(BODY);
+        leaveButton.setDisable(true);
+        leaveButton.setOnAction(event -> leaveCarton());
+
         Label hint = new Label("Scan the number on the box, then scan each item inside it.");
         hint.setFont(SMALL);
 
@@ -136,7 +153,7 @@ public class UnpackingScreen {
 
         lineList.setPadding(new Insets(16));
 
-        HBox footer = new HBox(12, finishButton);
+        HBox footer = new HBox(12, leaveButton, finishButton);
         footer.setPadding(new Insets(16));
         footer.setAlignment(Pos.CENTER_RIGHT);
 
@@ -195,12 +212,12 @@ public class UnpackingScreen {
                         .orElse(null);
 
         if (match == null) {
-            // Not on the sheet. Deliberately not an error: extra goods turn up, and the
-            // operator must be able to record them without leaving the screen or fetching
-            // anyone. Recording it needs a name and a price, so this is where a dialog for
-            // that belongs — until then it is reported rather than silently swallowed.
-            say("This is not on the sheet for this box. Put it to one side and tell the"
-                    + " manager — do not put it on the shelf.", WARN);
+            // Almost always this is not a stranger — it is one of the items on the sheet,
+            // wearing the code its maker printed rather than the one the supplier's list uses.
+            // The two never match, so someone holding the item has to say which line it is.
+            // Once. After that the real code resolves by itself, here and in every later
+            // delivery.
+            askWhichItem(code);
             return;
         }
 
@@ -285,9 +302,19 @@ public class UnpackingScreen {
     }
 
     private void record(UnpackingLine match, Long mrpPaise) {
-        CountOutcome outcome = backend.count(match.lineId(), 1, mrpPaise);
+        // A code waiting to be tagged rides along with the count, so the mapping and the first
+        // unit are recorded together rather than in two steps that could half-fail.
+        String code = pendingTagCode;
+        pendingTagCode = null;
+        CountOutcome outcome =
+                code == null
+                        ? backend.count(match.lineId(), 1, mrpPaise)
+                        : backend.tag(match.lineId(), code, 1, mrpPaise);
         refreshLines();
+        sayCounted(match, outcome);
+    }
 
+    private void sayCounted(UnpackingLine match, CountOutcome outcome) {
         long left = Math.max(0, outcome.quantityExpected() - outcome.quantityCounted());
         if (left == 0) {
             say(shortName(match) + " — all " + outcome.quantityCounted() + " found.", OK);
@@ -295,6 +322,91 @@ public class UnpackingScreen {
             say(shortName(match) + " — " + outcome.quantityCounted() + " of "
                     + outcome.quantityExpected() + ", " + left + " still to find.", OK);
         }
+    }
+
+    /**
+     * Asks which of the outstanding items the scanned code belongs to.
+     *
+     * <p>Offered as the lines still to find in this box, largest first, because the thing in
+     * someone's hand is far likelier to be one of many than the last of one.
+     */
+    private void askWhichItem(String code) {
+        untaggedCode = code;
+        lineList.getChildren().clear();
+
+        Label prompt = new Label("Which of these is it? Code on the item: " + code);
+        prompt.setFont(HEADING);
+        prompt.setWrapText(true);
+        lineList.getChildren().add(prompt);
+
+        Label why = new Label(
+                "The list uses the supplier's own reference, not the code printed on the item."
+                        + " Tell it which one this is and it will remember.");
+        why.setFont(SMALL);
+        why.setWrapText(true);
+        lineList.getChildren().add(why);
+
+        lines.stream()
+                .filter(line -> line.outstanding() > 0)
+                .sorted((a, b) -> Long.compare(b.outstanding(), a.outstanding()))
+                .forEach(line -> lineList.getChildren().add(choiceFor(line)));
+
+        Button none = new Button("None of these — not on the sheet");
+        none.setFont(BODY);
+        none.setOnAction(event -> {
+            untaggedCode = null;
+            refreshLines();
+            say("Put it to one side and tell the manager. Do not put it on the shelf.", WARN);
+            Platform.runLater(scanField::requestFocus);
+        });
+        lineList.getChildren().add(none);
+    }
+
+    private Button choiceFor(UnpackingLine line) {
+        Button choice = new Button(shortName(line) + "   (" + line.outstanding() + " to find)");
+        choice.setFont(BODY);
+        choice.setWrapText(true);
+        choice.setMaxWidth(Double.MAX_VALUE);
+        choice.setStyle("-fx-padding:12;-fx-background-radius:6;");
+        choice.setOnAction(event -> tagChosen(line));
+        return choice;
+    }
+
+    private void tagChosen(UnpackingLine line) {
+        String code = untaggedCode;
+        untaggedCode = null;
+        if (code == null) {
+            return;
+        }
+        try {
+            if (line.needsMrp()) {
+                pendingTagCode = code;
+                askForMrp(line);
+                return;
+            }
+            CountOutcome outcome = backend.tag(line.lineId(), code, 1, null);
+            refreshLines();
+            sayCounted(line, outcome);
+        } catch (BackendClient.RefusedException e) {
+            refreshLines();
+            say(e.getMessage(), STOP);
+        } finally {
+            Platform.runLater(scanField::requestFocus);
+        }
+    }
+
+    private void leaveCarton() {
+        carton = null;
+        lines = List.of();
+        untaggedCode = null;
+        pendingTagCode = null;
+        closeMrpPrompt();
+        lineList.getChildren().clear();
+        cartonLabel.setText("Scan a box to start");
+        finishButton.setDisable(true);
+        leaveButton.setDisable(true);
+        say("Left the box as it is. Everything counted so far is saved. Scan another box.", OK);
+        Platform.runLater(scanField::requestFocus);
     }
 
     private void finishCarton() {
@@ -306,10 +418,13 @@ public class UnpackingScreen {
             long missing = lines.stream().mapToLong(UnpackingLine::outstanding).sum();
             carton = null;
             lines = List.of();
+            untaggedCode = null;
+            pendingTagCode = null;
             closeMrpPrompt();
             lineList.getChildren().clear();
             cartonLabel.setText("Scan a box to start");
             finishButton.setDisable(true);
+            leaveButton.setDisable(true);
             if (missing > 0) {
                 say("Box done, with " + missing + " item(s) not found. That has been recorded."
                         + " Scan the next box.", WARN);
@@ -327,6 +442,7 @@ public class UnpackingScreen {
         lines = backend.linesIn(carton.boxId());
         cartonLabel.setText("Box " + carton.trackingNumber());
         finishButton.setDisable(false);
+        leaveButton.setDisable(false);
 
         lineList.getChildren().clear();
         for (UnpackingLine line : lines) {

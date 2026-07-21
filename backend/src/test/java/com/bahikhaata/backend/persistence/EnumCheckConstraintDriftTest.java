@@ -69,7 +69,7 @@ class EnumCheckConstraintDriftTest {
 
     static Stream<Arguments> governedEnums() {
         return Stream.of(
-                arguments(Origin.class, "origin", PRODUCTS),
+                arguments(Origin.class, "origin", "/db/migration/V16__marketplace_origin.sql"),
                 arguments(AllocationMethod.class, "allocation_method", LOTS),
                 arguments(MovementType.class, "movement_type", LEDGER),
                 arguments(Marketplace.class, "online_price_source", ONLINE_PRICE),
