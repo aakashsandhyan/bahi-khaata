@@ -428,11 +428,18 @@ public class UnpackingScreen {
     }
 
     private void countItem(String code) {
+        // Asked of the backend rather than compared against the manifest's reference, because a
+        // product gathers codes: the supplier's reference, the maker's printed barcode, and a
+        // returns sticker per unit. Matching only the first would send someone back to "which
+        // item is this" for a code already known.
         UnpackingLine match =
-                lines.stream()
-                        .filter(line -> line.code().equalsIgnoreCase(code))
-                        .findFirst()
-                        .orElse(null);
+                backend.resolveInCarton(carton.boxId(), code)
+                        .orElseGet(
+                                () ->
+                                        lines.stream()
+                                                .filter(line -> line.code().equalsIgnoreCase(code))
+                                                .findFirst()
+                                                .orElse(null));
 
         if (match == null) {
             // Almost always this is not a stranger — it is one of the items on the sheet,
@@ -732,30 +739,8 @@ public class UnpackingScreen {
         }
 
         untaggedCode = code;
-        setNextStep("Tap the item you are holding.");
-        lineList.getChildren().clear();
-
-        Label prompt = new Label("Which of these is it?");
-        prompt.setFont(HEADING);
-        lineList.getChildren().add(prompt);
-        lineList.getChildren().add(selectable("Code on the item: " + code, BODY));
-
-        Label why = new Label(
-                "The list uses the supplier's own reference, not the code printed on the item."
-                        + " Tell it which one this is and it will remember.");
-        why.setFont(SMALL);
-        why.setWrapText(true);
-        lineList.getChildren().add(why);
-
-        // The item just tagged comes first: units of one product arrive together, so the next
-        // scan is far likelier to be another of the same than anything else in the carton.
-        outstanding.stream()
-                .sorted(
-                        java.util.Comparator
-                                .comparing((UnpackingLine line) ->
-                                        !line.lineId().equals(lastTaggedLineId))
-                                .thenComparing(line -> -line.outstanding()))
-                .forEach(line -> lineList.getChildren().add(choiceFor(line)));
+        setNextStep("Tap the item you are holding, or type part of its name to find it.");
+        showChoices(code, "");
 
         Button none = new Button("None of these — not on the sheet");
         none.setFont(BODY);
@@ -766,6 +751,77 @@ public class UnpackingScreen {
             Platform.runLater(scanField::requestFocus);
         });
         lineList.getChildren().add(none);
+    }
+
+    /**
+     * The choices, narrowed by whatever has been typed.
+     *
+     * <p>A carton can hold sixty lines and picking one by eye is slow. Typing a few letters of
+     * the name — or any part of a code — cuts it down, which is faster than reading.
+     *
+     * <p>Rebuilt on every keystroke rather than filtered in place: the list is short, this is
+     * plainly correct, and cleverness here would buy nothing anyone could feel.
+     */
+    private void showChoices(String scannedCode, String filter) {
+        lineList.getChildren().clear();
+
+        Label prompt = new Label("Which of these is it?");
+        prompt.setFont(HEADING);
+        prompt.setStyle(INK);
+        lineList.getChildren().add(prompt);
+        lineList.getChildren().add(selectable("Code on the item: " + scannedCode, BODY));
+
+        Label why = new Label(
+                "The list uses the supplier's own reference, not the code printed on the item."
+                        + " Tell it which one this is and it will remember.");
+        why.setFont(SMALL);
+        why.setWrapText(true);
+        why.setStyle(INK);
+        lineList.getChildren().add(why);
+
+        TextField search = new TextField(filter);
+        search.setFont(BODY);
+        search.setPromptText("Type part of the name to narrow this down");
+        search.textProperty().addListener(
+                (observable, was, now) -> showChoices(scannedCode, now));
+        lineList.getChildren().add(search);
+
+        String needle = filter.trim().toLowerCase(java.util.Locale.ROOT);
+        List<UnpackingLine> matching =
+                lines.stream()
+                        .filter(line -> line.outstanding() > 0)
+                        .filter(
+                                line ->
+                                        needle.isEmpty()
+                                                || line.name().toLowerCase(java.util.Locale.ROOT)
+                                                        .contains(needle)
+                                                || line.code().toLowerCase(java.util.Locale.ROOT)
+                                                        .contains(needle))
+                        // The item just tagged comes first: units of one product arrive together,
+                        // so the next scan is likelier to be another of the same than anything
+                        // else in the carton.
+                        .sorted(
+                                java.util.Comparator
+                                        .comparing((UnpackingLine line) ->
+                                                !line.lineId().equals(lastTaggedLineId))
+                                        .thenComparing(line -> -line.outstanding()))
+                        .toList();
+
+        if (matching.isEmpty()) {
+            Label nothing = new Label("Nothing in this box matches that.");
+            nothing.setFont(BODY);
+            nothing.setStyle(INK);
+            lineList.getChildren().add(nothing);
+        }
+        matching.forEach(line -> lineList.getChildren().add(choiceFor(line)));
+
+        // Typing means the keyboard is wanted here, not at the scan field.
+        if (!filter.isEmpty()) {
+            Platform.runLater(() -> {
+                search.requestFocus();
+                search.positionCaret(filter.length());
+            });
+        }
     }
 
     private Button choiceFor(UnpackingLine line) {

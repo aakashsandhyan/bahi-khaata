@@ -358,6 +358,27 @@ public class GoodsInCounting {
                 .longValue();
     }
 
+    /**
+     * Which line in a carton a scanned code belongs to, if any is already known.
+     *
+     * <p>Asked on every scan, because a product accumulates codes: the supplier's marketplace
+     * reference, the maker's printed barcode, and a returns sticker for each unit. Comparing a
+     * scan against the manifest's reference alone would send someone back to "which item is
+     * this" for a code the system already knows perfectly well.
+     */
+    @Transactional(readOnly = true)
+    public Optional<UnpackingLine> resolveInBox(UUID boxId, String scannedCode) {
+        return barcodes
+                .findByCode(scannedCode)
+                .map(Barcode::getProduct)
+                .flatMap(product -> expectedLines.findByBoxIdAndProductId(boxId, product.getId()))
+                .flatMap(
+                        line ->
+                                linesIn(boxId).stream()
+                                        .filter(view -> view.lineId().equals(line.getId()))
+                                        .findFirst());
+    }
+
     /** What a lookup thinks this line's goods cost at retail. Offered, never applied. */
     @Transactional(readOnly = true)
     public SuggestedMrp suggestMrpFor(UUID expectedLineId) {

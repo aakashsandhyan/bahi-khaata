@@ -128,6 +128,20 @@ public class BackendClient {
                 UnpackingCarton.class);
     }
 
+    /**
+     * Which line a scanned code belongs to, or empty if the code is new.
+     *
+     * <p>Asked on every scan: a product gathers codes over time, and the one in someone's hand
+     * may be any of them.
+     */
+    public java.util.Optional<UnpackingLine> resolveInCarton(UUID boxId, String code) {
+        List<UnpackingLine> found =
+                getList(
+                        "/api/unpacking/boxes/" + boxId + "/resolve?code=" + encode(code),
+                        UnpackingLine.class);
+        return found.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(found.get(0));
+    }
+
     /** What should be inside one carton, and how much of it has been found. */
     public List<UnpackingLine> linesIn(UUID boxId) {
         return getList("/api/unpacking/boxes/" + boxId + "/lines", UnpackingLine.class);

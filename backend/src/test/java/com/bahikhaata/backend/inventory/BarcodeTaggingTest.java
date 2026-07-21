@@ -216,6 +216,62 @@ class BarcodeTaggingTest {
     }
 
     @Test
+    @DisplayName("Any code a product has gathered finds its line again")
+    void anyKnownCodeResolves() {
+        ExpectedLine line = lineFor("B07KT9Q54M");
+        UUID boxId = line.getBox().getId();
+        counting.tagAndCount(line.getId(), "LPNBLR5Q0000001", StockCondition.GOOD, 1, null,
+                false, AT);
+        counting.tagAndCount(line.getId(), "8901234567890", StockCondition.GOOD, 1, null,
+                false, AT);
+
+        // The manifest's own reference, a returns sticker, and the maker's printed barcode all
+        // name the same goods. Any of them in someone's hand must find the line without them
+        // being asked which item it is.
+        assertThat(counting.resolveInBox(boxId, "B07KT9Q54M"))
+                .as("the supplier's reference")
+                .isPresent();
+        assertThat(counting.resolveInBox(boxId, "LPNBLR5Q0000001"))
+                .as("a returns sticker tagged earlier")
+                .isPresent();
+        assertThat(counting.resolveInBox(boxId, "8901234567890"))
+                .as("the printed barcode")
+                .isPresent();
+        assertThat(counting.resolveInBox(boxId, "B07KT9Q54M").orElseThrow().lineId())
+                .isEqualTo(line.getId());
+    }
+
+    @Test
+    @DisplayName("A code from another carton does not resolve in this one")
+    void codesDoNotLeakBetweenCartons() {
+        ExpectedLine line = lineFor("B07KT9Q54M");
+        counting.tagAndCount(line.getId(), "LPNBLR5Q0000009", StockCondition.GOOD, 1, null,
+                false, AT);
+
+        importer.importConsignment(
+                new ImportConsignmentRequest(
+                        "Sushil", "2026-07-17",
+                        List.of(new ImportLot("KITCHEN", 10_000, AllocationMethod.RELATIVE_MRP,
+                                List.of(new ImportLine("OTHER", "Other", 1, 1_000, null,
+                                        "BOX-ELSEWHERE", null, null))))));
+        UUID elsewhere = expectedLines.findAll().stream()
+                .filter(l -> l.getCode().equals("OTHER")).findFirst().orElseThrow()
+                .getBox().getId();
+
+        assertThat(counting.resolveInBox(elsewhere, "LPNBLR5Q0000009"))
+                .as("the code is known, but not as something expected in this carton")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("An unknown code resolves to nothing rather than failing")
+    void unknownCodeIsOrdinary() {
+        assertThat(counting.resolveInBox(lineFor("B07KT9Q54M").getBox().getId(), "NEVERSEEN"))
+                .as("a sticker nobody has seen is the ordinary case, not an error")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("Tagging against a closed delivery is refused")
     void taggingAgainstAClosedLotIsRefused() {
         Lot lot = lots.findById(lotId).orElseThrow();

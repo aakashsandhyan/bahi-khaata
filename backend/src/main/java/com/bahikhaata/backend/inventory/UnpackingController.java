@@ -101,6 +101,22 @@ class UnpackingController {
         return counting.progressOfDelivery(lotId);
     }
 
+    /**
+     * Which line a scanned code belongs to, if the system already knows the code.
+     *
+     * <p>404 when it does not, which is the ordinary case for a returns sticker nobody has seen
+     * before and not an error.
+     */
+    @GetMapping("/boxes/{boxId}/resolve")
+    List<UnpackingLine> resolve(
+            @PathVariable UUID boxId,
+            @org.springframework.web.bind.annotation.RequestParam String code) {
+        // A list of nought or one rather than a 404. An unrecognised code is the ordinary case
+        // for a returns sticker, not a missing page, and saying so with an empty list keeps the
+        // caller from having to treat routine work as an error.
+        return counting.resolveInBox(boxId, code).map(List::of).orElseGet(List::of);
+    }
+
     /** What should be in one carton — the screen shown after scanning the box. */
     @GetMapping("/boxes/{boxId}/lines")
     List<UnpackingLine> linesOf(@PathVariable UUID boxId) {
