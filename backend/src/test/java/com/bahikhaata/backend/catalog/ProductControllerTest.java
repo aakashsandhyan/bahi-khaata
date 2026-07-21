@@ -57,7 +57,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("A known barcode resolves to its product")
     void knownBarcodeResolves() throws Exception {
-        Product product = products.save(new Product("Steel kettle", Category.KITCHEN, Map.of()));
+        Product product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
         barcodes.save(new Barcode(product, "8901234567890", Origin.MANUFACTURER));
 
         mockMvc.perform(get("/api/products/by-barcode/{code}", "8901234567890"))
@@ -91,7 +91,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("Setting a price returns the priced product")
     void settingAPrice() throws Exception {
-        Product product = products.save(new Product("Wall clock", Category.DECOR, Map.of()));
+        Product product = products.save(new Product("Wall clock", Category.of("DECOR"), Map.of()));
 
         mockMvc.perform(
                         put("/api/products/{id}/price", product.getId())
@@ -104,7 +104,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("A non-positive price is refused as a bad request")
     void nonPositivePriceIsRejected() throws Exception {
-        Product product = products.save(new Product("Bowl", Category.KITCHEN, Map.of()));
+        Product product = products.save(new Product("Bowl", Category.of("KITCHEN"), Map.of()));
 
         mockMvc.perform(
                         put("/api/products/{id}/price", product.getId())

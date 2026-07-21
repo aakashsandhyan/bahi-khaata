@@ -60,7 +60,7 @@ class AllocationMethodChangeTest {
     private GoodsInService goodsIn;
 
     private Product newProduct(String name) {
-        return products.save(new Product(name, Category.KITCHEN, Map.of()));
+        return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
 
     private static ReceiveLotLine line(Product product, long quantity, long mrpRupees) {

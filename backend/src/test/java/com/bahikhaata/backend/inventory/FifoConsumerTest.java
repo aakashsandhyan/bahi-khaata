@@ -60,7 +60,7 @@ class FifoConsumerTest {
     private FifoConsumer fifo;
 
     private Product newProduct(String name) {
-        return products.save(new Product(name, Category.KITCHEN, Map.of()));
+        return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
 
     /** A batch of {@code quantity} units at {@code unitCostPaise}, received on {@code date}. */

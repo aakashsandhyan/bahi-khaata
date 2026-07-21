@@ -25,8 +25,6 @@ import com.bahikhaata.contracts.Money;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Map;
@@ -58,9 +56,13 @@ public class Product extends UuidEntity {
     @Column(name = "name", nullable = false, columnDefinition = "text")
     private String name;
 
-    @Enumerated(EnumType.STRING)
+    /**
+     * The category's code, a foreign key into the category table. Stored as the code rather
+     * than mapped as an association: a product's category is a label it carries, and loading
+     * a whole row to read one string would be work for nothing.
+     */
     @Column(name = "category", nullable = false, columnDefinition = "text")
-    private Category category;
+    private String categoryCode;
 
     @Convert(converter = MoneyConverter.class)
     @Column(name = "selling_price_paise")
@@ -102,7 +104,7 @@ public class Product extends UuidEntity {
             String name, Category category, String hsnCode, Map<String, Object> attributes) {
         super(newId());
         this.name = Objects.requireNonNull(name, "name");
-        this.category = Objects.requireNonNull(category, "category");
+        this.categoryCode = Objects.requireNonNull(category, "category").code();
         this.hsnCode = hsnCode;
         this.attributes = attributes;
     }
@@ -112,7 +114,7 @@ public class Product extends UuidEntity {
     }
 
     public Category getCategory() {
-        return category;
+        return Category.of(categoryCode);
     }
 
     /** The selling price, or null when the product is unpriced. Never zero for "no price". */
@@ -121,12 +123,31 @@ public class Product extends UuidEntity {
     }
 
     /**
-     * Whether a selling price has been set. The explicit question to ask before treating a
-     * product as sellable — an unpriced product is a real, legitimate state (stock received
-     * before it has been valued), not an error and not a price of zero.
+     * Whether a selling price has been set. An unpriced product is a real, legitimate state —
+     * stock received before anyone has decided what it is worth — not an error and not a
+     * price of zero.
+     *
+     * <p>Being priced is necessary to sell but not sufficient: see {@link #isSellable()}.
      */
     public boolean isPriced() {
         return sellingPrice != null;
+    }
+
+    /**
+     * Whether this product may be sold.
+     *
+     * <p>Requires a price and a recorded MRP. The MRP is not a formality: it is the printed
+     * maximum retail price, selling above it is unlawful, and the label a customer reads
+     * shows the saving against it. Without one there is no lawful ceiling to price beneath
+     * and nothing to show a discount from, so the product stays off the floor however
+     * certain anyone is about what it should cost.
+     *
+     * <p>MRP lives on the batch, since successive deliveries of the same product genuinely
+     * arrive bearing different printed prices, so sellability is decided with the batch in
+     * hand rather than from the product alone.
+     */
+    public boolean isSellable(Money recordedMrp) {
+        return isPriced() && recordedMrp != null;
     }
 
     /**

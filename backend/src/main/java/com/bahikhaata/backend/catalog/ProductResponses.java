@@ -34,7 +34,7 @@ final class ProductResponses {
         return new ProductResponse(
                 product.getId().toString(),
                 product.getName(),
-                product.getCategory(),
+                product.getCategory().code(),
                 // Null stays null: an unpriced product must not surface as zero.
                 product.getSellingPrice() == null ? null : product.getSellingPrice().paise(),
                 product.getHsnCode(),

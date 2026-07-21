@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.catalog;
 
+import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CreateProductRequest;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.ProductResponse;
@@ -73,7 +74,7 @@ class ProductController {
                 products.save(
                         new Product(
                                 request.name(),
-                                request.category(),
+                                Category.of(request.category()),
                                 request.hsnCode(),
                                 request.attributes()));
 

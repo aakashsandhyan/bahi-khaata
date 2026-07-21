@@ -41,7 +41,7 @@ class ProductResponseJsonTest {
     @DisplayName("Money is an integer number of paise, not a decimal")
     void moneyIsIntegerPaise() throws Exception {
         ProductResponse priced =
-                new ProductResponse("id-1", "Kettle", Category.KITCHEN, 20000L, null, null, false);
+                new ProductResponse("id-1", "Kettle", "KITCHEN", 20000L, null, null, false);
 
         ObjectNode node = (ObjectNode) json.readTree(json.writeValueAsString(priced));
         assertThat(node.get("sellingPricePaise").isIntegralNumber()).isTrue();
@@ -52,7 +52,7 @@ class ProductResponseJsonTest {
     @DisplayName("An unpriced product serialises price as null, never zero")
     void unpricedSerialisesAsNull() throws Exception {
         ProductResponse unpriced =
-                new ProductResponse("id-2", "Gift box", Category.GIFTING, null, null, null, false);
+                new ProductResponse("id-2", "Gift box", "GIFTING", null, null, null, false);
 
         ObjectNode node = (ObjectNode) json.readTree(json.writeValueAsString(unpriced));
         assertThat(node.hasNonNull("sellingPricePaise")).isFalse();
@@ -67,7 +67,7 @@ class ProductResponseJsonTest {
                 new ProductResponse(
                         "id-3",
                         "Electric kettle",
-                        Category.ELECTRONICS,
+                        "ELECTRONICS",
                         89900L,
                         "8516",
                         Map.of("warrantyMonths", 24),

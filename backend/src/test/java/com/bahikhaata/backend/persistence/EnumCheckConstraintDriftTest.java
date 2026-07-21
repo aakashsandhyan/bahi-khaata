@@ -21,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.bahikhaata.contracts.AllocationMethod;
-import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.MovementType;
 import com.bahikhaata.contracts.Origin;
@@ -48,25 +47,25 @@ import org.junit.jupiter.params.provider.MethodSource;
  * <p>One table for all of them rather than a class per enum: the check is identical in every
  * case, and a new governed enum should cost one row here, not another near-copy of the same
  * parsing.
+ *
+ * <p>Category is deliberately absent. It was an enum until a real consignment showed the set
+ * was not fixed; it is now a lookup table, governed by a foreign key rather than a CHECK, so
+ * there is no list in a migration for it to drift from.
  */
 class EnumCheckConstraintDriftTest {
 
     private static final String PRODUCTS = "/db/migration/V3__product_and_barcode.sql";
     private static final String LOTS = "/db/migration/V5__lot_and_batch.sql";
     private static final String LEDGER = "/db/migration/V6__stock_ledger.sql";
-    private static final String MARGINS = "/db/migration/V8__category_margin.sql";
 
     private static final Pattern QUOTED = Pattern.compile("'([^']*)'");
 
     static Stream<Arguments> governedEnums() {
         return Stream.of(
-                arguments(Category.class, "category", PRODUCTS),
                 arguments(Origin.class, "origin", PRODUCTS),
                 arguments(AllocationMethod.class, "allocation_method", LOTS),
                 arguments(CostBasis.class, "cost_basis", LOTS),
-                arguments(MovementType.class, "movement_type", LEDGER),
-                // The category CHECK is repeated on category_margin and must not drift either.
-                arguments(Category.class, "category", MARGINS));
+                arguments(MovementType.class, "movement_type", LEDGER));
     }
 
     @ParameterizedTest(name = "{0} matches the {1} CHECK constraint")

@@ -44,7 +44,7 @@ class BarcodeResolverTest {
     @Test
     @DisplayName("A known code resolves to its product, usable outside the session")
     void knownCodeResolves() {
-        Product product = products.save(new Product("Steel kettle", Category.KITCHEN, Map.of()));
+        Product product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
         barcodes.save(new Barcode(product, "8901234567890", Origin.MANUFACTURER));
 
         var resolved = resolver.resolve("8901234567890");
@@ -59,7 +59,7 @@ class BarcodeResolverTest {
     @Test
     @DisplayName("An unrecognised code resolves to empty and writes nothing")
     void unknownCodeResolvesEmptyAndCreatesNothing() {
-        products.save(new Product("Steel kettle", Category.KITCHEN, Map.of()));
+        products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
 
         long productsBefore = products.count();
         long barcodesBefore = barcodes.count();

@@ -38,7 +38,7 @@ import java.util.Map;
 public record ProductResponse(
         String id,
         String name,
-        Category category,
+        String category,
         Long sellingPricePaise,
         String hsnCode,
         Map<String, Object> attributes,

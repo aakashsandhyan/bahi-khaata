@@ -39,7 +39,7 @@ class ProductPricingTest {
     @Test
     @DisplayName("A new product is unpriced: no price set, and the absence is not zero")
     void newProductIsUnpriced() {
-        Product saved = products.save(new Product("Gift box", Category.GIFTING, Map.of()));
+        Product saved = products.save(new Product("Gift box", Category.of("GIFTING"), Map.of()));
 
         Product found = products.findById(saved.getId()).orElseThrow();
         assertThat(found.isPriced()).isFalse();
@@ -52,7 +52,7 @@ class ProductPricingTest {
     @Test
     @DisplayName("Unpriced products are listable as a queue to be priced")
     void unpricedProductsAreListable() {
-        Product unpriced = products.save(new Product("Loose bowl", Category.KITCHEN, Map.of()));
+        Product unpriced = products.save(new Product("Loose bowl", Category.of("KITCHEN"), Map.of()));
 
         assertThat(products.findBySellingPriceIsNull())
                 .extracting(Product::getId)
@@ -62,7 +62,7 @@ class ProductPricingTest {
     @Test
     @DisplayName("Setting a price makes the product priced and persists")
     void settingAPricePersists() {
-        Product product = products.save(new Product("Steel bottle", Category.KITCHEN, Map.of()));
+        Product product = products.save(new Product("Steel bottle", Category.of("KITCHEN"), Map.of()));
 
         product.setSellingPrice(Money.ofRupees(200));
         products.save(product);
@@ -75,7 +75,7 @@ class ProductPricingTest {
     @Test
     @DisplayName("A price must be a real, positive amount")
     void priceMustBePositive() {
-        Product product = new Product("Kettle", Category.KITCHEN, Map.of());
+        Product product = new Product("Kettle", Category.of("KITCHEN"), Map.of());
 
         // Cannot un-price by passing null.
         assertThatThrownBy(() -> product.setSellingPrice(null))
@@ -93,7 +93,7 @@ class ProductPricingTest {
         // The narrow invariant testable in section 2: nothing incidental — a re-save, a
         // reload — alters a price once set. The larger invariant, that receiving stock at a
         // new cost never changes the price, is exercised in section 5 where batches exist.
-        Product product = products.save(new Product("Wall clock", Category.DECOR, Map.of()));
+        Product product = products.save(new Product("Wall clock", Category.of("DECOR"), Map.of()));
         product.setSellingPrice(Money.ofRupees(150));
         products.save(product);
 

@@ -67,7 +67,7 @@ class StockLedgerMovementTest {
 
     @BeforeEach
     void setUp() {
-        product = products.save(new Product("Steel kettle", Category.KITCHEN, Map.of()));
+        product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
         Lot lot =
                 lots.save(
                         new Lot(

@@ -68,7 +68,7 @@ class FifoCostAttributionTest {
     private FifoConsumer fifo;
 
     private Product newProduct(String name) {
-        return products.save(new Product(name, Category.KITCHEN, Map.of()));
+        return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
 
     private Batch stockedBatch(Product product, LocalDate date, long quantity, Money unitCost) {

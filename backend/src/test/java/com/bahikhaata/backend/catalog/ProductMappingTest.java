@@ -46,19 +46,19 @@ class ProductMappingTest {
     @Test
     @DisplayName("A new product round-trips with its category and identity intact")
     void roundTripsIdentityAndCategory() {
-        Product saved = products.save(new Product("Steel kettle", Category.KITCHEN, Map.of()));
+        Product saved = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
         UUID id = saved.getId();
 
         Product found = products.findById(id).orElseThrow();
         assertThat(found.getName()).isEqualTo("Steel kettle");
-        assertThat(found.getCategory()).isEqualTo(Category.KITCHEN);
+        assertThat(found.getCategory()).isEqualTo(Category.of("KITCHEN"));
         assertThat(found.getId()).isEqualTo(id);
     }
 
     @Test
     @DisplayName("A new product is unpriced — a null price, never zero")
     void newProductIsUnpriced() {
-        Product saved = products.save(new Product("Gift box", Category.GIFTING, Map.of()));
+        Product saved = products.save(new Product("Gift box", Category.of("GIFTING"), Map.of()));
 
         Product found = products.findById(saved.getId()).orElseThrow();
         assertThat(found.getSellingPrice()).isNull();
@@ -68,7 +68,7 @@ class ProductMappingTest {
     @Test
     @DisplayName("Creation and update timestamps are populated on save")
     void timestampsArePopulated() {
-        Product saved = products.save(new Product("Wall clock", Category.DECOR, Map.of()));
+        Product saved = products.save(new Product("Wall clock", Category.of("DECOR"), Map.of()));
 
         Product found = products.findById(saved.getId()).orElseThrow();
         assertThat(found.getCreatedAt()).isNotNull();

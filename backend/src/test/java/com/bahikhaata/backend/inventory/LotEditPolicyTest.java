@@ -68,7 +68,7 @@ class LotEditPolicyTest {
     }
 
     private Batch stockedBatch(Lot lot, String productName, long quantity) {
-        Product product = products.save(new Product(productName, Category.KITCHEN, Map.of()));
+        Product product = products.save(new Product(productName, Category.of("KITCHEN"), Map.of()));
         Batch batch =
                 batches.save(
                         new Batch(

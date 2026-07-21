@@ -69,7 +69,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("An unpriced product with stock gets a suggestion at its category's margin")
     void suggestsAtCategoryMargin() {
-        Product kettle = newProduct("Electric kettle", Category.ELECTRONICS);
+        Product kettle = newProduct("Electric kettle", Category.of("ELECTRONICS"));
         // ₹1,875 for 100 units: ₹18.75 each.
         receive(kettle, 100, 1_875_00, 40_00);
 
@@ -84,7 +84,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("A custom margin overrides the category's, for that suggestion only")
     void customMarginOverrides() {
-        Product kettle = newProduct("Electric kettle", Category.ELECTRONICS);
+        Product kettle = newProduct("Electric kettle", Category.of("ELECTRONICS"));
         receive(kettle, 100, 1_875_00, 40_00);
 
         var suggestion = suggestions.suggestFor(kettle.getId(), 50).orElseThrow();
@@ -97,7 +97,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("Asking for a suggestion changes nothing")
     void suggestingIsNotSetting() {
-        Product kettle = newProduct("Electric kettle", Category.ELECTRONICS);
+        Product kettle = newProduct("Electric kettle", Category.of("ELECTRONICS"));
         receive(kettle, 100, 1_875_00, 40_00);
 
         suggestions.suggestFor(kettle.getId(), null);
@@ -112,7 +112,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("A product that already has a price gets no suggestion")
     void pricedProductGetsNoSuggestion() {
-        Product kettle = newProduct("Electric kettle", Category.ELECTRONICS);
+        Product kettle = newProduct("Electric kettle", Category.of("ELECTRONICS"));
         receive(kettle, 100, 1_875_00, 40_00);
         kettle.setSellingPrice(Money.ofRupees(30));
         products.save(kettle);
@@ -124,7 +124,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("A product with no stock yet gets no suggestion")
     void noStockNoSuggestion() {
-        Product kettle = newProduct("Never received", Category.ELECTRONICS);
+        Product kettle = newProduct("Never received", Category.of("ELECTRONICS"));
 
         // Nothing has been bought, so there is no cost to work a price out from.
         assertThat(suggestions.suggestFor(kettle.getId(), null)).isEmpty();
@@ -139,7 +139,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("The suggestion is costed from the most recent delivery, not the oldest")
     void costedFromTheLatestDelivery() {
-        Product bottle = newProduct("Steel bottle", Category.KITCHEN);
+        Product bottle = newProduct("Steel bottle", Category.of("KITCHEN"));
         // An old cheap delivery, then a recent dearer one.
         goodsIn.receive(
                 new ReceiveLotRequest(
@@ -160,7 +160,7 @@ class PriceSuggestionsTest {
     @Test
     @DisplayName("The suggestion carries its workings, including the MRP to compare against")
     void suggestionCarriesItsWorkings() {
-        Product kettle = newProduct("Electric kettle", Category.ELECTRONICS);
+        Product kettle = newProduct("Electric kettle", Category.of("ELECTRONICS"));
         receive(kettle, 100, 1_875_00, 40_00);
 
         var suggestion = suggestions.suggestFor(kettle.getId(), null).orElseThrow();

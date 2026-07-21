@@ -72,7 +72,7 @@ class StockLedgerImmutabilityTest {
     private TransactionTemplate transactions;
 
     private StockLedgerEntry appendReceipt(String productName, long quantity) {
-        Product product = products.save(new Product(productName, Category.KITCHEN, Map.of()));
+        Product product = products.save(new Product(productName, Category.of("KITCHEN"), Map.of()));
         Lot lot =
                 lots.save(
                         new Lot(

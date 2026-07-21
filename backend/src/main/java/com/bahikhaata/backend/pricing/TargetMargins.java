@@ -61,7 +61,7 @@ public class TargetMargins {
                     jdbc.queryForObject(
                             "SELECT target_margin_percent FROM category_margin WHERE category = ?",
                             Integer.class,
-                            category.name()));
+                            category.code()));
         } catch (EmptyResultDataAccessException noRow) {
             return Optional.empty();
         }

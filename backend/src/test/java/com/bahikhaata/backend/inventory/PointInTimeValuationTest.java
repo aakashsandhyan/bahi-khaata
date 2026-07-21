@@ -67,7 +67,7 @@ class PointInTimeValuationTest {
     private StockLevels stock;
 
     private Product newProduct(String name) {
-        return products.save(new Product(name, Category.KITCHEN, Map.of()));
+        return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
 
     private Batch newBatch(Product product, LocalDate receivedOn, long quantity, Money unitCost) {

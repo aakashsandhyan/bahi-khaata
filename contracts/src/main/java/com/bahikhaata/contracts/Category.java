@@ -17,27 +17,37 @@
  */
 package com.bahikhaata.contracts;
 
+import java.util.Objects;
+
 /**
- * The governed set of product categories.
+ * A product category, identified by its code.
  *
- * <p>A fixed set, not free text: an unconstrained category would let "Electronics",
- * "electronics", and a tired-evening "Electronis" become three categories, and
- * per-category configuration such as target margin would then attach to inconsistent
- * keys. The department-level spread here is stable (report §1), so it is an enum; if
- * categories ever churn, this becomes a lookup table.
+ * <p>Was an enum, on the reasoning that a shop's departments are a fixed list. The first real
+ * consignment disproved that — a third of its units fell outside the six values, with a tail
+ * of single items in categories nobody had thought of — so categories are now rows in a table
+ * and adding one is a data insert.
  *
- * <p>Stored by {@link Enum#name()} in the {@code product.category} column, which carries a
- * {@code CHECK} constraint over exactly these names. A test asserts the two sets are equal
- * so a value added to one but not the other fails the build rather than production.
+ * <p>This is the code that travels on the wire and identifies the row. It is a value type
+ * rather than a bare string so that a category cannot be confused with a name, a product line,
+ * or any other passing text.
  *
- * <p>Lives in {@code contracts} because it is a wire type: the terminal shows a category
- * and goods-in picks one, so backend, terminal, and dashboard share a single definition.
+ * @param code the category's stable identifier, such as {@code KITCHEN}
  */
-public enum Category {
-    HOME_ESSENTIALS,
-    KITCHEN,
-    ELECTRONICS,
-    GIFTING,
-    DECOR,
-    FASHION
+public record Category(String code) {
+
+    public Category {
+        Objects.requireNonNull(code, "category code");
+        if (code.isBlank()) {
+            throw new IllegalArgumentException("a category code cannot be blank");
+        }
+    }
+
+    public static Category of(String code) {
+        return new Category(code);
+    }
+
+    @Override
+    public String toString() {
+        return code;
+    }
 }

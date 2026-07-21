@@ -49,7 +49,7 @@ class ProductAttributesTest {
         attributes.put("warrantyMonths", 24);
         attributes.put("inBox", true);
 
-        var saved = products.save(new Product("Electric kettle", Category.ELECTRONICS, attributes));
+        var saved = products.save(new Product("Electric kettle", Category.of("ELECTRONICS"), attributes));
 
         Map<String, Object> found = products.findById(saved.getId()).orElseThrow().getAttributes();
         assertThat(found)
@@ -61,8 +61,8 @@ class ProductAttributesTest {
     @Test
     @DisplayName("A product with no attributes is valid")
     void noAttributesIsValid() {
-        var withEmpty = products.save(new Product("Steel bowl", Category.KITCHEN, Map.of()));
-        var withNull = products.save(new Product("Steel plate", Category.KITCHEN, null));
+        var withEmpty = products.save(new Product("Steel bowl", Category.of("KITCHEN"), Map.of()));
+        var withNull = products.save(new Product("Steel plate", Category.of("KITCHEN"), null));
 
         assertThat(products.findById(withEmpty.getId())).isPresent();
         assertThat(products.findById(withNull.getId())).isPresent();
@@ -78,7 +78,7 @@ class ProductAttributesTest {
 
         // No schema change was made for these names; if the JSON column did not carry
         // arbitrary keys this save would fail.
-        var saved = products.save(new Product("Cotton throw", Category.FASHION, attributes));
+        var saved = products.save(new Product("Cotton throw", Category.of("FASHION"), attributes));
 
         Map<String, Object> found = products.findById(saved.getId()).orElseThrow().getAttributes();
         assertThat(found)

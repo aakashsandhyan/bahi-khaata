@@ -56,7 +56,7 @@ class StockLevelsTest {
     private StockLevels stock;
 
     private Product newProduct(String name) {
-        return products.save(new Product(name, Category.KITCHEN, Map.of()));
+        return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
 
     private Lot newLot(LocalDate receivedOn) {

@@ -40,8 +40,8 @@ class TargetMarginsTest {
     @Test
     @DisplayName("Each category is seeded with its own target margin")
     void categoriesAreSeeded() {
-        assertThat(margins.forCategory(Category.ELECTRONICS)).contains(20);
-        assertThat(margins.forCategory(Category.GIFTING)).contains(40);
+        assertThat(margins.forCategory(Category.of("ELECTRONICS"))).contains(20);
+        assertThat(margins.forCategory(Category.of("GIFTING"))).contains(40);
     }
 
     @Test
@@ -49,36 +49,36 @@ class TargetMarginsTest {
     void categoryBeatsGlobal() {
         // The global default is 30; electronics is configured thinner.
         assertThat(margins.globalDefault()).isEqualTo(30);
-        assertThat(margins.resolve(Category.ELECTRONICS, null)).isEqualTo(20);
+        assertThat(margins.resolve(Category.of("ELECTRONICS"), null)).isEqualTo(20);
     }
 
     @Test
     @DisplayName("A category with no row of its own falls through to the global default")
     void missingCategoryFallsThrough() {
-        jdbc.update("DELETE FROM category_margin WHERE category = ?", Category.KITCHEN.name());
+        jdbc.update("DELETE FROM category_margin WHERE category = ?", Category.of("KITCHEN").code());
 
-        assertThat(margins.forCategory(Category.KITCHEN)).isEmpty();
-        assertThat(margins.resolve(Category.KITCHEN, null)).isEqualTo(margins.globalDefault());
+        assertThat(margins.forCategory(Category.of("KITCHEN"))).isEmpty();
+        assertThat(margins.resolve(Category.of("KITCHEN"), null)).isEqualTo(margins.globalDefault());
     }
 
     @Test
     @DisplayName("A custom margin wins over both")
     void customBeatsEverything() {
         // Typed while pricing one product, for that suggestion only.
-        assertThat(margins.resolve(Category.ELECTRONICS, 55)).isEqualTo(55);
-        assertThat(margins.resolve(Category.KITCHEN, 55)).isEqualTo(55);
+        assertThat(margins.resolve(Category.of("ELECTRONICS"), 55)).isEqualTo(55);
+        assertThat(margins.resolve(Category.of("KITCHEN"), 55)).isEqualTo(55);
     }
 
     @Test
     @DisplayName("A custom margin is never stored")
     void customIsNotStored() {
-        int before = margins.forCategory(Category.ELECTRONICS).orElseThrow();
+        int before = margins.forCategory(Category.of("ELECTRONICS")).orElseThrow();
 
-        margins.resolve(Category.ELECTRONICS, 55);
+        margins.resolve(Category.of("ELECTRONICS"), 55);
 
         // The price it produces is what gets stored; keeping the margin as well would be a
         // second source of truth for the same decision.
-        assertThat(margins.forCategory(Category.ELECTRONICS)).contains(before);
+        assertThat(margins.forCategory(Category.of("ELECTRONICS"))).contains(before);
     }
 
     @Test
@@ -87,9 +87,9 @@ class TargetMarginsTest {
         jdbc.update(
                 "UPDATE category_margin SET target_margin_percent = ? WHERE category = ?",
                 12,
-                Category.ELECTRONICS.name());
+                Category.of("ELECTRONICS").code());
 
         // The whole reason these live in the database rather than a properties file.
-        assertThat(margins.resolve(Category.ELECTRONICS, null)).isEqualTo(12);
+        assertThat(margins.resolve(Category.of("ELECTRONICS"), null)).isEqualTo(12);
     }
 }

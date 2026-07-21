@@ -31,4 +31,4 @@ import java.util.Map;
  * @param attributes category-specific attributes, or null if none
  */
 public record CreateProductRequest(
-        String name, Category category, String hsnCode, Map<String, Object> attributes) {}
+        String name, String category, String hsnCode, Map<String, Object> attributes) {}

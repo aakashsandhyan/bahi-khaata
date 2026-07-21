@@ -83,8 +83,13 @@ public class Batch extends UuidEntity {
     @Column(name = "quantity_damaged", nullable = false)
     private long quantityDamaged;
 
+    /**
+     * The maximum retail price printed on the goods, or null until someone has read it off
+     * them. A legal figure rather than a derived one — it caps what may lawfully be charged
+     * — so it is never inferred from a selling price or a manifest.
+     */
     @Convert(converter = MoneyConverter.class)
-    @Column(name = "mrp_paise", nullable = false)
+    @Column(name = "mrp_paise")
     private Money mrp;
 
     @Column(name = "mrp_is_estimate", nullable = false)
@@ -145,7 +150,7 @@ public class Batch extends UuidEntity {
         this.lot = Objects.requireNonNull(lot, "lot");
         this.allocatedUnitCost = Objects.requireNonNull(allocatedUnitCost, "allocatedUnitCost");
         this.costBasis = Objects.requireNonNull(costBasis, "costBasis");
-        this.mrp = Objects.requireNonNull(mrp, "mrp");
+        this.mrp = mrp;
         if (quantityReceived <= 0) {
             throw new IllegalArgumentException("quantity received must be positive");
         }
@@ -197,8 +202,19 @@ public class Batch extends UuidEntity {
         return quantityDamaged;
     }
 
+    /** The printed maximum retail price, or null if it has not been recorded yet. */
     public Money getMrp() {
         return mrp;
+    }
+
+    /** Records the MRP read off the goods. */
+    public void recordMrp(Money printedMrp, boolean isEstimate) {
+        Objects.requireNonNull(printedMrp, "mrp");
+        if (!printedMrp.isPositive()) {
+            throw new IllegalArgumentException("an MRP must be positive, was " + printedMrp);
+        }
+        this.mrp = printedMrp;
+        this.mrpIsEstimate = isEstimate;
     }
 
     public boolean isMrpEstimate() {

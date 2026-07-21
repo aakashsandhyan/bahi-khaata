@@ -50,7 +50,7 @@ class InternalBarcodeGeneratorTest {
     private JdbcTemplate jdbc;
 
     private Product newProduct(String name) {
-        return products.save(new Product(name, Category.HOME_ESSENTIALS, Map.of()));
+        return products.save(new Product(name, Category.of("HOME_ESSENTIALS"), Map.of()));
     }
 
     @Test
