@@ -43,5 +43,14 @@ public enum CostBasis {
      * Recorded as its own basis rather than passed off as {@link #ALLOCATED} so a margin
      * resting on it can be recognised for what it is.
      */
-    ESTIMATED
+    ESTIMATED,
+
+    /**
+     * Nothing, because the goods arrived unusable and their share went to the ones that can be
+     * sold.
+     *
+     * <p>Recorded rather than left as a bare zero, which reads like a mistake. A cost of nothing
+     * is a real answer here and deserves to say why.
+     */
+    ABSORBED
 }

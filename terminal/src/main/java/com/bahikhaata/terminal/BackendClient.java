@@ -155,7 +155,7 @@ public class BackendClient {
 
     /** Records units found against something the manifest named. */
     public CountOutcome count(
-            UUID lineId, long quantity, Long mrpPaise, boolean damaged, boolean mrpIsEstimate) {
+            UUID lineId, long quantity, Long mrpPaise, String condition, boolean mrpIsEstimate) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/count",
                 Map.of(
@@ -165,7 +165,7 @@ public class BackendClient {
                         // price is evidence about the printed one, not the printed one, and a
                         // label built on it should be recognisable as such later.
                         "mrpIsEstimate", mrpIsEstimate,
-                        "condition", damaged ? "DAMAGED" : "GOOD"),
+                        "condition", condition),
                 CountOutcome.class);
     }
 
@@ -177,7 +177,7 @@ public class BackendClient {
      * from then on the real code resolves by itself.
      */
     public CountOutcome tag(
-            UUID lineId, String scannedCode, long quantity, Long mrpPaise, boolean damaged,
+            UUID lineId, String scannedCode, long quantity, Long mrpPaise, String condition,
             boolean mrpIsEstimate) {
         return post(
                 "/api/unpacking/lines/" + lineId + "/tag",
@@ -186,7 +186,7 @@ public class BackendClient {
                         "quantity", quantity,
                         "mrpPaise", mrpPaise == null ? "" : mrpPaise,
                         "mrpIsEstimate", mrpIsEstimate,
-                        "condition", damaged ? "DAMAGED" : "GOOD"),
+                        "condition", condition),
                 CountOutcome.class);
     }
 

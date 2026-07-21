@@ -24,6 +24,7 @@ import com.bahikhaata.backend.inventory.allocation.CostAllocator;
 import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -115,13 +116,29 @@ public class LotClosing {
             throw new UnopenedCartonsException(unopened);
         }
 
-        List<Batch> received = batches.findByLotId(lotId).stream()
+        List<Batch> uncosted = batches.findByLotId(lotId).stream()
                 .filter(batch -> !batch.isCosted())
                 .toList();
+
+        // Goods fit for nothing take no share. What they would have carried stays with the ones
+        // that can be sold, which is what the delivery really cost to get sellable stock out of.
+        List<Batch> unusable =
+                uncosted.stream().filter(batch -> batch.getCondition() == StockCondition.UNUSABLE)
+                        .toList();
+        List<Batch> received =
+                uncosted.stream().filter(batch -> batch.getCondition() != StockCondition.UNUSABLE)
+                        .toList();
         if (received.isEmpty()) {
             throw new IllegalStateException(
-                    "lot " + lotId + " has nothing counted against it, so there is nothing to"
-                            + " carry what was paid. Count at least one carton first.");
+                    "lot "
+                            + lotId
+                            + (unusable.isEmpty()
+                                    ? " has nothing counted against it, so there is nothing to"
+                                            + " carry what was paid. Count at least one carton"
+                                            + " first."
+                                    : " holds nothing but unusable goods, so there is nothing"
+                                            + " that can carry what was paid. Record the loss"
+                                            + " against the delivery instead of closing it."));
         }
 
         Map<UUID, Money> statedByProduct = statedValuePerUnitByProduct(lotId);
@@ -165,6 +182,11 @@ public class LotClosing {
                             // than a figure the manifest stated, so a margin resting on it can
                             // be recognised for what it is.
                             isEstimate ? CostBasis.ESTIMATED : allocated.basis());
+        }
+
+        // Recorded as absorbed rather than left at a bare zero, which reads like an oversight.
+        for (Batch scrap : unusable) {
+            scrap.applyAllocation(Money.ZERO, Money.ZERO, CostBasis.ABSORBED);
         }
 
         lot.close(at);

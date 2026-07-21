@@ -18,9 +18,11 @@
 package com.bahikhaata.backend.inventory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.contracts.AllocationMethod;
+import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
@@ -153,6 +155,69 @@ class DamagedStockTest {
         assertThat(batch(StockCondition.GOOD).sellingPrice())
                 .as("pricing the seconds must not touch what sound goods cost a customer")
                 .isEqualTo(Money.ofPaise(30_000));
+    }
+
+    @Test
+    @DisplayName("Goods fit for nothing never become stock")
+    void unusableGoodsAreNotStock() {
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, null, false, AT);
+        counting.countExpected(line().getId(), StockCondition.UNUSABLE, 2, null, false, AT);
+
+        assertThat(batch(StockCondition.UNUSABLE).getQuantityReceived())
+                .as("they arrived, and that is worth recording")
+                .isEqualTo(2);
+        assertThat(stock.onHand(line().getProduct().getId()))
+                .as("but the ledger holds stock that exists to be sold, and these never were")
+                .isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("Their cost is absorbed by the goods that can be sold")
+    void unusableGoodsCostNothing() {
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, null, false, AT);
+        counting.countExpected(line().getId(), StockCondition.UNUSABLE, 2, null, false, AT);
+
+        closing.close(lotId, false, AT);
+
+        assertThat(batch(StockCondition.UNUSABLE).getAllocatedTotal()).isEqualTo(Money.ZERO);
+        assertThat(batch(StockCondition.UNUSABLE).getCostBasis())
+                .as("recorded as absorbed rather than left a bare zero, which reads like a"
+                        + " mistake")
+                .isEqualTo(CostBasis.ABSORBED);
+        assertThat(batch(StockCondition.GOOD).getAllocatedTotal())
+                .as("the eight that can be sold carry the whole amount — what the delivery"
+                        + " really cost to get sellable stock out of")
+                .isEqualTo(Money.ofPaise(100_000));
+    }
+
+    @Test
+    @DisplayName("How much of a delivery was scrap stays answerable")
+    void scrapRemainsVisible() {
+        counting.countExpected(line().getId(), StockCondition.GOOD, 7, null, false, AT);
+        counting.countExpected(line().getId(), StockCondition.DAMAGED, 1, null, false, AT);
+        counting.countExpected(line().getId(), StockCondition.UNUSABLE, 2, null, false, AT);
+        closing.close(lotId, false, AT);
+
+        // Absorbing the cost settles the accounting; it must not erase the fact. This is what
+        // tells a good supplier from a bad one later.
+        assertThat(batches.findByLotId(lotId).stream()
+                        .filter(b -> b.getCondition() == StockCondition.UNUSABLE)
+                        .mapToLong(Batch::getQuantityReceived).sum())
+                .isEqualTo(2);
+        assertThat(line().getQuantityCounted())
+                .as("all ten arrived, whatever state they were in")
+                .isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("A delivery of nothing but scrap is refused rather than costed")
+    void allScrapIsRefused() {
+        counting.countExpected(line().getId(), StockCondition.UNUSABLE, 3, null, false, AT);
+
+        assertThatThrownBy(() -> closing.close(lotId, false, AT))
+                .as("there is nothing that can carry what was paid")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("nothing but unusable goods");
     }
 
     @Test

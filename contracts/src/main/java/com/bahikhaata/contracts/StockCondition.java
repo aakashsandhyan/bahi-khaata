@@ -36,11 +36,24 @@ public enum StockCondition {
     GOOD,
 
     /**
-     * Marked at unpacking as scratched, dented, or with its packaging opened — sold cheaper.
+     * Scratched, dented, or with its packaging opened — sold cheaper, as it is.
      *
-     * <p>Not the same as a unit written off. That one arrived fit for nothing, is recorded in
-     * {@code quantity_damaged}, never becomes stock, and has its cost absorbed by the units that
-     * can be sold.
+     * <p>Ordinary stock at the ordinary cost. Only what it fetches differs, and that is decided
+     * later by someone who can see what it cost.
      */
-    DAMAGED
+    DAMAGED,
+
+    /**
+     * Arrived fit for nothing. It cannot be sold at any price.
+     *
+     * <p>Costs nothing: its share is absorbed by the goods that can be sold, which carry the
+     * whole amount and are priced accordingly — that being what the delivery really cost to get
+     * sellable stock out of.
+     *
+     * <p>Never enters the stock ledger, because the ledger holds stock that exists to be sold
+     * and this never became that. The batch records that it arrived, which is the trail, and
+     * leaves "how much of this delivery was scrap" answerable without anything having been
+     * costed differently.
+     */
+    UNUSABLE
 }

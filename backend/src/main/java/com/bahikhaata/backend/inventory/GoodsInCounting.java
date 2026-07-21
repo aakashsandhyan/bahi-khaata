@@ -502,7 +502,12 @@ public class GoodsInCounting {
             batch = batches.save(
                     Batch.counted(product, lot, condition, quantity, mrp, mrpIsEstimate));
         }
-        ledger.save(StockLedgerEntry.receipt(product, batch, quantity, at));
+        // Unusable goods arrived but never became stock, so nothing goes to the ledger. Writing
+        // a receipt and reversing it would add two entries that cancel out and one more moment
+        // where on-hand is wrong. The batch is the record that they came.
+        if (condition != StockCondition.UNUSABLE) {
+            ledger.save(StockLedgerEntry.receipt(product, batch, quantity, at));
+        }
         return batch;
     }
 

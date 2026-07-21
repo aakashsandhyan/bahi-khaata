@@ -30,6 +30,8 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -126,15 +128,19 @@ public class UnpackingScreen {
     private final Button leaveButton = new Button("Leave this box");
 
     /**
-     * Held down, in effect, while damaged items are being counted.
+     * What condition scanned items are being recorded in.
      *
-     * <p>A toggle rather than a question after each scan, because damaged goods arrive in runs —
-     * a crushed carton is rarely one item — and asking every time would make the common case
-     * slower to spare the rare one. It stays on until switched off, and says so loudly, because
-     * the failure that matters is forgetting it is on.
+     * <p>Three buttons rather than a switch, because a switch cannot say three things and a
+     * question after every scan would slow the ordinary case to spare the rare one. Damaged
+     * goods arrive in runs — a crushed carton is rarely one item — so the setting stays until
+     * changed, and every confirmation repeats it back, since the failure that matters is
+     * forgetting it is set.
      */
-    private final javafx.scene.control.ToggleButton damagedToggle =
-            new javafx.scene.control.ToggleButton("Marking damaged");
+    private final ToggleGroup conditionChoice = new ToggleGroup();
+
+    private final ToggleButton goodButton = new ToggleButton("Fine");
+    private final ToggleButton damagedButton = new ToggleButton("Damaged — sells cheaper");
+    private final ToggleButton unusableButton = new ToggleButton("Broken — cannot sell");
 
     private final Label mrpPrompt = new Label();
     private final TextField mrpField = new TextField();
@@ -195,17 +201,33 @@ public class UnpackingScreen {
         leaveButton.setDisable(true);
         leaveButton.setOnAction(event -> leaveCarton());
 
-        damagedToggle.setFont(BODY);
-        damagedToggle.selectedProperty().addListener((observable, was, isDamaged) -> {
-            damagedToggle.setStyle(isDamaged ? WARN : "");
-            if (isDamaged) {
-                say("Marking items as damaged. They will be counted in, and priced lower"
-                        + " later. Switch this off for undamaged items.", WARN);
-            } else {
-                hideMessage();
-            }
-            Platform.runLater(scanField::requestFocus);
-        });
+        for (ToggleButton button : List.of(goodButton, damagedButton, unusableButton)) {
+            button.setFont(BODY);
+            button.setToggleGroup(conditionChoice);
+            button.setDisable(true);
+        }
+        goodButton.setSelected(true);
+        conditionChoice.selectedToggleProperty().addListener(
+                (observable, was, now) -> {
+                    // Nothing selected would silently mean "fine", which is the one thing that
+                    // must never be assumed.
+                    if (now == null) {
+                        goodButton.setSelected(true);
+                        return;
+                    }
+                    damagedButton.setStyle(damagedButton.isSelected() ? WARN : "");
+                    unusableButton.setStyle(unusableButton.isSelected() ? STOP : "");
+                    if (damagedButton.isSelected()) {
+                        say("Marking items damaged. They are counted in and sold cheaper; the"
+                                + " manager decides for how much.", WARN);
+                    } else if (unusableButton.isSelected()) {
+                        say("Marking items broken. They are recorded as having arrived, and"
+                                + " cannot be sold at any price.", STOP);
+                    } else {
+                        hideMessage();
+                    }
+                    Platform.runLater(scanField::requestFocus);
+                });
 
         nextStep.setFont(BODY);
         nextStep.setWrapText(true);
@@ -232,9 +254,11 @@ public class UnpackingScreen {
 
         // Nothing to mark damaged, leave, or finish until a carton is open. Enabled controls
         // that do nothing are a way of asking someone to guess.
-        damagedToggle.setDisable(true);
+        setConditionButtonsDisabled(true);
 
-        HBox footer = new HBox(12, damagedToggle, leaveButton, finishButton);
+        HBox footer =
+                new HBox(12, goodButton, damagedButton, unusableButton, leaveButton,
+                        finishButton);
         footer.setPadding(new Insets(16));
         footer.setAlignment(Pos.CENTER_RIGHT);
 
@@ -650,21 +674,32 @@ public class UnpackingScreen {
         // unit are recorded together rather than in two steps that could half-fail.
         String code = pendingTagCode;
         pendingTagCode = null;
-        boolean damaged = damagedToggle.isSelected();
+        String condition = chosenCondition();
         CountOutcome outcome =
                 code == null
-                        ? backend.count(match.lineId(), 1, mrpPaise, damaged, mrpIsEstimate)
+                        ? backend.count(match.lineId(), 1, mrpPaise, condition, mrpIsEstimate)
                         : backend.tag(
-                                match.lineId(), code, 1, mrpPaise, damaged, mrpIsEstimate);
+                                match.lineId(), code, 1, mrpPaise, condition, mrpIsEstimate);
         refreshLines();
         sayCounted(match, outcome);
     }
 
+    private String chosenCondition() {
+        if (unusableButton.isSelected()) {
+            return "UNUSABLE";
+        }
+        return damagedButton.isSelected() ? "DAMAGED" : "GOOD";
+    }
+
     private void sayCounted(UnpackingLine match, CountOutcome outcome) {
-        // Damaged counts keep the warning colour, so a toggle left on is visible on every
-        // single scan rather than only when it was switched.
-        String mark = damagedToggle.isSelected() ? " (damaged)" : "";
-        String style = damagedToggle.isSelected() ? WARN : OK;
+        // Repeated on every confirmation, not only when it changes, so a setting left on is
+        // seen at each scan rather than remembered.
+        String mark =
+                unusableButton.isSelected()
+                        ? " (broken)"
+                        : damagedButton.isSelected() ? " (damaged)" : "";
+        String style =
+                unusableButton.isSelected() ? STOP : damagedButton.isSelected() ? WARN : OK;
         long left = Math.max(0, outcome.quantityExpected() - outcome.quantityCounted());
         if (left == 0) {
             say(shortName(match) + mark + " — all " + outcome.quantityCounted() + " found.",
@@ -763,7 +798,7 @@ public class UnpackingScreen {
                 return;
             }
             CountOutcome outcome =
-                    backend.tag(line.lineId(), code, 1, null, damagedToggle.isSelected(), false);
+                    backend.tag(line.lineId(), code, 1, null, chosenCondition(), false);
             refreshLines();
             sayCounted(line, outcome);
         } catch (BackendClient.RefusedException e) {
@@ -775,7 +810,7 @@ public class UnpackingScreen {
     }
 
     private void leaveCarton() {
-        damagedToggle.setSelected(false);
+        goodButton.setSelected(true);
         carton = null;
         lines = List.of();
         untaggedCode = null;
@@ -785,7 +820,7 @@ public class UnpackingScreen {
         cartonLabel.setText("Scan a box to start");
         finishButton.setDisable(true);
         leaveButton.setDisable(true);
-        damagedToggle.setDisable(true);
+        setConditionButtonsDisabled(true);
         setNextStep("Scan the number printed on the next box.");
         showOverview();
         say("Left the box as it is. Everything counted so far is saved. Scan another box.", OK);
@@ -798,7 +833,7 @@ public class UnpackingScreen {
         }
         try {
             backend.finishCarton(carton.boxId());
-            damagedToggle.setSelected(false);
+            goodButton.setSelected(true);
             long missing = lines.stream().mapToLong(UnpackingLine::outstanding).sum();
             carton = null;
             lines = List.of();
@@ -809,7 +844,7 @@ public class UnpackingScreen {
             cartonLabel.setText("Scan a box to start");
             finishButton.setDisable(true);
             leaveButton.setDisable(true);
-            damagedToggle.setDisable(true);
+            setConditionButtonsDisabled(true);
             setNextStep("Scan the number printed on the next box.");
             showOverview();
             if (missing > 0) {
@@ -860,7 +895,7 @@ public class UnpackingScreen {
         cartonLabel.setText("Box " + carton.trackingNumber());
         finishButton.setDisable(false);
         leaveButton.setDisable(false);
-        damagedToggle.setDisable(false);
+        setConditionButtonsDisabled(false);
         setNextStep("Scan the next item, or press \"Box is done\".");
 
         lineList.getChildren().clear();
@@ -953,6 +988,12 @@ public class UnpackingScreen {
 
     private void hideMessage() {
         message.setVisible(false);
+    }
+
+    private void setConditionButtonsDisabled(boolean disabled) {
+        goodButton.setDisable(disabled);
+        damagedButton.setDisable(disabled);
+        unusableButton.setDisable(disabled);
     }
 
     private void setNextStep(String text) {
