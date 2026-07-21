@@ -187,8 +187,13 @@ public class UnpackingScreen {
             Platform.runLater(scanField::requestFocus);
         });
 
-        Label hint = new Label("Scan the number on the box, then scan each item inside it.");
-        hint.setFont(SMALL);
+        nextStep.setFont(BODY);
+        nextStep.setWrapText(true);
+        nextStep.setStyle("-fx-text-fill:#1565c0;");
+
+        deliveryLine.setFont(SMALL);
+        deliveryLine.setWrapText(true);
+        deliveryLine.setStyle("-fx-text-fill:#555;");
 
         mrpPrompt.setFont(BODY);
         mrpPrompt.setWrapText(true);
@@ -199,10 +204,15 @@ public class UnpackingScreen {
         mrpBox.setVisible(false);
         mrpBox.setManaged(false);
 
-        VBox header = new VBox(6, cartonLabel, hint, scanField, mrpBox, message);
+        VBox header =
+                new VBox(6, cartonLabel, nextStep, deliveryLine, scanField, mrpBox, message);
         header.setPadding(new Insets(16));
 
         lineList.setPadding(new Insets(16));
+
+        // Nothing to mark damaged, leave, or finish until a carton is open. Enabled controls
+        // that do nothing are a way of asking someone to guess.
+        damagedToggle.setDisable(true);
 
         HBox footer = new HBox(12, damagedToggle, leaveButton, finishButton);
         footer.setPadding(new Insets(16));
@@ -543,6 +553,7 @@ public class UnpackingScreen {
         cartonLabel.setText("Scan a box to start");
         finishButton.setDisable(true);
         leaveButton.setDisable(true);
+        damagedToggle.setDisable(true);
         setNextStep("Scan the number printed on the next box.");
         say("Left the box as it is. Everything counted so far is saved. Scan another box.", OK);
         Platform.runLater(scanField::requestFocus);
@@ -565,6 +576,7 @@ public class UnpackingScreen {
             cartonLabel.setText("Scan a box to start");
             finishButton.setDisable(true);
             leaveButton.setDisable(true);
+            damagedToggle.setDisable(true);
             setNextStep("Scan the number printed on the next box.");
             if (missing > 0) {
                 say("Box done, with " + missing + " item(s) not found. That has been recorded."
@@ -614,6 +626,7 @@ public class UnpackingScreen {
         cartonLabel.setText("Box " + carton.trackingNumber());
         finishButton.setDisable(false);
         leaveButton.setDisable(false);
+        damagedToggle.setDisable(false);
         setNextStep("Scan the next item, or press \"Box is done\".");
 
         lineList.getChildren().clear();
