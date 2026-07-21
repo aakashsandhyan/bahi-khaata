@@ -69,6 +69,20 @@ class ScreenWiringTest {
         }
     }
 
+    @Test
+    @DisplayName("Nothing asks for a preferred width of MAX_VALUE")
+    void noPreferredWidthOfMaxValue() throws IOException {
+        // Not a style rule. setPrefWidth(Double.MAX_VALUE) reads as "fill the space" and is not:
+        // it is a real number the layout tries to honour, and it collapsed a column to nothing
+        // while the row beside it still rendered — so the screen looked half-built rather than
+        // broken, and shipped. maxWidth with Hgrow is the idiom that means what it says.
+        String code = Files.readString(SCREEN, StandardCharsets.UTF_8);
+
+        assertThat(code)
+                .as("use setMaxWidth(Double.MAX_VALUE) with HBox.setHgrow instead")
+                .doesNotContain("setPrefWidth(Double.MAX_VALUE)");
+    }
+
     /** Everything passed to a layout container or added to one, as one blob of text. */
     private String containerArguments(String code) {
         StringBuilder placed = new StringBuilder();

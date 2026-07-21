@@ -844,7 +844,8 @@ public class UnpackingScreen {
     }
 
     private HBox rowFor(UnpackingLine line) {
-        VBox detail = new VBox(2, selectable(shortName(line), BODY), selectable(sheetSays(line), SMALL));
+        VBox detail =
+                new VBox(0, selectable(shortName(line), BODY), selectable(sheetSays(line), SMALL));
         HBox.setHgrow(detail, Priority.ALWAYS);
         detail.setMaxWidth(Double.MAX_VALUE);
 
@@ -855,7 +856,7 @@ public class UnpackingScreen {
         // because nothing here is yet a mistake — a box in progress is just a box in progress.
         HBox row = new HBox(12, detail, count);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(10));
+        row.setPadding(new Insets(6, 10, 6, 10));
         row.setStyle(
                 line.outstanding() == 0
                         ? "-fx-background-color:#e8f5e9;-fx-background-radius:6;"
@@ -877,7 +878,15 @@ public class UnpackingScreen {
         field.setStyle(
                 "-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;"
                         + " -fx-border-width: 0;");
-        field.setPrefWidth(Double.MAX_VALUE);
+        // maxWidth and Hgrow, never prefWidth. A preferred width of MAX_VALUE is not "fill the
+        // space" — it is a real number the layout tries to honour, and it collapsed this column
+        // to nothing while the row beside it still rendered, so the screen looked half-built
+        // rather than broken.
+        field.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(field, Priority.ALWAYS);
+        // Long enough to be visible before layout stretches it; the manifest names are trimmed
+        // to sixty characters already.
+        field.setPrefColumnCount(40);
         return field;
     }
 
