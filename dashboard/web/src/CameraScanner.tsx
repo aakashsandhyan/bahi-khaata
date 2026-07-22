@@ -35,9 +35,11 @@ export function CameraScanner({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
 
   useEffect(() => {
+    setError(null)
     const hints = new Map()
     hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS)
     const reader = new BrowserMultiFormatReader(hints)
@@ -64,25 +66,37 @@ export function CameraScanner({
         else stop = () => controls.stop()
       })
       .catch((e: unknown) => {
-        setError(
-          e instanceof DOMException && e.name === 'NotAllowedError'
-            ? 'The camera was blocked. Allow camera access for this page and try again.'
-            : 'Could not start the camera. A scanner still works by typing into the box.',
-        )
+        const name = e instanceof DOMException ? e.name : ''
+        if (name === 'NotAllowedError') {
+          setError(
+            'The camera is blocked for this page. Tap the lock or camera icon in the address' +
+              ' bar, set Camera to Allow, then Try again. A scanner still works by typing into' +
+              ' the box meanwhile.',
+          )
+        } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+          setError('No camera was found on this device. Use a scanner, or type the code.')
+        } else if (name === 'NotReadableError') {
+          setError('The camera is in use by another app. Close it and Try again.')
+        } else {
+          setError('Could not start the camera. A scanner still works by typing into the box.')
+        }
       })
 
     return () => {
       cancelled = true
       stop?.()
     }
-  }, [onDetected])
+  }, [onDetected, attempt])
 
   return (
     <div className="camera">
       {error ? (
-        <div className="banner stop">{error}</div>
+        <>
+          <div className="banner stop">{error}</div>
+          <button onClick={() => setAttempt((n) => n + 1)}>Try again</button>
+        </>
       ) : (
-        <video ref={videoRef} className="viewfinder" muted playsInline />
+        <video ref={videoRef} className="viewfinder" muted playsInline autoPlay />
       )}
       <button onClick={onClose}>Stop the camera</button>
     </div>
