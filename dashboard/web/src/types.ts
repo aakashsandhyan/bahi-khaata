@@ -77,3 +77,9 @@ export interface SuggestedMrp {
   source: string | null
   message: string | null
 }
+
+export interface LearntCode {
+  code: string
+  origin: string
+  releasable: boolean
+}

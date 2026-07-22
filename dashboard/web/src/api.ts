@@ -65,6 +65,7 @@ export { BackendError }
 import type {
   CountOutcome as _CountOutcome,
   DeliveryProgress as _DeliveryProgress,
+  LearntCode as _LearntCode,
   SuggestedMrp as _SuggestedMrp,
   UnpackingCarton as _UnpackingCarton,
   UnpackingLine as _UnpackingLine,
@@ -100,4 +101,17 @@ export const unpacking = {
     get<_SuggestedMrp>(`/api/unpacking/lines/${lineId}/suggested-mrp`),
 
   finishCarton: (boxId: string) => post<void>(`/api/unpacking/boxes/${boxId}/finish`),
+
+  // --- corrections ---
+  // A count taken back is a new reversing entry, never a deleted one — the ledger is
+  // append-only. A condition left null means "whichever it was counted as".
+  undo: (lineId: string, quantity: number) =>
+    post<void>(`/api/unpacking/lines/${lineId}/undo`, { quantity }),
+
+  // Every code that scans as a line's goods, and which may be given up.
+  codesFor: (lineId: string) => get<_LearntCode[]>(`/api/unpacking/lines/${lineId}/codes`),
+
+  // Forget a code put on the wrong goods, so the sticker can be scanned onto the right item.
+  releaseCode: (code: string) =>
+    post<void>(`/api/unpacking/codes/${encodeURIComponent(code)}/release`),
 }

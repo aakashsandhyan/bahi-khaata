@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { unpacking, BackendError } from './api'
-import type { DeliveryProgress, UnpackingCarton, UnpackingLine } from './types'
+import type { DeliveryProgress, LearntCode, UnpackingCarton, UnpackingLine } from './types'
 import { rupees } from './money'
 import { CameraScanner } from './CameraScanner'
 
@@ -42,6 +42,13 @@ export function Unpacking() {
   // What condition scanned items are recorded in. Stays until changed, and is repeated back on
   // every count so a setting left on is seen, not remembered — the same rule as the terminal.
   const [condition, setCondition] = useState<'GOOD' | 'DAMAGED' | 'UNUSABLE'>('GOOD')
+  // A scan that hit a line already fully counted: either another really arrived, or the code is
+  // on the wrong goods.
+  const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
+  // Codes offered for release after a count is taken back, so a mis-scanned sticker can be freed.
+  const [releaseOffer, setReleaseOffer] = useState<{ name: string; codes: LearntCode[] } | null>(
+    null,
+  )
   // The camera fires many times a second from a stable callback; this ref lets that callback
   // reach the latest handler without being rebuilt, which would restart the camera each time.
   const handleScanRef = useRef<(code: string) => void>(() => {})
@@ -77,7 +84,7 @@ export function Unpacking() {
   // A camera read is ignored while a question is open — the same rule as the typed field being
   // disabled then. The person must answer the price or pick the item before the next scan lands.
   handleScanRef.current = (code: string) => {
-    if (askingMrp || choosing) return
+    if (askingMrp || choosing || surplus || releaseOffer) return
     onScan(code)
   }
 
@@ -102,6 +109,13 @@ export function Unpacking() {
     const resolved = await unpacking.resolve(carton.boxId, code)
     const match = resolved[0] ?? lines.find((l) => l.code.toLowerCase() === code.toLowerCase())
     if (match) {
+      if (match.outstanding <= 0) {
+        // Nothing left to find for this item. Another really arrived, or the code is on the
+        // wrong goods — the person decides.
+        setSurplus({ line: match, code })
+        setStep('More than the sheet expected — is it really another one?')
+        return
+      }
       await countOrAskMrp(match, null)
       return
     }
@@ -158,6 +172,37 @@ export function Unpacking() {
     focusScan()
   }
 
+  const takeBack = async (line: UnpackingLine) => {
+    try {
+      await unpacking.undo(line.lineId, 1)
+      if (carton) await refreshLines(carton.boxId)
+      loadDeliveries()
+      say('Took one back: ' + shortName(line), 'warn')
+      // Taking the count back leaves any code mapping behind — offer to free it, since a sticker
+      // on the wrong goods keeps resolving them.
+      const codes = (await unpacking.codesFor(line.lineId)).filter((c) => c.releasable)
+      if (codes.length > 0) setReleaseOffer({ name: shortName(line), codes })
+    } catch (e) {
+      fail(e)
+    } finally {
+      focusScan()
+    }
+  }
+
+  const release = async (code: string) => {
+    try {
+      await unpacking.releaseCode(code)
+      if (carton) await refreshLines(carton.boxId)
+      setReleaseOffer(null)
+      setSurplus(null)
+      say(`Forgot ${code}. Scan it again and say which item it really is.`, 'warn')
+    } catch (e) {
+      fail(e)
+    } finally {
+      focusScan()
+    }
+  }
+
   const finish = async (automatic = false) => {
     if (!carton) return
     try {
@@ -169,6 +214,8 @@ export function Unpacking() {
       setChoosing(null)
       setAskingMrp(null)
       setCondition('GOOD')
+      setSurplus(null)
+      setReleaseOffer(null)
       loadDeliveries()
       say(
         missing > 0
@@ -191,6 +238,8 @@ export function Unpacking() {
     setChoosing(null)
     setAskingMrp(null)
     setCondition('GOOD')
+    setSurplus(null)
+    setReleaseOffer(null)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
     setStep('Scan the number printed on the next box.')
     focusScan()
@@ -203,11 +252,15 @@ export function Unpacking() {
       {carton && <DeliveryLine lotId={carton.lotId} deliveries={deliveries} />}
 
       <div className="scanrow">
-        <ScanField refEl={scanRef} onScan={onScan} disabled={!!askingMrp || !!choosing} />
+        <ScanField
+          refEl={scanRef}
+          onScan={onScan}
+          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer}
+        />
         <button
           className="camera-toggle"
           onClick={() => setCameraOn((on) => !on)}
-          disabled={!!askingMrp || !!choosing}
+          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer}
         >
           {cameraOn ? 'Hide camera' : '📷 Camera'}
         </button>
@@ -251,7 +304,46 @@ export function Unpacking() {
         />
       )}
 
-      {carton && !choosing && !askingMrp && (
+      {surplus && (
+        <div className="which">
+          <h2>More of these than the sheet expected</h2>
+          <p className="code">Code on the item: {surplus.code}</p>
+          <p>
+            This code is on "{surplus.line.name}". If another really arrived, count it. If the
+            item in your hand is something else, the code was put on the wrong thing.
+          </p>
+          <button
+            className="choice"
+            onClick={() => {
+              const s = surplus
+              setSurplus(null)
+              record(s.line, s.code, null).catch(fail)
+            }}
+          >
+            Yes — another one really did arrive, count it
+          </button>
+          <button className="choice warn-choice" onClick={() => release(surplus.code)}>
+            Wrong item — forget this code and let me scan it again
+          </button>
+        </div>
+      )}
+
+      {releaseOffer && (
+        <div className="which">
+          <h2>Was a code put on this by mistake?</h2>
+          <p className="code">{releaseOffer.name}</p>
+          {releaseOffer.codes.map((c) => (
+            <button key={c.code} className="choice warn-choice" onClick={() => release(c.code)}>
+              Forget {c.code}
+            </button>
+          ))}
+          <button className="back" onClick={() => setReleaseOffer(null)}>
+            ← None of these, done
+          </button>
+        </div>
+      )}
+
+      {carton && !choosing && !askingMrp && !surplus && !releaseOffer && (
         <>
           <div className="conditions">
             <button
@@ -279,7 +371,7 @@ export function Unpacking() {
           {condition === 'UNUSABLE' && (
             <p className="condnote stop-text">Marking items broken — recorded as arrived, cannot be sold.</p>
           )}
-          <ItemList lines={lines} />
+          <ItemList lines={lines} onTakeBack={takeBack} />
           <div className="actions">
             <button onClick={leave}>Leave this box</button>
             <button className="primary" onClick={() => finish()}>
@@ -426,7 +518,13 @@ function WhichItem({
   )
 }
 
-function ItemList({ lines }: { lines: UnpackingLine[] }) {
+function ItemList({
+  lines,
+  onTakeBack,
+}: {
+  lines: UnpackingLine[]
+  onTakeBack: (line: UnpackingLine) => void
+}) {
   const sorted = [...lines].sort((a, b) => Number(a.outstanding === 0) - Number(b.outstanding === 0))
   return (
     <div className="items">
@@ -439,8 +537,15 @@ function ItemList({ lines }: { lines: UnpackingLine[] }) {
               online
             </div>
           </div>
-          <div className="count">
-            {line.counted} / {line.expected}
+          <div className="countcol">
+            <div className="count">
+              {line.counted} / {line.expected}
+            </div>
+            {line.counted > 0 && (
+              <button className="takeback" onClick={() => onTakeBack(line)}>
+                Take one back
+              </button>
+            )}
           </div>
         </div>
       ))}
