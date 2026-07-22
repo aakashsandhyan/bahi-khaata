@@ -1,8 +1,14 @@
 # Running the backend in Docker
 
 The backend — the schema, the data, and all the business logic — runs as a container that
-works the same on any machine with Docker. It is the portable, "runs anywhere" half of the
-system.
+works the same on any machine with Docker.
+
+**This is not the intended way to run the shop.** For a single shop on one machine behind the
+counter, the lighter and more faithful path is a plain jar — `java -jar backend.jar`, with the
+SQLite file beside it — and a `jpackage` bundle for the terminal, which is what the design
+committed to. Docker is here for development, for running the backend somewhere other than the
+till (a server or NAS), and for the day a second outlet makes a central backend the plan. It
+earns its place then; it is a convenience, not a requirement, now.
 
 ## What is not in the image, and why
 
