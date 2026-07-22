@@ -1,2 +1,5 @@
 node_modules
 dist
+# Certificates are machine-specific and the leaf key is secret — never commit them.
+certs
+public/rootCA.pem

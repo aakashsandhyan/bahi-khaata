@@ -1,25 +1,35 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import basicSsl from '@vitejs/plugin-basic-ssl'
+import { existsSync, readFileSync } from 'node:fs'
 
-// HTTPS, because a browser gives a web page the camera only on a secure context — https, or
-// localhost. The phones load this from the PC's LAN address, which is neither over plain http,
-// so without this the camera is refused however the code asks. basicSsl generates a self-signed
-// certificate; a phone accepts its warning once.
+// HTTPS with a certificate a phone can actually trust, made by mkcert. A self-signed cert let
+// the page load but Chrome still refused the camera on it, silently — the camera needs a
+// certificate signed by an authority the device trusts. mkcert is that authority; its root is
+// installed on each phone once (downloadable at /rootCA.pem while the server runs), and then
+// this cert is trusted and the camera prompts normally.
 //
-// The API is proxied rather than called across origins. The browser then talks only to this
-// server, over https, and this server talks to the backend on localhost — so there is no mixed
-// content (an https page may not call an http backend) and no cross-origin request to permit.
+// The certificate is looked for at a fixed path and used only if it is there. Absent — a fresh
+// checkout, or a machine that has not run mkcert — the server falls back to plain http: the app
+// still works for typed and Bluetooth scanning, only the camera needs the trusted https. So a
+// missing cert degrades a feature rather than breaking the server.
+//
+// If the PC's LAN address changes, regenerate the cert for the new one and update these paths.
+const CERT = './certs/192.168.1.13+2.pem'
+const KEY = './certs/192.168.1.13+2-key.pem'
+const https =
+  existsSync(CERT) && existsSync(KEY)
+    ? { cert: readFileSync(CERT), key: readFileSync(KEY) }
+    : undefined
+
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react()],
   server: {
     port: 5173,
     host: true, // reachable from other devices on the Wi-Fi
+    https, // trusted https when the cert is present; plain http otherwise
+    // The API is proxied so the browser stays on one origin — no mixed content, no cross-origin.
     proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
+      '/api': { target: 'http://localhost:8080', changeOrigin: true },
     },
   },
 })
