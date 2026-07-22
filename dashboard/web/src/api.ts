@@ -21,6 +21,16 @@ async function get<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+// For endpoints that answer with a list, where a 404 means "nothing here" rather than a fault —
+// an unknown box tracking number, a code that resolves to nothing. Returns an empty list so the
+// caller shows its ordinary "not found" message instead of a raw backend error.
+async function getList<T>(path: string): Promise<T[]> {
+  const response = await fetch(`${BASE}${path}`)
+  if (response.status === 404) return []
+  if (!response.ok) throw new BackendError(await message(response))
+  return response.json() as Promise<T[]>
+}
+
 async function post<T>(path: string, body?: unknown): Promise<T | null> {
   const response = await fetch(`${BASE}${path}`, {
     method: 'POST',
@@ -81,12 +91,12 @@ export const unpacking = {
   deliveries: () => get<_DeliveryProgress[]>('/api/unpacking/deliveries'),
 
   cartonsByTracking: (tracking: string) =>
-    get<_UnpackingCarton[]>(`/api/unpacking/boxes/by-tracking/${encodeURIComponent(tracking)}`),
+    getList<_UnpackingCarton>(`/api/unpacking/boxes/by-tracking/${encodeURIComponent(tracking)}`),
 
-  lines: (boxId: string) => get<_UnpackingLine[]>(`/api/unpacking/boxes/${boxId}/lines`),
+  lines: (boxId: string) => getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/lines`),
 
   resolve: (boxId: string, code: string) =>
-    get<_UnpackingLine[]>(`/api/unpacking/boxes/${boxId}/resolve?code=${encodeURIComponent(code)}`),
+    getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/resolve?code=${encodeURIComponent(code)}`),
 
   count: (lineId: string, quantity: number, mrpPaise: number | null, condition: string) =>
     post<_CountOutcome>(`/api/unpacking/lines/${lineId}/count`, countBody(quantity, mrpPaise, condition)),
