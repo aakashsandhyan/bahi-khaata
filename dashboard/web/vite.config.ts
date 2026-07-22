@@ -29,7 +29,18 @@ export default defineConfig({
     https, // trusted https when the cert is present; plain http otherwise
     // The API is proxied so the browser stays on one origin — no mixed content, no cross-origin.
     proxy: {
-      '/api': { target: 'http://localhost:8080', changeOrigin: true },
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        // Strip the browser's Origin before forwarding. To the browser these calls are
+        // same-origin — page and api share this https address — but a POST carries an Origin
+        // header even so, and forwarding it made the backend treat a same-origin call as a
+        // cross-origin one and refuse it. With no Origin, the backend sees an ordinary request,
+        // which is what it is. GETs never showed this: a same-origin GET sends no Origin at all.
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'))
+        },
+      },
     },
   },
 })
