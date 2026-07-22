@@ -7,11 +7,11 @@
 
 import type { BulkResult, PriceProposal, PriceableItem } from './types'
 
-// The backend is on the same machine that served this page, at port 8080. Derived from the
-// address the page was opened at rather than hardcoded to localhost, so a phone that loaded it
-// from the PC's LAN address calls the PC — not its own localhost, which is what a fixed
-// 'localhost' would have meant on every device but the PC itself.
-const BASE = import.meta.env.VITE_BACKEND ?? `http://${window.location.hostname}:8080`
+// Relative, so every call goes through this server, which proxies it to the backend. That keeps
+// the browser on one secure origin — needed for the camera — with no mixed content and no
+// cross-origin request. An explicit VITE_BACKEND still overrides it for anyone pointing the app
+// at a backend elsewhere.
+const BASE = import.meta.env.VITE_BACKEND ?? ''
 
 class BackendError extends Error {}
 

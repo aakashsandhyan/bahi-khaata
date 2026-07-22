@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { unpacking, BackendError } from './api'
 import type { DeliveryProgress, UnpackingCarton, UnpackingLine } from './types'
 import { rupees } from './money'
+import { CameraScanner } from './CameraScanner'
 
 /**
  * Unpacking, on the web, so several people scan at once.
@@ -37,6 +38,12 @@ export function Unpacking() {
   const scanRef = useRef<HTMLInputElement>(null)
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
+  const [cameraOn, setCameraOn] = useState(false)
+  // The camera fires many times a second from a stable callback; this ref lets that callback
+  // reach the latest handler without being rebuilt, which would restart the camera each time.
+  const handleScanRef = useRef<(code: string) => void>(() => {})
+  const onCameraDetect = useCallback((code: string) => handleScanRef.current(code), [])
+
   const loadDeliveries = () => unpacking.deliveries().then(setDeliveries).catch(() => {})
   useEffect(() => {
     loadDeliveries()
@@ -59,6 +66,13 @@ export function Unpacking() {
   }
 
   const refreshLines = async (boxId: string) => setLines(await unpacking.lines(boxId))
+
+  // A camera read is ignored while a question is open — the same rule as the typed field being
+  // disabled then. The person must answer the price or pick the item before the next scan lands.
+  handleScanRef.current = (code: string) => {
+    if (askingMrp || choosing) return
+    onScan(code)
+  }
 
   const onScan = async (raw: string) => {
     const scanned = raw.trim()
@@ -164,7 +178,20 @@ export function Unpacking() {
       <p className="step">→ {step}</p>
       {carton && <DeliveryLine lotId={carton.lotId} deliveries={deliveries} />}
 
-      <ScanField refEl={scanRef} onScan={onScan} disabled={!!askingMrp || !!choosing} />
+      <div className="scanrow">
+        <ScanField refEl={scanRef} onScan={onScan} disabled={!!askingMrp || !!choosing} />
+        <button
+          className="camera-toggle"
+          onClick={() => setCameraOn((on) => !on)}
+          disabled={!!askingMrp || !!choosing}
+        >
+          {cameraOn ? 'Hide camera' : '📷 Camera'}
+        </button>
+      </div>
+
+      {cameraOn && !askingMrp && !choosing && (
+        <CameraScanner onDetected={onCameraDetect} onClose={() => setCameraOn(false)} />
+      )}
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 

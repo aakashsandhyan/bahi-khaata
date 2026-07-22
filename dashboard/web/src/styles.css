@@ -103,3 +103,13 @@ main { }
 .actions { display: flex; gap: 12px; justify-content: flex-end; margin: 16px 0; }
 .overview { margin-top: 16px; }
 .overview td.wait, .overview .wait { color: var(--warn); font-weight: 600; }
+
+/* --- camera --- */
+.scanrow { display: flex; gap: 8px; align-items: stretch; }
+.scanrow .scan { flex: 1; }
+.camera-toggle { font-size: 16px; padding: 0 16px; border-radius: 8px; white-space: nowrap; }
+.camera { margin: 8px 0; }
+.viewfinder {
+  width: 100%; max-height: 60vh; background: #000; border-radius: 8px; object-fit: cover;
+}
+.camera button { margin-top: 8px; width: 100%; padding: 12px; }
