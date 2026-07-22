@@ -114,6 +114,14 @@ public class Batch extends UuidEntity {
     @Column(name = "labelled_at", columnDefinition = "text")
     private Instant labelledAt;
 
+    /**
+     * Why these goods are damaged or broken, in the words of whoever unpacked them. Null for
+     * sound goods, which have nothing to explain. Set at counting and read when the goods are
+     * priced or written off.
+     */
+    @Column(name = "remark", columnDefinition = "text")
+    private String remark;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -427,6 +435,30 @@ public class Batch extends UuidEntity {
 
     public boolean isLabelled() {
         return labelledAt != null;
+    }
+
+    /** Why these goods are damaged, or null if they are sound or nobody said. */
+    public String getRemark() {
+        return remark;
+    }
+
+    /**
+     * Adds a note on the goods' condition.
+     *
+     * <p>Accumulates rather than overwrites: a batch is one product's damaged units in a
+     * delivery, and two of them may be damaged differently — "lid cracked" and "handle missing"
+     * are both worth keeping. A repeat of the same note is not added twice.
+     */
+    public void addRemark(String note) {
+        if (note == null || note.isBlank()) {
+            return;
+        }
+        String trimmed = note.strip();
+        if (remark == null || remark.isBlank()) {
+            remark = trimmed;
+        } else if (!remark.contains(trimmed)) {
+            remark = remark + "; " + trimmed;
+        }
     }
 
     public Instant getLabelledAt() {

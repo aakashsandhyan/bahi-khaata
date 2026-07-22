@@ -81,9 +81,15 @@ import type {
   UnpackingLine as _UnpackingLine,
 } from './types'
 
-function countBody(quantity: number, mrpPaise: number | null, condition: string) {
+function countBody(
+  quantity: number,
+  mrpPaise: number | null,
+  condition: string,
+  remark: string | null,
+) {
   const body: Record<string, unknown> = { quantity, mrpIsEstimate: false, condition }
   if (mrpPaise != null) body.mrpPaise = mrpPaise
+  if (remark) body.remark = remark
   return body
 }
 
@@ -98,13 +104,29 @@ export const unpacking = {
   resolve: (boxId: string, code: string) =>
     getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/resolve?code=${encodeURIComponent(code)}`),
 
-  count: (lineId: string, quantity: number, mrpPaise: number | null, condition: string) =>
-    post<_CountOutcome>(`/api/unpacking/lines/${lineId}/count`, countBody(quantity, mrpPaise, condition)),
+  count: (
+    lineId: string,
+    quantity: number,
+    mrpPaise: number | null,
+    condition: string,
+    remark: string | null,
+  ) =>
+    post<_CountOutcome>(
+      `/api/unpacking/lines/${lineId}/count`,
+      countBody(quantity, mrpPaise, condition, remark),
+    ),
 
-  tag: (lineId: string, scannedCode: string, quantity: number, mrpPaise: number | null, condition: string) =>
+  tag: (
+    lineId: string,
+    scannedCode: string,
+    quantity: number,
+    mrpPaise: number | null,
+    condition: string,
+    remark: string | null,
+  ) =>
     post<_CountOutcome>(`/api/unpacking/lines/${lineId}/tag`, {
       scannedCode,
-      ...countBody(quantity, mrpPaise, condition),
+      ...countBody(quantity, mrpPaise, condition, remark),
     }),
 
   suggestedMrp: (lineId: string) =>

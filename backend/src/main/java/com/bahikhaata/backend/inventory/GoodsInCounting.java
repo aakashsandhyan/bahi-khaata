@@ -99,7 +99,7 @@ public class GoodsInCounting {
     public CountOutcome countExpected(
             UUID expectedLineId, long quantity, Money mrp, boolean mrpIsEstimate, Instant at) {
         return countExpected(
-                expectedLineId, StockCondition.GOOD, quantity, mrp, mrpIsEstimate, at);
+                expectedLineId, StockCondition.GOOD, quantity, mrp, mrpIsEstimate, null, at);
     }
 
     /**
@@ -112,6 +112,7 @@ public class GoodsInCounting {
      * <p>The operator makes this call and needs no judgement for it: an item is marked or it is
      * not. What a damaged unit is then worth is decided later by someone who can see cost.
      */
+    /** As below, with no remark — for sound goods and callers that record none. */
     @Transactional
     public CountOutcome countExpected(
             UUID expectedLineId,
@@ -119,6 +120,19 @@ public class GoodsInCounting {
             long quantity,
             Money mrp,
             boolean mrpIsEstimate,
+            Instant at) {
+        return countExpected(
+                expectedLineId, condition, quantity, mrp, mrpIsEstimate, null, at);
+    }
+
+    @Transactional
+    public CountOutcome countExpected(
+            UUID expectedLineId,
+            StockCondition condition,
+            long quantity,
+            Money mrp,
+            boolean mrpIsEstimate,
+            String remark,
             Instant at) {
         ExpectedLine line =
                 expectedLines
@@ -133,7 +147,7 @@ public class GoodsInCounting {
         Batch batch =
                 addToBatch(
                         line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
-                        at);
+                        remark, at);
 
         return new CountOutcome(
                 batch.getId(),
@@ -157,10 +171,19 @@ public class GoodsInCounting {
      * <p>Refused when the code already belongs to a different product, because a code that
      * resolves to two things resolves to neither.
      */
+    /** As below, with no remark. */
     @Transactional
     public CountOutcome tagAndCount(
             UUID expectedLineId, String scannedCode, StockCondition condition, long quantity,
             Money mrp, boolean mrpIsEstimate, Instant at) {
+        return tagAndCount(
+                expectedLineId, scannedCode, condition, quantity, mrp, mrpIsEstimate, null, at);
+    }
+
+    @Transactional
+    public CountOutcome tagAndCount(
+            UUID expectedLineId, String scannedCode, StockCondition condition, long quantity,
+            Money mrp, boolean mrpIsEstimate, String remark, Instant at) {
         ExpectedLine line =
                 expectedLines
                         .findById(expectedLineId)
@@ -186,7 +209,7 @@ public class GoodsInCounting {
                         () -> barcodes.save(
                                 new Barcode(product, scannedCode, originOf(scannedCode))));
 
-        return countExpected(expectedLineId, condition, quantity, mrp, mrpIsEstimate, at);
+        return countExpected(expectedLineId, condition, quantity, mrp, mrpIsEstimate, remark, at);
     }
 
     /**
@@ -238,7 +261,7 @@ public class GoodsInCounting {
         Batch batch =
                 addToBatch(
                         box.getLot(), product, StockCondition.GOOD, quantity, mrp, mrpIsEstimate,
-                        at);
+                        null, at);
 
         return new CountOutcome(batch.getId(), 0, find.getQuantity(), find.getQuantity());
     }
@@ -647,6 +670,7 @@ public class GoodsInCounting {
             long quantity,
             Money mrp,
             boolean mrpIsEstimate,
+            String remark,
             Instant at) {
         Optional<Batch> existing =
                 batches.findByLotIdAndProductIdAndCondition(
@@ -662,6 +686,7 @@ public class GoodsInCounting {
             batch = batches.save(
                     Batch.counted(product, lot, condition, quantity, mrp, mrpIsEstimate));
         }
+        batch.addRemark(remark);
         // Unusable goods arrived but never became stock, so nothing goes to the ledger. Writing
         // a receipt and reversing it would add two entries that cancel out and one more moment
         // where on-hand is wrong. The batch is the record that they came.

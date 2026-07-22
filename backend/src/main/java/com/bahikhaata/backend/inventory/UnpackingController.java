@@ -141,6 +141,7 @@ class UnpackingController {
                 request.quantity(),
                 request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
                 request.mrpIsEstimate(),
+                request.remark(),
                 Instant.now());
     }
 
@@ -160,6 +161,7 @@ class UnpackingController {
                 request.quantity(),
                 request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
                 request.mrpIsEstimate(),
+                request.remark(),
                 Instant.now());
     }
 
@@ -264,7 +266,8 @@ class UnpackingController {
 
     /** {@code condition} may be omitted; sound goods are the ordinary case. */
     record CountRequest(
-            long quantity, Long mrpPaise, boolean mrpIsEstimate, StockCondition condition) {}
+            long quantity, Long mrpPaise, boolean mrpIsEstimate, StockCondition condition,
+            String remark) {}
 
     record UndoRequest(long quantity, StockCondition condition, String untagCode) {}
 
@@ -273,7 +276,8 @@ class UnpackingController {
             long quantity,
             Long mrpPaise,
             boolean mrpIsEstimate,
-            StockCondition condition) {}
+            StockCondition condition,
+            String remark) {}
 
     record UnlistedRequest(
             String code,

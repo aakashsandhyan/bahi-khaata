@@ -37,6 +37,7 @@ export function Unpacking() {
     line: UnpackingLine
     code: string | null
     condition: Condition
+    remark: string | null
   } | null>(null)
 
   const scanRef = useRef<HTMLInputElement>(null)
@@ -50,6 +51,12 @@ export function Unpacking() {
   const [picking, setPicking] = useState<{ line: UnpackingLine; tagCode: string | null } | null>(
     null,
   )
+  // A note on damaged or broken goods — why they are not sound. Optional.
+  const [remarking, setRemarking] = useState<{
+    line: UnpackingLine
+    tagCode: string | null
+    condition: Condition
+  } | null>(null)
   // A scan that hit a line already fully counted: either another really arrived, or the code is
   // on the wrong goods.
   const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
@@ -92,7 +99,7 @@ export function Unpacking() {
   // A camera read is ignored while a question is open — the same rule as the typed field being
   // disabled then. The person must answer the price or pick the item before the next scan lands.
   handleScanRef.current = (code: string) => {
-    if (askingMrp || choosing || surplus || releaseOffer || picking) return
+    if (askingMrp || choosing || surplus || releaseOffer || picking || remarking) return
     onScan(code)
   }
 
@@ -149,28 +156,31 @@ export function Unpacking() {
     line: UnpackingLine,
     tagCode: string | null,
     condition: Condition,
+    remark: string | null,
   ) => {
     setPicking(null)
+    setRemarking(null)
     // Broken goods are never sold, so a printed price means nothing for them — counted straight
     // through without asking.
     if (condition !== 'UNUSABLE' && line.needsMrp) {
-      setAskingMrp({ line, code: tagCode, condition })
+      setAskingMrp({ line, code: tagCode, condition, remark })
       setStep('Type the MRP printed on the pack, then press Enter.')
       return
     }
-    await record(line, tagCode, condition, null)
+    await record(line, tagCode, condition, remark, null)
   }
 
   const record = async (
     line: UnpackingLine,
     tagCode: string | null,
     condition: Condition,
+    remark: string | null,
     mrpPaise: number | null,
   ) => {
     if (!carton) return
     const outcome = tagCode
-      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition)
-      : await unpacking.count(line.lineId, 1, mrpPaise, condition)
+      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition, remark)
+      : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark)
     setChoosing(null)
     setAskingMrp(null)
     const fresh = await refreshLines(carton.boxId)
@@ -239,6 +249,7 @@ export function Unpacking() {
       setChoosing(null)
       setAskingMrp(null)
       setPicking(null)
+      setRemarking(null)
       setSurplus(null)
       setReleaseOffer(null)
       loadDeliveries()
@@ -263,6 +274,7 @@ export function Unpacking() {
     setChoosing(null)
     setAskingMrp(null)
     setPicking(null)
+    setRemarking(null)
     setSurplus(null)
     setReleaseOffer(null)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
@@ -280,12 +292,12 @@ export function Unpacking() {
         <ScanField
           refEl={scanRef}
           onScan={onScan}
-          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking}
+          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
         />
         <button
           className="camera-toggle"
           onClick={() => setCameraOn((on) => !on)}
-          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking}
+          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
         >
           {cameraOn ? 'Hide camera' : '📷 Camera'}
         </button>
@@ -301,7 +313,13 @@ export function Unpacking() {
         <MrpPrompt
           line={askingMrp.line}
           onEnter={(paise) =>
-            record(askingMrp.line, askingMrp.code, askingMrp.condition, paise).catch(fail)
+            record(
+              askingMrp.line,
+              askingMrp.code,
+              askingMrp.condition,
+              askingMrp.remark,
+              paise,
+            ).catch(fail)
           }
           onError={(m) => say(m, 'warn')}
           onBack={() => {
@@ -310,7 +328,13 @@ export function Unpacking() {
             focusScan()
           }}
           onSkip={() => {
-            record(askingMrp.line, askingMrp.code, askingMrp.condition, null).catch(fail)
+            record(
+              askingMrp.line,
+              askingMrp.code,
+              askingMrp.condition,
+              askingMrp.remark,
+              null,
+            ).catch(fail)
             say('Counted without a price. It cannot be sold until someone finds one.', 'warn')
           }}
         />
@@ -379,23 +403,42 @@ export function Unpacking() {
           <p className="code">{shortName(picking.line)}</p>
           <button
             className="cond on-good big"
-            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'GOOD').catch(fail)}
+            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'GOOD', null).catch(fail)}
           >
             Fine
           </button>
           <button
             className="cond on-damaged big"
-            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'DAMAGED').catch(fail)}
+            onClick={() =>
+              setRemarking({ line: picking.line, tagCode: picking.tagCode, condition: 'DAMAGED' })
+            }
           >
             Damaged — sells cheaper
           </button>
           <button
             className="cond on-broken big"
-            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'UNUSABLE').catch(fail)}
+            onClick={() =>
+              setRemarking({ line: picking.line, tagCode: picking.tagCode, condition: 'UNUSABLE' })
+            }
           >
             Broken — cannot sell
           </button>
         </div>
+      )}
+
+      {remarking && (
+        <RemarkPrompt
+          line={remarking.line}
+          condition={remarking.condition}
+          onDone={(note) =>
+            countOrAskMrp(remarking.line, remarking.tagCode, remarking.condition, note).catch(fail)
+          }
+          onBack={() => {
+            // Back to the condition choice, not out of the item entirely.
+            setPicking({ line: remarking.line, tagCode: remarking.tagCode })
+            setRemarking(null)
+          }}
+        />
       )}
 
       {carton && !choosing && !askingMrp && !surplus && !releaseOffer && !picking && (
@@ -543,6 +586,43 @@ function WhichItem({
           </span>
         </button>
       ))}
+    </div>
+  )
+}
+
+function RemarkPrompt({
+  line,
+  condition,
+  onDone,
+  onBack,
+}: {
+  line: UnpackingLine
+  condition: Condition
+  onDone: (note: string | null) => void
+  onBack: () => void
+}) {
+  const [note, setNote] = useState('')
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => ref.current?.focus(), [])
+  const done = () => onDone(note.trim() || null)
+  return (
+    <div className="which">
+      <button className="back" onClick={onBack}>
+        ← Back
+      </button>
+      <h2>{condition === 'UNUSABLE' ? 'What is broken?' : "What's wrong with it?"}</h2>
+      <p className="code">{shortName(line)}</p>
+      <input
+        ref={ref}
+        className="scan small"
+        placeholder="e.g. lid cracked, box opened, screen dead"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && done()}
+      />
+      <button className="choice" onClick={done}>
+        {note.trim() ? 'Save note and continue' : 'No note — continue'}
+      </button>
     </div>
   )
 }
