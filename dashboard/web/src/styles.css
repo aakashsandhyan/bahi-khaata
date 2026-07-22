@@ -131,3 +131,8 @@ main { }
   box-shadow: 0 0 0 2000px rgba(0,0,0,0.25);
 }
 .readout { text-align: center; color: #999; font-size: 11px; margin: 2px 0; }
+
+.back {
+  border: none; background: transparent; color: #1565c0; font-size: 16px;
+  padding: 6px 0; cursor: pointer;
+}

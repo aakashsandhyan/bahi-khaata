@@ -200,6 +200,11 @@ export function Unpacking() {
           line={askingMrp.line}
           onEnter={(paise) => record(askingMrp.line, askingMrp.code, paise).catch(fail)}
           onError={(m) => say(m, 'warn')}
+          onBack={() => {
+            setAskingMrp(null)
+            setStep('Scan the next item, or press "Box is done".')
+            focusScan()
+          }}
         />
       )}
 
@@ -210,6 +215,11 @@ export function Unpacking() {
           lines={lines}
           onFilter={(f) => setChoosing({ code: choosing.code, filter: f })}
           onChoose={(line) => countOrAskMrp(line, choosing.code).catch(fail)}
+          onBack={() => {
+            setChoosing(null)
+            setStep('Scan the next item, or press "Box is done".')
+            focusScan()
+          }}
         />
       )}
 
@@ -265,10 +275,12 @@ function MrpPrompt({
   line,
   onEnter,
   onError,
+  onBack,
 }: {
   line: UnpackingLine
   onEnter: (paise: number) => void
   onError: (message: string) => void
+  onBack: () => void
 }) {
   const [value, setValue] = useState('')
   const ref = useRef<HTMLInputElement>(null)
@@ -288,6 +300,9 @@ function MrpPrompt({
   }
   return (
     <div className="mrp">
+      <button className="back" onClick={onBack}>
+        ← Back
+      </button>
       <p>MRP printed on {shortName(line)}?</p>
       <input
         ref={ref}
@@ -307,12 +322,14 @@ function WhichItem({
   lines,
   onFilter,
   onChoose,
+  onBack,
 }: {
   code: string
   filter: string
   lines: UnpackingLine[]
   onFilter: (f: string) => void
   onChoose: (line: UnpackingLine) => void
+  onBack: () => void
 }) {
   const needle = filter.trim().toLowerCase()
   const choices = lines
@@ -324,6 +341,9 @@ function WhichItem({
     .sort((a, b) => b.outstanding - a.outstanding)
   return (
     <div className="which">
+      <button className="back" onClick={onBack}>
+        ← Back
+      </button>
       <h2>Which of these is it?</h2>
       <p className="code">Code on the item: {code}</p>
       <input
