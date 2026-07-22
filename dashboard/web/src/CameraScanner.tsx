@@ -90,7 +90,19 @@ export function CameraScanner({
           /* unsupported */
         }
         const caps = track.getCapabilities?.() ?? {}
-        setTorchable('torch' in caps)
+        const hasTorch = 'torch' in caps
+        setTorchable(hasTorch)
+        // Lit by default where the device allows it: HD with the light on is what reads a
+        // thermal sticker, and asking someone to turn it on every time is a step to forget. The
+        // toggle stays, for the odd glossy label where the light glares back.
+        if (hasTorch) {
+          try {
+            await track.applyConstraints({ advanced: [{ torch: true }] } as never)
+            setTorchOn(true)
+          } catch {
+            /* could not light it — the toggle remains */
+          }
+        }
         const settings = track.getSettings?.() ?? {}
         setReadout(`${settings.width ?? '?'}×${settings.height ?? '?'} · ${track.label || 'camera'}`)
 
