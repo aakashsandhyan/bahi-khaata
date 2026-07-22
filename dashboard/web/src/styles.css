@@ -136,3 +136,11 @@ main { }
   border: none; background: transparent; color: #1565c0; font-size: 16px;
   padding: 6px 0; cursor: pointer;
 }
+
+
+/* On a phone the dashboard is an operator's, and pricing — cost, margin, damaged — is not
+   theirs to see. Until roles decide this properly, screen width stands in: the admin nav shows
+   only on a wide screen, and a narrow one gets unpacking alone. */
+@media (max-width: 760px) {
+  .topnav { display: none; }
+}

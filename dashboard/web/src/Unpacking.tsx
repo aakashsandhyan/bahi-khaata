@@ -65,7 +65,11 @@ export function Unpacking() {
     setStep('Scan each item in this box. Press "Box is done" when it is empty.')
   }
 
-  const refreshLines = async (boxId: string) => setLines(await unpacking.lines(boxId))
+  const refreshLines = async (boxId: string) => {
+    const fresh = await unpacking.lines(boxId)
+    setLines(fresh)
+    return fresh
+  }
 
   // A camera read is ignored while a question is open — the same rule as the typed field being
   // disabled then. The person must answer the price or pick the item before the next scan lands.
@@ -125,8 +129,16 @@ export function Unpacking() {
       : await unpacking.count(line.lineId, 1, mrpPaise, 'GOOD')
     setChoosing(null)
     setAskingMrp(null)
-    await refreshLines(carton.boxId)
+    const fresh = await refreshLines(carton.boxId)
     loadDeliveries()
+
+    // The last item closes the box on its own — nobody should have to reach for a button when
+    // the carton is empty. Anything still to find keeps it open, since it is not done.
+    if (fresh.length > 0 && fresh.every((l) => l.outstanding <= 0)) {
+      await finish(true)
+      return
+    }
+
     const left = Math.max(0, (outcome?.quantityExpected ?? 0) - (outcome?.quantityCounted ?? 0))
     say(
       shortName(line) +
@@ -139,11 +151,12 @@ export function Unpacking() {
     focusScan()
   }
 
-  const finish = async () => {
+  const finish = async (automatic = false) => {
     if (!carton) return
     try {
+      const current = await unpacking.lines(carton.boxId)
       await unpacking.finishCarton(carton.boxId)
-      const missing = lines.reduce((n, l) => n + l.outstanding, 0)
+      const missing = current.reduce((n, l) => n + Math.max(0, l.outstanding), 0)
       setCarton(null)
       setLines([])
       setChoosing(null)
@@ -152,7 +165,9 @@ export function Unpacking() {
       say(
         missing > 0
           ? `Box done, ${missing} item(s) not found — recorded. Scan the next box.`
-          : 'Box done, everything found. Scan the next box.',
+          : automatic
+            ? 'That was the last one — box done. Scan the next box.'
+            : 'Box done, everything found. Scan the next box.',
         missing > 0 ? 'warn' : 'ok',
       )
       setStep('Scan the number printed on the next box.')
@@ -228,7 +243,7 @@ export function Unpacking() {
           <ItemList lines={lines} />
           <div className="actions">
             <button onClick={leave}>Leave this box</button>
-            <button className="primary" onClick={finish}>
+            <button className="primary" onClick={() => finish()}>
               Box is done
             </button>
           </div>
