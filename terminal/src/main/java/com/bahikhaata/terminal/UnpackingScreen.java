@@ -341,16 +341,7 @@ public class UnpackingScreen {
         long itemsTotal = 0;
         long waiting = 0;
         for (DeliveryProgress delivery : deliveries) {
-            boolean finished = delivery.cartonsFinished() == delivery.cartonsTotal();
-            lineList.getChildren().add(
-                    overviewRow(
-                            delivery.category(),
-                            delivery.cartonsFinished() + " of " + delivery.cartonsTotal(),
-                            delivery.unitsCounted() + " of " + delivery.unitsExpected(),
-                            delivery.itemsWithoutMrp() == 0 ? "—"
-                                    : String.valueOf(delivery.itemsWithoutMrp()),
-                            false,
-                            finished));
+            lineList.getChildren().add(deliveryRow(delivery));
             boxesDone += delivery.cartonsFinished();
             boxesTotal += delivery.cartonsTotal();
             itemsFound += delivery.unitsCounted();
@@ -366,6 +357,87 @@ public class UnpackingScreen {
                         waiting == 0 ? "—" : String.valueOf(waiting),
                         true,
                         false));
+    }
+
+    /**
+     * A delivery's row, with the way to finish it once its boxes are counted.
+     *
+     * <p>Finishing settles what the goods cost and is one way — it is where unpacking hands over
+     * to pricing, and after it nothing in the delivery can be recounted. So it is a deliberate
+     * button on the overview rather than something next to the everyday box actions, and it
+     * appears only when there is something counted to hand over.
+     */
+    private HBox deliveryRow(DeliveryProgress delivery) {
+        boolean fullyCounted = delivery.cartonsFinished() == delivery.cartonsTotal();
+        HBox row =
+                overviewRow(
+                        delivery.category(),
+                        delivery.cartonsFinished() + " of " + delivery.cartonsTotal(),
+                        delivery.unitsCounted() + " of " + delivery.unitsExpected(),
+                        delivery.itemsWithoutMrp() == 0 ? "—"
+                                : String.valueOf(delivery.itemsWithoutMrp()),
+                        false,
+                        fullyCounted);
+
+        if (!delivery.closed() && delivery.unitsCounted() > 0) {
+            Button finish = new Button("Finish & send to pricing");
+            finish.setFont(Font.font("System", 14));
+            finish.setStyle("-fx-padding:6 12;-fx-background-radius:6;"
+                    + "-fx-background-color:#1b5e20;-fx-text-fill:white;");
+            finish.setOnAction(event -> finishDelivery(delivery));
+            HBox.setMargin(finish, new Insets(0, 0, 0, 12));
+            row.getChildren().add(finish);
+        }
+        return row;
+    }
+
+    /**
+     * Finishes a delivery: costs it, and readies it for pricing.
+     *
+     * <p>Warns first about any box nobody opened, because their goods will get nothing and can
+     * never be sold, and that ought to be a decision rather than a surprise. A refusal — nothing
+     * counted, or nothing that can carry what was paid — is shown as the plain reason it gives.
+     */
+    private void finishDelivery(DeliveryProgress delivery) {
+        java.util.UUID lotId = delivery.lotId();
+        try {
+            java.util.List<String> unopened = backend.unopenedCartons(lotId);
+            if (!unopened.isEmpty() && !confirmUnopened(unopened)) {
+                return;
+            }
+            backend.closeDelivery(lotId, !unopened.isEmpty());
+            showOverview();
+            say(
+                    delivery.category()
+                            + " is finished and ready to price. Set prices on the pricing screen.",
+                    OK);
+        } catch (BackendClient.RefusedException e) {
+            say(e.getMessage(), STOP);
+        } catch (BackendUnavailableException e) {
+            say("Cannot reach the system, so nothing has been finished.", STOP);
+        } finally {
+            Platform.runLater(scanField::requestFocus);
+        }
+    }
+
+    /** Asks before finishing over boxes nobody opened. Their goods are missed for good. */
+    private boolean confirmUnopened(java.util.List<String> unopened) {
+        String some =
+                String.join(", ", unopened.subList(0, Math.min(6, unopened.size())))
+                        + (unopened.size() > 6 ? ", …" : "");
+        javafx.scene.control.Alert alert =
+                new javafx.scene.control.Alert(
+                        javafx.scene.control.Alert.AlertType.CONFIRMATION,
+                        unopened.size()
+                                + " box(es) were never opened ("
+                                + some
+                                + "). Anything in them will be missed and cannot be sold. Finish"
+                                + " the delivery anyway?",
+                        javafx.scene.control.ButtonType.CANCEL,
+                        javafx.scene.control.ButtonType.OK);
+        alert.setHeaderText("Boxes not opened");
+        return alert.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL)
+                == javafx.scene.control.ButtonType.OK;
     }
 
     private HBox overviewRow(

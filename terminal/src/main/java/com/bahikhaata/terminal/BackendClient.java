@@ -253,6 +253,11 @@ public class BackendClient {
         post("/api/unpacking/boxes/" + boxId + "/reopen", body(), Void.class);
     }
 
+    /** Cartons in a delivery that nobody has opened — asked before finishing, so it is no surprise. */
+    public List<String> unopenedCartons(UUID lotId) {
+        return getList("/api/unpacking/lots/" + lotId + "/unopened", String.class);
+    }
+
     /** Finishes a delivery and settles what it cost. */
     public DeliveryClosed closeDelivery(UUID lotId, boolean confirmUnopened) {
         return post(
