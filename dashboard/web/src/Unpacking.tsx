@@ -220,6 +220,10 @@ export function Unpacking() {
             setStep('Scan the next item, or press "Box is done".')
             focusScan()
           }}
+          onSkip={() => {
+            record(askingMrp.line, askingMrp.code, null).catch(fail)
+            say('Counted without a price. It cannot be sold until someone finds one.', 'warn')
+          }}
         />
       )}
 
@@ -291,11 +295,13 @@ function MrpPrompt({
   onEnter,
   onError,
   onBack,
+  onSkip,
 }: {
   line: UnpackingLine
   onEnter: (paise: number) => void
   onError: (message: string) => void
   onBack: () => void
+  onSkip: () => void
 }) {
   const [value, setValue] = useState('')
   const ref = useRef<HTMLInputElement>(null)
@@ -327,6 +333,9 @@ function MrpPrompt({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()}
       />
+      <button className="choice" onClick={onSkip}>
+        No MRP printed on it — count it anyway
+      </button>
     </div>
   )
 }
