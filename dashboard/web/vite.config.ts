@@ -5,5 +5,10 @@ import react from '@vitejs/plugin-react'
 // both together or the browser will block every call.
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    // Listen on every interface, not just localhost, so other devices on the same Wi-Fi can
+    // open it. Without this the dev server answers only the PC itself.
+    host: true,
+  },
 })

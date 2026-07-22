@@ -42,10 +42,23 @@ public class DashboardCorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        // Any address on a private network, on the dashboard's port. The shop's phones and
+        // tablets load the dashboard from the PC's LAN address, so their origin is that address
+        // on :5173, not localhost. Patterns rather than a fixed list because the PC's address
+        // can change; scoped to the private ranges (192.168, 10, 172.16-31) and the one port,
+        // so this is not a door open to the whole internet — only to the shop's own network.
         registry.addMapping("/api/**")
-                .allowedOrigins(
+                .allowedOriginPatterns(
                         "http://localhost:5173",
-                        "http://127.0.0.1:5173")
+                        "http://127.0.0.1:5173",
+                        "http://192.168.*:5173",
+                        "http://10.*:5173",
+                        "http://172.16.*:5173",
+                        "http://172.17.*:5173",
+                        "http://172.18.*:5173",
+                        "http://172.19.*:5173",
+                        "http://172.2*.*:5173",
+                        "http://172.3*.*:5173")
                 .allowedMethods("GET", "POST")
                 .allowedHeaders("Content-Type");
     }

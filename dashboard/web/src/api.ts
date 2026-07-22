@@ -7,7 +7,11 @@
 
 import type { BulkResult, PriceProposal, PriceableItem } from './types'
 
-const BASE = import.meta.env.VITE_BACKEND ?? 'http://localhost:8080'
+// The backend is on the same machine that served this page, at port 8080. Derived from the
+// address the page was opened at rather than hardcoded to localhost, so a phone that loaded it
+// from the PC's LAN address calls the PC — not its own localhost, which is what a fixed
+// 'localhost' would have meant on every device but the PC itself.
+const BASE = import.meta.env.VITE_BACKEND ?? `http://${window.location.hostname}:8080`
 
 class BackendError extends Error {}
 
