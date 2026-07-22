@@ -5,19 +5,19 @@ import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 /**
  * Reading a barcode off the phone's camera.
  *
- * A dedicated scanner is faster and surer; this is the fallback for a phone with none paired.
- * The hard part is not permission — once granted — but focus and resolution. Phone cameras read
- * a dense one-dimensional code, like the Code 128 on a returns sticker, only when it is sharp and
- * large in the frame, and two things fight that:
+ * A paired scanner is faster and surer; this is the fallback. The stubborn part is a dense
+ * one-dimensional code — the Code 128 on a returns sticker — which a phone reads only when it is
+ * sharp and large in the frame. Two changes matter most:
  *
- *  - The default camera stream is coarse — around 640×480 — too few pixels for a dense code. So
- *    the highest resolution the device will give is asked for.
- *  - A phone with several rear lenses may hand back the ultra-wide, which is fixed-focus and
- *    cannot focus on something held close, so the code is always a blur. So the lens can be
- *    chosen, and a torch turned on, because thermal stickers read far better lit.
+ *  - It decodes only a band across the middle of the picture, at full resolution, rather than
+ *    the whole frame shrunk to fit. A barcode small in the frame has too few pixels once the
+ *    whole frame is processed; cropping to where the barcode is aimed keeps every pixel on it.
+ *    An aiming box shows where to hold it.
+ *  - The lens can be chosen and a torch lit, because a phone often hands back its fixed-focus
+ *    ultra-wide, which cannot focus close, and thermal stickers read far better with light.
  *
- * Restricted to the formats these goods wear, told to try hard on each frame, and a repeat of the
- * same code within a moment is ignored since the camera reads many frames a second.
+ * The resolution actually delivered and the lens in use are shown, so a picture that will not
+ * read can be told apart — blurred by the wrong lens, or too coarse to resolve the bars.
  */
 const FORMATS = [
   BarcodeFormat.CODE_128,
@@ -36,6 +36,7 @@ export function CameraScanner({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const trackRef = useRef<MediaStreamTrack | null>(null)
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
 
@@ -45,11 +46,10 @@ export function CameraScanner({
   const [deviceId, setDeviceId] = useState<string | undefined>()
   const [torchOn, setTorchOn] = useState(false)
   const [torchable, setTorchable] = useState(false)
+  const [readout, setReadout] = useState('')
 
-  const onResult = useCallback(
-    (result: { getText(): string } | undefined) => {
-      if (!result) return
-      const code = result.getText()
+  const hit = useCallback(
+    (code: string) => {
       const now = Date.now()
       if (code === lastRef.current.code && now - lastRef.current.at < 1500) return
       lastRef.current = { code, at: now }
@@ -63,12 +63,12 @@ export function CameraScanner({
     setError(null)
     const hints = new Map()
     hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS)
-    hints.set(DecodeHintType.TRY_HARDER, true) // work harder per frame; slower, reads more
+    hints.set(DecodeHintType.TRY_HARDER, true)
     const reader = new BrowserMultiFormatReader(hints)
 
     let cancelled = false
     let stream: MediaStream | undefined
-    let stop: (() => void) | undefined
+    let timer: number | undefined
 
     ;(async () => {
       try {
@@ -80,37 +80,54 @@ export function CameraScanner({
             : { facingMode: { ideal: 'environment' } }),
         }
         stream = await navigator.mediaDevices.getUserMedia({ video })
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
-          return
-        }
+        if (cancelled) return stream.getTracks().forEach((t) => t.stop())
+
         const track = stream.getVideoTracks()[0]
         trackRef.current = track
-
-        // Best-effort: ask the lens to keep focusing. Ignored where unsupported.
         try {
           await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as never)
         } catch {
-          /* not supported — nothing lost */
+          /* unsupported */
         }
-        setTorchable('torch' in (track.getCapabilities?.() ?? {}))
+        const caps = track.getCapabilities?.() ?? {}
+        setTorchable('torch' in caps)
+        const settings = track.getSettings?.() ?? {}
+        setReadout(`${settings.width ?? '?'}×${settings.height ?? '?'} · ${track.label || 'camera'}`)
 
-        // Labels are only readable once permission is granted, so the lens list is built here.
         const all = await navigator.mediaDevices.enumerateDevices()
         setCameras(all.filter((d) => d.kind === 'videoinput'))
 
         const el = videoRef.current!
         el.srcObject = stream
         await el.play()
-        const controls = await reader.decodeFromVideoElement(el, onResult)
-        if (cancelled) controls.stop()
-        else stop = () => controls.stop()
+
+        // Decode a centre band only, at native resolution. The barcode aimed into the box keeps
+        // its pixels instead of being lost when the whole frame is shrunk to decode.
+        const canvas = canvasRef.current!
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+        const tick = () => {
+          if (cancelled || el.videoWidth === 0) return
+          const bw = Math.floor(el.videoWidth * 0.9)
+          const bh = Math.floor(el.videoHeight * 0.35)
+          const bx = Math.floor((el.videoWidth - bw) / 2)
+          const by = Math.floor((el.videoHeight - bh) / 2)
+          canvas.width = bw
+          canvas.height = bh
+          ctx.drawImage(el, bx, by, bw, bh, 0, 0, bw, bh)
+          try {
+            const result = reader.decodeFromCanvas(canvas)
+            if (result) hit(result.getText())
+          } catch {
+            /* no code in this frame — ordinary */
+          }
+        }
+        timer = window.setInterval(tick, 200)
       } catch (e: unknown) {
         const name = e instanceof DOMException ? e.name : ''
         if (name === 'NotAllowedError') {
-          setError('The camera is blocked for this page. Allow it in the address bar, then Try again.')
+          setError('The camera is blocked. Allow it in the address bar, then Try again.')
         } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
-          setError('No usable camera on this device. Use a scanner, or type the code.')
+          setError('No usable camera here. Use a scanner, or type the code.')
         } else if (name === 'NotReadableError') {
           setError('The camera is in use by another app. Close it and Try again.')
         } else {
@@ -121,10 +138,10 @@ export function CameraScanner({
 
     return () => {
       cancelled = true
-      stop?.()
+      if (timer) clearInterval(timer)
       stream?.getTracks().forEach((t) => t.stop())
     }
-  }, [onResult, attempt, deviceId])
+  }, [hit, attempt, deviceId])
 
   const toggleTorch = async () => {
     const track = trackRef.current
@@ -134,7 +151,7 @@ export function CameraScanner({
       await track.applyConstraints({ advanced: [{ torch: next }] } as never)
       setTorchOn(next)
     } catch {
-      /* torch not controllable here */
+      /* not controllable */
     }
   }
 
@@ -147,10 +164,13 @@ export function CameraScanner({
         </>
       ) : (
         <>
-          <video ref={videoRef} className="viewfinder" muted playsInline autoPlay />
-          <p className="hint">
-            Hold the barcode flat and close, filling the frame. Steady for a second.
-          </p>
+          <div className="viewwrap">
+            <video ref={videoRef} className="viewfinder" muted playsInline autoPlay />
+            <div className="aim" />
+          </div>
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          <p className="hint">Aim the barcode inside the box. Hold flat, close, steady.</p>
+          {readout && <p className="readout">{readout}</p>}
           <div className="camcontrols">
             {torchable && (
               <button onClick={toggleTorch}>{torchOn ? 'Light off' : '🔦 Light'}</button>
