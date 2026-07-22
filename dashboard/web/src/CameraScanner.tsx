@@ -1,21 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 
 /**
  * Reading a barcode off the phone's camera.
  *
- * For phones with no scanner paired to them. A dedicated scanner is faster and surer, and this
- * does not replace it — it is the fallback for goods whose sticker a camera can manage and a
- * phone someone already has in hand.
+ * A dedicated scanner is faster and surer; this is the fallback for a phone with none paired.
+ * The hard part is not permission — once granted — but focus and resolution. Phone cameras read
+ * a dense one-dimensional code, like the Code 128 on a returns sticker, only when it is sharp and
+ * large in the frame, and two things fight that:
  *
- * Restricted to the formats these goods actually wear — Code 128 for the returns stickers, and
- * the EAN and UPC a manufacturer prints. Telling the reader what to look for makes it quicker and
- * stops it reporting a stray pattern as some format nothing here uses.
+ *  - The default camera stream is coarse — around 640×480 — too few pixels for a dense code. So
+ *    the highest resolution the device will give is asked for.
+ *  - A phone with several rear lenses may hand back the ultra-wide, which is fixed-focus and
+ *    cannot focus on something held close, so the code is always a blur. So the lens can be
+ *    chosen, and a torch turned on, because thermal stickers read far better lit.
  *
- * The rear camera, because that is the one pointed at the goods. A repeat of the same code within
- * a moment is ignored, since the camera reads many frames a second and would otherwise count one
- * sticker a dozen times.
+ * Restricted to the formats these goods wear, told to try hard on each frame, and a repeat of the
+ * same code within a moment is ignored since the camera reads many frames a second.
  */
 const FORMATS = [
   BarcodeFormat.CODE_128,
@@ -34,59 +36,81 @@ export function CameraScanner({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const trackRef = useRef<MediaStreamTrack | null>(null)
+  const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
+
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([])
+  const [deviceId, setDeviceId] = useState<string | undefined>()
+  const [torchOn, setTorchOn] = useState(false)
+  const [torchable, setTorchable] = useState(false)
+
+  const onResult = useCallback(
+    (result: { getText(): string } | undefined) => {
+      if (!result) return
+      const code = result.getText()
+      const now = Date.now()
+      if (code === lastRef.current.code && now - lastRef.current.at < 1500) return
+      lastRef.current = { code, at: now }
+      if ('vibrate' in navigator) navigator.vibrate(80)
+      onDetected(code)
+    },
+    [onDetected],
+  )
 
   useEffect(() => {
     setError(null)
     const hints = new Map()
     hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS)
+    hints.set(DecodeHintType.TRY_HARDER, true) // work harder per frame; slower, reads more
     const reader = new BrowserMultiFormatReader(hints)
+
     let cancelled = false
     let stream: MediaStream | undefined
     let stop: (() => void) | undefined
 
-    const onResult = (result: { getText(): string } | undefined) => {
-      if (!result) return
-      const code = result.getText()
-      const now = Date.now()
-      // Same sticker across successive frames is one scan, not many.
-      if (code === lastRef.current.code && now - lastRef.current.at < 1500) return
-      lastRef.current = { code, at: now }
-      if ('vibrate' in navigator) navigator.vibrate(80)
-      onDetected(code)
-    }
-
-    // The stream is taken and played by hand rather than left to the reader, because letting
-    // the reader both open the camera and start the video raced on mobile: the stream arrived
-    // but the element never played, so it showed a black rectangle. Grabbing the stream,
-    // attaching it, and awaiting play() first makes the picture appear before decoding begins.
     ;(async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-        })
+        const video: MediaTrackConstraints = {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          ...(deviceId
+            ? { deviceId: { exact: deviceId } }
+            : { facingMode: { ideal: 'environment' } }),
+        }
+        stream = await navigator.mediaDevices.getUserMedia({ video })
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop())
           return
         }
-        const video = videoRef.current!
-        video.srcObject = stream
-        await video.play()
-        const controls = await reader.decodeFromVideoElement(video, onResult)
+        const track = stream.getVideoTracks()[0]
+        trackRef.current = track
+
+        // Best-effort: ask the lens to keep focusing. Ignored where unsupported.
+        try {
+          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as never)
+        } catch {
+          /* not supported — nothing lost */
+        }
+        setTorchable('torch' in (track.getCapabilities?.() ?? {}))
+
+        // Labels are only readable once permission is granted, so the lens list is built here.
+        const all = await navigator.mediaDevices.enumerateDevices()
+        setCameras(all.filter((d) => d.kind === 'videoinput'))
+
+        const el = videoRef.current!
+        el.srcObject = stream
+        await el.play()
+        const controls = await reader.decodeFromVideoElement(el, onResult)
         if (cancelled) controls.stop()
         else stop = () => controls.stop()
       } catch (e: unknown) {
         const name = e instanceof DOMException ? e.name : ''
         if (name === 'NotAllowedError') {
-          setError(
-            'The camera is blocked for this page. Tap the lock or camera icon in the address' +
-              ' bar, set Camera to Allow, then Try again. A scanner still works by typing into' +
-              ' the box meanwhile.',
-          )
+          setError('The camera is blocked for this page. Allow it in the address bar, then Try again.')
         } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
-          setError('No camera was found on this device. Use a scanner, or type the code.')
+          setError('No usable camera on this device. Use a scanner, or type the code.')
         } else if (name === 'NotReadableError') {
           setError('The camera is in use by another app. Close it and Try again.')
         } else {
@@ -100,7 +124,19 @@ export function CameraScanner({
       stop?.()
       stream?.getTracks().forEach((t) => t.stop())
     }
-  }, [onDetected, attempt])
+  }, [onResult, attempt, deviceId])
+
+  const toggleTorch = async () => {
+    const track = trackRef.current
+    if (!track) return
+    const next = !torchOn
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] } as never)
+      setTorchOn(next)
+    } catch {
+      /* torch not controllable here */
+    }
+  }
 
   return (
     <div className="camera">
@@ -110,7 +146,30 @@ export function CameraScanner({
           <button onClick={() => setAttempt((n) => n + 1)}>Try again</button>
         </>
       ) : (
-        <video ref={videoRef} className="viewfinder" muted playsInline autoPlay />
+        <>
+          <video ref={videoRef} className="viewfinder" muted playsInline autoPlay />
+          <p className="hint">
+            Hold the barcode flat and close, filling the frame. Steady for a second.
+          </p>
+          <div className="camcontrols">
+            {torchable && (
+              <button onClick={toggleTorch}>{torchOn ? 'Light off' : '🔦 Light'}</button>
+            )}
+            {cameras.length > 1 && (
+              <select
+                value={deviceId ?? ''}
+                onChange={(e) => setDeviceId(e.target.value || undefined)}
+              >
+                <option value="">Back camera (auto)</option>
+                {cameras.map((c, i) => (
+                  <option key={c.deviceId} value={c.deviceId}>
+                    {c.label || `Camera ${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </>
       )}
       <button onClick={onClose}>Stop the camera</button>
     </div>

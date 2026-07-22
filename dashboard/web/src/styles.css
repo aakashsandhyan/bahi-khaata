@@ -119,3 +119,7 @@ main { }
   display: block;
 }
 .camera button { margin-top: 8px; width: 100%; padding: 12px; }
+
+.camera .hint { color: #555; font-size: 13px; margin: 6px 0; text-align: center; }
+.camcontrols { display: flex; gap: 8px; justify-content: center; margin: 6px 0; }
+.camcontrols select { padding: 8px; font-size: 14px; border-radius: 6px; }
