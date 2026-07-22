@@ -28,3 +28,52 @@ export interface BulkResult {
   skippedAlreadyPriced: number
   skippedAboveMrp: number
 }
+
+// --- unpacking ---------------------------------------------------------------------------
+
+export interface DeliveryProgress {
+  lotId: string
+  supplier: string
+  category: string
+  cartonsTotal: number
+  cartonsFinished: number
+  cartonsStarted: number
+  unitsExpected: number
+  unitsCounted: number
+  unitsUnlisted: number
+  itemsWithoutMrp: number
+  closed: boolean
+}
+
+export interface UnpackingCarton {
+  boxId: string
+  trackingNumber: string
+  lotId: string
+  finished: boolean
+}
+
+export interface UnpackingLine {
+  lineId: string
+  code: string
+  name: string
+  expected: number
+  counted: number
+  outstanding: number
+  needsMrp: boolean
+  statedValuePaise: number | null
+  onlinePricePaise: number | null
+  indicativeCostPaise: number | null
+}
+
+export interface CountOutcome {
+  batchId: string
+  quantityExpected: number
+  quantityCounted: number
+  discrepancy: number
+}
+
+export interface SuggestedMrp {
+  pricePaise: number | null
+  source: string | null
+  message: string | null
+}

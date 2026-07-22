@@ -58,3 +58,48 @@ tr.damaged { background: #fff8f0; }
 .flag.stop { background: #ffebee; color: var(--stop); font-weight: 600; }
 
 .price-in { width: 80px; padding: 6px; font-size: 14px; text-align: right; }
+
+/* --- shell nav --- */
+.topnav {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 24px; background: #212121; color: #fff;
+}
+.topnav .brand { font-weight: 700; margin-right: 16px; }
+.topnav button {
+  background: transparent; color: #fff; border: 1px solid #555;
+}
+.topnav button.on { background: #fff; color: #212121; }
+main { }
+
+/* --- unpacking --- */
+.unpack { max-width: 900px; margin: 0 auto; padding: 24px; }
+.unpack h1 { margin: 0 0 4px; }
+.step { color: #1565c0; margin: 4px 0 8px; }
+.delivery { color: #555; font-size: 13px; margin: 0 0 12px; }
+.scan {
+  width: 100%; font-size: 32px; font-weight: 700; padding: 14px;
+  border: 2px solid #1565c0; border-radius: 8px; margin: 8px 0;
+}
+.scan.small { font-size: 18px; font-weight: 400; }
+.scan:disabled { border-color: var(--line); background: #f5f5f5; }
+
+.mrp p { font-weight: 600; margin: 8px 0; }
+.which h2 { margin: 8px 0; }
+.which .code { color: #555; }
+.choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 12px; margin: 6px 0; border-radius: 6px;
+}
+.choice .meta, .item .meta { font-size: 12px; color: #777; }
+
+.items { margin: 12px 0; }
+.item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px; border-radius: 6px; margin: 4px 0; background: #f5f5f5;
+}
+.item.done { background: #e8f5e9; }
+.item .count { font-size: 22px; font-weight: 700; }
+
+.actions { display: flex; gap: 12px; justify-content: flex-end; margin: 16px 0; }
+.overview { margin-top: 16px; }
+.overview td.wait, .overview .wait { color: var(--warn); font-weight: 600; }

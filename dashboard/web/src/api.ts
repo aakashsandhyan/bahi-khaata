@@ -52,3 +52,48 @@ export const api = {
 }
 
 export { BackendError }
+
+// --- unpacking -----------------------------------------------------------------------------
+// The same operations the terminal drives, exposed to the web so several people can scan at
+// once. A condition of "GOOD" is sent explicitly; a null MRP is left out of the body entirely,
+// because an empty string is not a valid figure and the backend would refuse the whole request.
+
+import type {
+  CountOutcome as _CountOutcome,
+  DeliveryProgress as _DeliveryProgress,
+  SuggestedMrp as _SuggestedMrp,
+  UnpackingCarton as _UnpackingCarton,
+  UnpackingLine as _UnpackingLine,
+} from './types'
+
+function countBody(quantity: number, mrpPaise: number | null, condition: string) {
+  const body: Record<string, unknown> = { quantity, mrpIsEstimate: false, condition }
+  if (mrpPaise != null) body.mrpPaise = mrpPaise
+  return body
+}
+
+export const unpacking = {
+  deliveries: () => get<_DeliveryProgress[]>('/api/unpacking/deliveries'),
+
+  cartonsByTracking: (tracking: string) =>
+    get<_UnpackingCarton[]>(`/api/unpacking/boxes/by-tracking/${encodeURIComponent(tracking)}`),
+
+  lines: (boxId: string) => get<_UnpackingLine[]>(`/api/unpacking/boxes/${boxId}/lines`),
+
+  resolve: (boxId: string, code: string) =>
+    get<_UnpackingLine[]>(`/api/unpacking/boxes/${boxId}/resolve?code=${encodeURIComponent(code)}`),
+
+  count: (lineId: string, quantity: number, mrpPaise: number | null, condition: string) =>
+    post<_CountOutcome>(`/api/unpacking/lines/${lineId}/count`, countBody(quantity, mrpPaise, condition)),
+
+  tag: (lineId: string, scannedCode: string, quantity: number, mrpPaise: number | null, condition: string) =>
+    post<_CountOutcome>(`/api/unpacking/lines/${lineId}/tag`, {
+      scannedCode,
+      ...countBody(quantity, mrpPaise, condition),
+    }),
+
+  suggestedMrp: (lineId: string) =>
+    get<_SuggestedMrp>(`/api/unpacking/lines/${lineId}/suggested-mrp`),
+
+  finishCarton: (boxId: string) => post<void>(`/api/unpacking/boxes/${boxId}/finish`),
+}
