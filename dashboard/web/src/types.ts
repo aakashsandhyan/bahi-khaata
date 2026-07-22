@@ -12,6 +12,7 @@ export interface PriceableItem {
   mrpIsEstimate: boolean
   currentPricePaise: number | null
   condition: string
+  remark: string | null
 }
 
 export interface PriceProposal {

@@ -208,6 +208,8 @@ function Row({
       <td className="name" title={item.name}>
         {item.name.length > 60 ? item.name.slice(0, 57) + '…' : item.name}
         {item.condition === 'DAMAGED' && <span className="tag">damaged</span>}
+        {item.condition === 'UNUSABLE' && <span className="tag stop-tag">broken</span>}
+        {item.remark && <div className="remark">{item.remark}</div>}
       </td>
       <td>{rupees(item.unitCostPaise)}</td>
       <td>{rupees(item.onlinePricePaise)}</td>

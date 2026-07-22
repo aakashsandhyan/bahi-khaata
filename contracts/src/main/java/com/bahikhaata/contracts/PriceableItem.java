@@ -32,6 +32,8 @@ import java.util.UUID;
  * @param mrpIsEstimate whether the MRP was read off the goods or looked up
  * @param currentPricePaise the price it sells at now, or null if not yet priced
  * @param condition GOOD or DAMAGED — damaged goods are priced separately, at their own figure
+ * @param remark why the goods are damaged, in the unpacker's words, or null — what the discount
+ *     is being set against
  */
 public record PriceableItem(
         UUID productId,
@@ -42,4 +44,5 @@ public record PriceableItem(
         Long mrpPaise,
         boolean mrpIsEstimate,
         Long currentPricePaise,
-        String condition) {}
+        String condition,
+        String remark) {}

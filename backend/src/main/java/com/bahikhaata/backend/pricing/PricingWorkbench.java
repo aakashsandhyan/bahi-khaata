@@ -160,7 +160,8 @@ public class PricingWorkbench {
                 mrp == null ? null : mrp.paise(),
                 batch.isMrpEstimate(),
                 current == null ? null : current.paise(),
-                batch.getCondition().name());
+                batch.getCondition().name(),
+                batch.getRemark());
     }
 
     private PriceProposal propose(UUID productId, int marginPercent) {
