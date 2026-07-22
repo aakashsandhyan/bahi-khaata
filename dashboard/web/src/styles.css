@@ -1,0 +1,60 @@
+/* Plain, legible, no theme system — an admin tool for one or two people, not a product. */
+:root {
+  --ink: #212121;
+  --line: #e0e0e0;
+  --ok: #1b5e20;
+  --warn: #e65100;
+  --stop: #b71c1c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: #fafafa;
+}
+.page { max-width: 1200px; margin: 0 auto; padding: 24px; }
+header h1 { margin: 0 0 4px; }
+.sub { margin: 0 0 16px; color: #555; max-width: 60ch; }
+
+.banner { padding: 12px 16px; border-radius: 6px; margin: 12px 0; color: #fff; }
+.banner.warn { background: var(--warn); }
+.banner.stop { background: var(--stop); }
+
+.categories { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.chip {
+  border: 1px solid var(--line); background: #fff; border-radius: 20px;
+  padding: 6px 14px; cursor: pointer; font-size: 14px;
+}
+.chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.chip .count { opacity: 0.6; margin-left: 4px; }
+
+.rule {
+  display: flex; align-items: center; gap: 12px; margin: 16px 0;
+  padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+}
+.rule input[type='number'] { width: 64px; padding: 6px; font-size: 16px; }
+button {
+  padding: 8px 14px; border: 1px solid var(--line); background: #fff;
+  border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+button.primary { background: var(--ok); color: #fff; border-color: var(--ok); }
+button:disabled { opacity: 0.4; cursor: default; }
+
+table { width: 100%; border-collapse: collapse; background: #fff; font-size: 14px; }
+th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th.name, td.name { text-align: left; }
+th { font-weight: 600; color: #555; position: sticky; top: 0; background: #fff; }
+td.priced { color: var(--ok); font-weight: 600; }
+tr.damaged { background: #fff8f0; }
+
+.tag { font-size: 11px; padding: 1px 6px; border-radius: 10px; margin-left: 6px; background: #eee; }
+.tag.est { background: #fff3e0; color: var(--warn); }
+
+.checks { text-align: left; }
+.flag { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+.flag.ok { background: #e8f5e9; color: var(--ok); }
+.flag.warn { background: #fff3e0; color: var(--warn); }
+.flag.stop { background: #ffebee; color: var(--stop); font-weight: 600; }
+
+.price-in { width: 80px; padding: 6px; font-size: 14px; text-align: right; }
