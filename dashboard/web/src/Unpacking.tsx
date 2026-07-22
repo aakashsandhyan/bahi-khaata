@@ -21,6 +21,8 @@ import { CameraScanner } from './CameraScanner'
  * here yet. They remain on the terminal for now; this is the fast path for getting stock
  * counted, and the corrections follow.
  */
+type Condition = 'GOOD' | 'DAMAGED' | 'UNUSABLE'
+
 export function Unpacking() {
   const [deliveries, setDeliveries] = useState<DeliveryProgress[] | null>(null)
   const [carton, setCarton] = useState<UnpackingCarton | null>(null)
@@ -31,9 +33,11 @@ export function Unpacking() {
   // A code scanned off a pack that matched nothing, waiting for someone to say which line it is.
   const [choosing, setChoosing] = useState<{ code: string; filter: string } | null>(null)
   // A line whose printed price is being asked for, with the code to tag if this began as a tag.
-  const [askingMrp, setAskingMrp] = useState<{ line: UnpackingLine; code: string | null } | null>(
-    null,
-  )
+  const [askingMrp, setAskingMrp] = useState<{
+    line: UnpackingLine
+    code: string | null
+    condition: Condition
+  } | null>(null)
 
   const scanRef = useRef<HTMLInputElement>(null)
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
@@ -41,7 +45,11 @@ export function Unpacking() {
   const [cameraOn, setCameraOn] = useState(false)
   // What condition scanned items are recorded in. Stays until changed, and is repeated back on
   // every count so a setting left on is seen, not remembered — the same rule as the terminal.
-  const [condition, setCondition] = useState<'GOOD' | 'DAMAGED' | 'UNUSABLE'>('GOOD')
+  // Set per item, after it is scanned, not held across the box: scan an item, then say what
+  // state it is in. tagCode carries a code that still needs mapping to this line.
+  const [picking, setPicking] = useState<{ line: UnpackingLine; tagCode: string | null } | null>(
+    null,
+  )
   // A scan that hit a line already fully counted: either another really arrived, or the code is
   // on the wrong goods.
   const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
@@ -84,7 +92,7 @@ export function Unpacking() {
   // A camera read is ignored while a question is open — the same rule as the typed field being
   // disabled then. The person must answer the price or pick the item before the next scan lands.
   handleScanRef.current = (code: string) => {
-    if (askingMrp || choosing || surplus || releaseOffer) return
+    if (askingMrp || choosing || surplus || releaseOffer || picking) return
     onScan(code)
   }
 
@@ -116,32 +124,49 @@ export function Unpacking() {
         setStep('More than the sheet expected — is it really another one?')
         return
       }
-      await countOrAskMrp(match, null)
+      beginCount(match, null)
       return
     }
     // Unknown code. One thing left to find means one answer; otherwise ask which.
     const outstanding = lines.filter((l) => l.outstanding > 0)
     if (outstanding.length === 1) {
-      await countOrAskMrp(outstanding[0], code)
+      beginCount(outstanding[0], code)
     } else {
       setChoosing({ code, filter: '' })
       setStep('Tap the item you are holding, or type part of its name to find it.')
     }
   }
 
-  const countOrAskMrp = async (line: UnpackingLine, tagCode: string | null) => {
+  // An item is in hand: ask its condition before counting it.
+  const beginCount = (line: UnpackingLine, tagCode: string | null) => {
+    setChoosing(null)
+    setSurplus(null)
+    setPicking({ line, tagCode })
+    setStep('What state is this item in?')
+  }
+
+  const countOrAskMrp = async (
+    line: UnpackingLine,
+    tagCode: string | null,
+    condition: Condition,
+  ) => {
+    setPicking(null)
     // Broken goods are never sold, so a printed price means nothing for them — counted straight
     // through without asking.
     if (condition !== 'UNUSABLE' && line.needsMrp) {
-      setChoosing(null)
-      setAskingMrp({ line, code: tagCode })
+      setAskingMrp({ line, code: tagCode, condition })
       setStep('Type the MRP printed on the pack, then press Enter.')
       return
     }
-    await record(line, tagCode, null)
+    await record(line, tagCode, condition, null)
   }
 
-  const record = async (line: UnpackingLine, tagCode: string | null, mrpPaise: number | null) => {
+  const record = async (
+    line: UnpackingLine,
+    tagCode: string | null,
+    condition: Condition,
+    mrpPaise: number | null,
+  ) => {
     if (!carton) return
     const outcome = tagCode
       ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition)
@@ -213,7 +238,7 @@ export function Unpacking() {
       setLines([])
       setChoosing(null)
       setAskingMrp(null)
-      setCondition('GOOD')
+      setPicking(null)
       setSurplus(null)
       setReleaseOffer(null)
       loadDeliveries()
@@ -237,7 +262,7 @@ export function Unpacking() {
     setLines([])
     setChoosing(null)
     setAskingMrp(null)
-    setCondition('GOOD')
+    setPicking(null)
     setSurplus(null)
     setReleaseOffer(null)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
@@ -255,12 +280,12 @@ export function Unpacking() {
         <ScanField
           refEl={scanRef}
           onScan={onScan}
-          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer}
+          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking}
         />
         <button
           className="camera-toggle"
           onClick={() => setCameraOn((on) => !on)}
-          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer}
+          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking}
         >
           {cameraOn ? 'Hide camera' : '📷 Camera'}
         </button>
@@ -275,7 +300,9 @@ export function Unpacking() {
       {askingMrp && (
         <MrpPrompt
           line={askingMrp.line}
-          onEnter={(paise) => record(askingMrp.line, askingMrp.code, paise).catch(fail)}
+          onEnter={(paise) =>
+            record(askingMrp.line, askingMrp.code, askingMrp.condition, paise).catch(fail)
+          }
           onError={(m) => say(m, 'warn')}
           onBack={() => {
             setAskingMrp(null)
@@ -283,7 +310,7 @@ export function Unpacking() {
             focusScan()
           }}
           onSkip={() => {
-            record(askingMrp.line, askingMrp.code, null).catch(fail)
+            record(askingMrp.line, askingMrp.code, askingMrp.condition, null).catch(fail)
             say('Counted without a price. It cannot be sold until someone finds one.', 'warn')
           }}
         />
@@ -295,7 +322,7 @@ export function Unpacking() {
           filter={choosing.filter}
           lines={lines}
           onFilter={(f) => setChoosing({ code: choosing.code, filter: f })}
-          onChoose={(line) => countOrAskMrp(line, choosing.code).catch(fail)}
+          onChoose={(line) => beginCount(line, choosing.code)}
           onBack={() => {
             setChoosing(null)
             setStep('Scan the next item, or press "Box is done".')
@@ -317,7 +344,7 @@ export function Unpacking() {
             onClick={() => {
               const s = surplus
               setSurplus(null)
-              record(s.line, s.code, null).catch(fail)
+              beginCount(s.line, s.code)
             }}
           >
             Yes — another one really did arrive, count it
@@ -343,34 +370,36 @@ export function Unpacking() {
         </div>
       )}
 
-      {carton && !choosing && !askingMrp && !surplus && !releaseOffer && (
+      {picking && (
+        <div className="which">
+          <button className="back" onClick={() => { setPicking(null); focusScan() }}>
+            ← Back
+          </button>
+          <h2>What state is it in?</h2>
+          <p className="code">{shortName(picking.line)}</p>
+          <button
+            className="cond on-good big"
+            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'GOOD').catch(fail)}
+          >
+            Fine
+          </button>
+          <button
+            className="cond on-damaged big"
+            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'DAMAGED').catch(fail)}
+          >
+            Damaged — sells cheaper
+          </button>
+          <button
+            className="cond on-broken big"
+            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'UNUSABLE').catch(fail)}
+          >
+            Broken — cannot sell
+          </button>
+        </div>
+      )}
+
+      {carton && !choosing && !askingMrp && !surplus && !releaseOffer && !picking && (
         <>
-          <div className="conditions">
-            <button
-              className={condition === 'GOOD' ? 'cond on-good' : 'cond'}
-              onClick={() => setCondition('GOOD')}
-            >
-              Fine
-            </button>
-            <button
-              className={condition === 'DAMAGED' ? 'cond on-damaged' : 'cond'}
-              onClick={() => setCondition('DAMAGED')}
-            >
-              Damaged — sells cheaper
-            </button>
-            <button
-              className={condition === 'UNUSABLE' ? 'cond on-broken' : 'cond'}
-              onClick={() => setCondition('UNUSABLE')}
-            >
-              Broken — cannot sell
-            </button>
-          </div>
-          {condition === 'DAMAGED' && (
-            <p className="condnote warn-text">Marking items damaged — counted in, priced lower later.</p>
-          )}
-          {condition === 'UNUSABLE' && (
-            <p className="condnote stop-text">Marking items broken — recorded as arrived, cannot be sold.</p>
-          )}
           <ItemList lines={lines} onTakeBack={takeBack} />
           <div className="actions">
             <button onClick={leave}>Leave this box</button>
