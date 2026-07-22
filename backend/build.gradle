@@ -44,3 +44,8 @@ tasks.named('test') {
     systemProperty 'bahikhaata.db.path',
             layout.buildDirectory.file('test-default.db').get().asFile.absolutePath
 }
+
+// A fixed jar name, so the container image does not break when the version changes.
+tasks.named('bootJar') {
+    archiveFileName = 'backend.jar'
+}

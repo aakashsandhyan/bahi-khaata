@@ -1,0 +1,30 @@
+# Runs the backend with its data kept safe across restarts and upgrades.
+#
+#   docker compose up -d       start it, in the background
+#   docker compose logs -f     watch it
+#   docker compose down        stop it (the data volume survives)
+#
+# One instance only. The database is a single SQLite file, and two containers writing to it
+# would corrupt it — this is a single-shop system by design, so that is a fit, not a limit.
+
+services:
+  backend:
+    build: .
+    image: bahikhaata-backend
+    container_name: bahikhaata-backend
+    ports:
+      # The terminal, on this machine or another on the network, points its
+      # bahikhaata.backend.uri here.
+      - "8080:8080"
+    volumes:
+      # The shop's books. A named volume rather than a bind mount, so Docker owns it and it
+      # is not lost by a stray change on the host.
+      - bahikhaata-data:/data
+    environment:
+      # Optional. Set it in a .env file beside this one to turn on price lookups; absent is a
+      # supported state and nothing else depends on it.
+      BAHIKHAATA_KEEPA_KEY: ${BAHIKHAATA_KEEPA_KEY:-}
+    restart: unless-stopped
+
+volumes:
+  bahikhaata-data:

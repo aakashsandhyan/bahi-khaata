@@ -11,11 +11,12 @@ pluginManagement {
 
 rootProject.name = 'bahi-khaata'
 
-include 'contracts'
-include 'backend'
-include 'terminal'
-include 'dashboard'
-
-// Test-only module. Depends on all four so it can see their compiled classes
-// and assert the boundaries between them. Ships nothing.
-include 'architecture'
+// Each module is included only if its directory is present. Locally that is all of them; a
+// container that builds only the backend copies just contracts and backend into its context,
+// and Gradle would otherwise refuse outright to configure a module whose directory is not
+// there. This keeps one settings file working in both places.
+['contracts', 'backend', 'terminal', 'dashboard', 'architecture'].each { module ->
+    if (file(module).isDirectory()) {
+        include module
+    }
+}
