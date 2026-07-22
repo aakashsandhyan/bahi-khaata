@@ -39,6 +39,9 @@ export function Unpacking() {
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
   const [cameraOn, setCameraOn] = useState(false)
+  // What condition scanned items are recorded in. Stays until changed, and is repeated back on
+  // every count so a setting left on is seen, not remembered — the same rule as the terminal.
+  const [condition, setCondition] = useState<'GOOD' | 'DAMAGED' | 'UNUSABLE'>('GOOD')
   // The camera fires many times a second from a stable callback; this ref lets that callback
   // reach the latest handler without being rebuilt, which would restart the camera each time.
   const handleScanRef = useRef<(code: string) => void>(() => {})
@@ -113,7 +116,9 @@ export function Unpacking() {
   }
 
   const countOrAskMrp = async (line: UnpackingLine, tagCode: string | null) => {
-    if (line.needsMrp) {
+    // Broken goods are never sold, so a printed price means nothing for them — counted straight
+    // through without asking.
+    if (condition !== 'UNUSABLE' && line.needsMrp) {
       setChoosing(null)
       setAskingMrp({ line, code: tagCode })
       setStep('Type the MRP printed on the pack, then press Enter.')
@@ -125,8 +130,8 @@ export function Unpacking() {
   const record = async (line: UnpackingLine, tagCode: string | null, mrpPaise: number | null) => {
     if (!carton) return
     const outcome = tagCode
-      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, 'GOOD')
-      : await unpacking.count(line.lineId, 1, mrpPaise, 'GOOD')
+      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition)
+      : await unpacking.count(line.lineId, 1, mrpPaise, condition)
     setChoosing(null)
     setAskingMrp(null)
     const fresh = await refreshLines(carton.boxId)
@@ -139,13 +144,15 @@ export function Unpacking() {
       return
     }
 
+    const mark = condition === 'DAMAGED' ? ' (damaged)' : condition === 'UNUSABLE' ? ' (broken)' : ''
+    const tone = condition === 'UNUSABLE' ? 'stop' : condition === 'DAMAGED' ? 'warn' : 'ok'
     const left = Math.max(0, (outcome?.quantityExpected ?? 0) - (outcome?.quantityCounted ?? 0))
     say(
-      shortName(line) +
+      shortName(line) + mark +
         (left === 0
           ? ` — all ${outcome?.quantityCounted} found.`
           : ` — ${outcome?.quantityCounted} of ${outcome?.quantityExpected}, ${left} to find.`),
-      'ok',
+      tone,
     )
     setStep('Scan the next item, or press "Box is done".')
     focusScan()
@@ -161,6 +168,7 @@ export function Unpacking() {
       setLines([])
       setChoosing(null)
       setAskingMrp(null)
+      setCondition('GOOD')
       loadDeliveries()
       say(
         missing > 0
@@ -182,6 +190,7 @@ export function Unpacking() {
     setLines([])
     setChoosing(null)
     setAskingMrp(null)
+    setCondition('GOOD')
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
     setStep('Scan the number printed on the next box.')
     focusScan()
@@ -244,6 +253,32 @@ export function Unpacking() {
 
       {carton && !choosing && !askingMrp && (
         <>
+          <div className="conditions">
+            <button
+              className={condition === 'GOOD' ? 'cond on-good' : 'cond'}
+              onClick={() => setCondition('GOOD')}
+            >
+              Fine
+            </button>
+            <button
+              className={condition === 'DAMAGED' ? 'cond on-damaged' : 'cond'}
+              onClick={() => setCondition('DAMAGED')}
+            >
+              Damaged — sells cheaper
+            </button>
+            <button
+              className={condition === 'UNUSABLE' ? 'cond on-broken' : 'cond'}
+              onClick={() => setCondition('UNUSABLE')}
+            >
+              Broken — cannot sell
+            </button>
+          </div>
+          {condition === 'DAMAGED' && (
+            <p className="condnote warn-text">Marking items damaged — counted in, priced lower later.</p>
+          )}
+          {condition === 'UNUSABLE' && (
+            <p className="condnote stop-text">Marking items broken — recorded as arrived, cannot be sold.</p>
+          )}
           <ItemList lines={lines} />
           <div className="actions">
             <button onClick={leave}>Leave this box</button>

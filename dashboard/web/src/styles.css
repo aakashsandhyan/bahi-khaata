@@ -144,3 +144,13 @@ main { }
 @media (max-width: 760px) {
   .topnav { display: none; }
 }
+
+/* --- condition buttons (web unpacking) --- */
+.conditions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.cond { padding: 10px 14px; border-radius: 8px; font-size: 15px; }
+.cond.on-good { background: #1b5e20; color: #fff; border-color: #1b5e20; }
+.cond.on-damaged { background: #e65100; color: #fff; border-color: #e65100; }
+.cond.on-broken { background: #b71c1c; color: #fff; border-color: #b71c1c; }
+.condnote { font-size: 13px; margin: 2px 0 8px; }
+.warn-text { color: #e65100; }
+.stop-text { color: #b71c1c; }
