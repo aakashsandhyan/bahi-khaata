@@ -110,6 +110,12 @@ main { }
 .camera-toggle { font-size: 16px; padding: 0 16px; border-radius: 8px; white-space: nowrap; }
 .camera { margin: 8px 0; }
 .viewfinder {
-  width: 100%; max-height: 60vh; background: #000; border-radius: 8px; object-fit: cover;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 70vh;
+  background: #000;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
 }
 .camera button { margin-top: 8px; width: 100%; padding: 12px; }

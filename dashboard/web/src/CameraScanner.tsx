@@ -43,29 +43,41 @@ export function CameraScanner({
     const hints = new Map()
     hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS)
     const reader = new BrowserMultiFormatReader(hints)
-    let stop: (() => void) | undefined
     let cancelled = false
+    let stream: MediaStream | undefined
+    let stop: (() => void) | undefined
 
-    reader
-      .decodeFromConstraints(
-        { video: { facingMode: 'environment' } },
-        videoRef.current!,
-        (result) => {
-          if (!result) return
-          const code = result.getText()
-          const now = Date.now()
-          // Same sticker across successive frames is one scan, not many.
-          if (code === lastRef.current.code && now - lastRef.current.at < 1500) return
-          lastRef.current = { code, at: now }
-          if ('vibrate' in navigator) navigator.vibrate(80)
-          onDetected(code)
-        },
-      )
-      .then((controls) => {
+    const onResult = (result: { getText(): string } | undefined) => {
+      if (!result) return
+      const code = result.getText()
+      const now = Date.now()
+      // Same sticker across successive frames is one scan, not many.
+      if (code === lastRef.current.code && now - lastRef.current.at < 1500) return
+      lastRef.current = { code, at: now }
+      if ('vibrate' in navigator) navigator.vibrate(80)
+      onDetected(code)
+    }
+
+    // The stream is taken and played by hand rather than left to the reader, because letting
+    // the reader both open the camera and start the video raced on mobile: the stream arrived
+    // but the element never played, so it showed a black rectangle. Grabbing the stream,
+    // attaching it, and awaiting play() first makes the picture appear before decoding begins.
+    ;(async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+        })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        const video = videoRef.current!
+        video.srcObject = stream
+        await video.play()
+        const controls = await reader.decodeFromVideoElement(video, onResult)
         if (cancelled) controls.stop()
         else stop = () => controls.stop()
-      })
-      .catch((e: unknown) => {
+      } catch (e: unknown) {
         const name = e instanceof DOMException ? e.name : ''
         if (name === 'NotAllowedError') {
           setError(
@@ -80,11 +92,13 @@ export function CameraScanner({
         } else {
           setError('Could not start the camera. A scanner still works by typing into the box.')
         }
-      })
+      }
+    })()
 
     return () => {
       cancelled = true
       stop?.()
+      stream?.getTracks().forEach((t) => t.stop())
     }
   }, [onDetected, attempt])
 
