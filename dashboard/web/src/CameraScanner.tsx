@@ -28,6 +28,27 @@ const FORMATS = [
   BarcodeFormat.CODE_39,
 ]
 
+const REMEMBERED_LENS = 'bk.cameraLens'
+
+/**
+ * The main rear lens, by name.
+ *
+ * A phone's rear cameras are labelled — "Back Camera", "Back Ultra Wide Camera", "Back
+ * Telephoto Camera". The main one focuses close; the ultra-wide, telephoto, depth and macro do
+ * not, or not well, so they are ruled out and the first that remains is taken. Plain "wide" is
+ * kept, because the main lens is often called exactly that — it is "ultra wide" that is the one
+ * to avoid.
+ *
+ * Where nothing is labelled — permission not yet remembered on some browsers — this returns
+ * nothing and the default stands.
+ */
+function pickMainBackCamera(devices: MediaDeviceInfo[]): string | undefined {
+  const back = devices.filter((d) => /back|rear|environment/i.test(d.label))
+  const pool = back.length ? back : devices.filter((d) => d.label)
+  const main = pool.find((d) => !/ultra|tele|depth|macro|mono|zoom/i.test(d.label))
+  return (main ?? pool[0])?.deviceId
+}
+
 export function CameraScanner({
   onDetected,
   onClose,
@@ -43,7 +64,10 @@ export function CameraScanner({
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([])
-  const [deviceId, setDeviceId] = useState<string | undefined>()
+  const [deviceId, setDeviceId] = useState<string | undefined>(
+    () => localStorage.getItem(REMEMBERED_LENS) ?? undefined,
+  )
+  const autoPicked = useRef(false)
   const [torchOn, setTorchOn] = useState(false)
   const [torchable, setTorchable] = useState(false)
   const [readout, setReadout] = useState('')
@@ -107,7 +131,20 @@ export function CameraScanner({
         setReadout(`${settings.width ?? '?'}×${settings.height ?? '?'} · ${track.label || 'camera'}`)
 
         const all = await navigator.mediaDevices.enumerateDevices()
-        setCameras(all.filter((d) => d.kind === 'videoinput'))
+        const videoInputs = all.filter((d) => d.kind === 'videoinput')
+        setCameras(videoInputs)
+
+        // Land on the main rear lens rather than whatever facingMode handed back — often the
+        // ultra-wide, which is fixed-focus and cannot focus close. Done once, and never over a
+        // lens the person chose, which is remembered instead.
+        if (!deviceId && !autoPicked.current) {
+          autoPicked.current = true
+          const main = pickMainBackCamera(videoInputs)
+          if (main && main !== track.getSettings?.().deviceId) {
+            setDeviceId(main)
+            return // restart on the main lens
+          }
+        }
 
         const el = videoRef.current!
         el.srcObject = stream
@@ -190,7 +227,12 @@ export function CameraScanner({
             {cameras.length > 1 && (
               <select
                 value={deviceId ?? ''}
-                onChange={(e) => setDeviceId(e.target.value || undefined)}
+                onChange={(e) => {
+                  const chosen = e.target.value || undefined
+                  if (chosen) localStorage.setItem(REMEMBERED_LENS, chosen)
+                  else localStorage.removeItem(REMEMBERED_LENS)
+                  setDeviceId(chosen)
+                }}
               >
                 <option value="">Back camera (auto)</option>
                 {cameras.map((c, i) => (
