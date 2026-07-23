@@ -110,7 +110,9 @@ export function Unpacking() {
   }
 
   const onScan = async (raw: string) => {
-    const scanned = raw.trim()
+    // A camera or a scanner can deliver stray control characters; they break the request URL
+    // before it ever reaches the backend. Strip them, keep the printable code.
+    const scanned = raw.replace(/[\x00-\x1f\x7f]/g, '').trim()
     if (!scanned) return
     try {
       if (!carton) {

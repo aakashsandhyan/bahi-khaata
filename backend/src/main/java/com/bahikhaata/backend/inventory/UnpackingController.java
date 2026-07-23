@@ -125,10 +125,10 @@ class UnpackingController {
     }
 
     /** Finds the carton by the number printed on it, which is what the scanner reads. */
-    @GetMapping("/boxes/by-tracking/{trackingNumber}")
+    @GetMapping("/boxes/by-tracking")
     ResponseEntity<List<UnpackingCarton>> byTracking(
-            @PathVariable String trackingNumber) {
-        List<UnpackingCarton> found = counting.findByTracking(trackingNumber);
+            @org.springframework.web.bind.annotation.RequestParam String tracking) {
+        List<UnpackingCarton> found = counting.findByTracking(tracking);
         return found.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(found);
     }
 
@@ -184,8 +184,9 @@ class UnpackingController {
      *
      * <p>Where someone goes when a scan keeps resolving to goods it does not belong to.
      */
-    @PostMapping("/codes/{code}/release")
-    ResponseEntity<Void> releaseCode(@PathVariable String code) {
+    @PostMapping("/codes/release")
+    ResponseEntity<Void> releaseCode(
+            @org.springframework.web.bind.annotation.RequestParam String code) {
         counting.releaseCode(code);
         return ResponseEntity.noContent().build();
     }

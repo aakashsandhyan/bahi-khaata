@@ -97,7 +97,7 @@ export const unpacking = {
   deliveries: () => get<_DeliveryProgress[]>('/api/unpacking/deliveries'),
 
   cartonsByTracking: (tracking: string) =>
-    getList<_UnpackingCarton>(`/api/unpacking/boxes/by-tracking/${encodeURIComponent(tracking)}`),
+    getList<_UnpackingCarton>(`/api/unpacking/boxes/by-tracking?tracking=${encodeURIComponent(tracking)}`),
 
   lines: (boxId: string) => getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/lines`),
 
@@ -145,7 +145,7 @@ export const unpacking = {
 
   // Forget a code put on the wrong goods, so the sticker can be scanned onto the right item.
   releaseCode: (code: string) =>
-    post<void>(`/api/unpacking/codes/${encodeURIComponent(code)}/release`),
+    post<void>(`/api/unpacking/codes/release?code=${encodeURIComponent(code)}`),
 }
 
 // --- checkout ---
