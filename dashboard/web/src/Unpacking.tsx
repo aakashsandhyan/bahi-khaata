@@ -298,20 +298,18 @@ export function Unpacking() {
         {carton && <DeliveryLine lotId={carton.lotId} deliveries={deliveries} />}
       </div>
 
-      <div className="scanrow">
-        <ScanField
-          refEl={scanRef}
-          onScan={onScan}
-          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
-        />
-        <button
-          className="camera-toggle"
-          onClick={() => setCameraOn((on) => !on)}
-          disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
-        >
-          {cameraOn ? 'Hide camera' : '📷 Camera'}
-        </button>
-      </div>
+      <ScanField
+        refEl={scanRef}
+        onScan={onScan}
+        disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
+      />
+      <button
+        className="camera-btn"
+        onClick={() => setCameraOn((on) => !on)}
+        disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
+      >
+        {cameraOn ? 'Hide camera' : '📷 Scan with camera'}
+      </button>
 
       {cameraOn && !askingMrp && !choosing && (
         <CameraScanner onDetected={onCameraDetect} onClose={() => setCameraOn(false)} />
