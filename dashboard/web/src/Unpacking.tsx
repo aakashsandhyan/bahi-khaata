@@ -67,7 +67,13 @@ export function Unpacking() {
   // The camera fires many times a second from a stable callback; this ref lets that callback
   // reach the latest handler without being rebuilt, which would restart the camera each time.
   const handleScanRef = useRef<(code: string) => void>(() => {})
-  const onCameraDetect = useCallback((code: string) => handleScanRef.current(code), [])
+  const onCameraDetect = useCallback((code: string) => {
+    // Stop after a read. The camera closes on a successful scan — the shutter and light go off,
+    // and it cannot double-read the same or the next barcode — then the scan is handled. Reopen
+    // it for the next item.
+    setCameraOn(false)
+    handleScanRef.current(code)
+  }, [])
 
   const loadDeliveries = () => unpacking.deliveries().then(setDeliveries).catch(() => {})
   useEffect(() => {
