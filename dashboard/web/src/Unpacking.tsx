@@ -284,9 +284,19 @@ export function Unpacking() {
 
   return (
     <div className="unpack">
-      <h1>{carton ? `Box ${carton.trackingNumber}` : 'Scan a box to start'}</h1>
-      <p className="step">→ {step}</p>
-      {carton && <DeliveryLine lotId={carton.lotId} deliveries={deliveries} />}
+      <div className="unpack-head">
+        <h1>
+          {carton ? (
+            <>
+              Box <span className="box-num">{carton.trackingNumber}</span>
+            </>
+          ) : (
+            'Scan a box to start'
+          )}
+        </h1>
+        <p className="step">→ {step}</p>
+        {carton && <DeliveryLine lotId={carton.lotId} deliveries={deliveries} />}
+      </div>
 
       <div className="scanrow">
         <ScanField
@@ -356,7 +366,7 @@ export function Unpacking() {
       )}
 
       {surplus && (
-        <div className="which">
+        <div className="card">
           <h2>More of these than the sheet expected</h2>
           <p className="code">Code on the item: {surplus.code}</p>
           <p>
@@ -380,7 +390,7 @@ export function Unpacking() {
       )}
 
       {releaseOffer && (
-        <div className="which">
+        <div className="card">
           <h2>Was a code put on this by mistake?</h2>
           <p className="code">{releaseOffer.name}</p>
           {releaseOffer.codes.map((c) => (
@@ -395,7 +405,7 @@ export function Unpacking() {
       )}
 
       {picking && (
-        <div className="which">
+        <div className="card">
           <button className="back" onClick={() => { setPicking(null); focusScan() }}>
             ← Back
           </button>
@@ -446,7 +456,7 @@ export function Unpacking() {
           <ItemList lines={lines} onTakeBack={takeBack} />
           <div className="actions">
             <button onClick={leave}>Leave this box</button>
-            <button className="primary" onClick={() => finish()}>
+            <button className="btn-primary" onClick={() => finish()}>
               Box is done
             </button>
           </div>
@@ -519,7 +529,7 @@ function MrpPrompt({
     onEnter(Math.round(Number(cleaned) * 100))
   }
   return (
-    <div className="mrp">
+    <div className="card">
       <button className="back" onClick={onBack}>
         ← Back
       </button>
@@ -563,7 +573,7 @@ function WhichItem({
     )
     .sort((a, b) => b.outstanding - a.outstanding)
   return (
-    <div className="which">
+    <div className="card">
       <button className="back" onClick={onBack}>
         ← Back
       </button>
@@ -606,7 +616,7 @@ function RemarkPrompt({
   useEffect(() => ref.current?.focus(), [])
   const done = () => onDone(note.trim() || null)
   return (
-    <div className="which">
+    <div className="card">
       <button className="back" onClick={onBack}>
         ← Back
       </button>
@@ -684,34 +694,35 @@ function DeliveryLine({
 function Overview({ deliveries }: { deliveries: DeliveryProgress[] }) {
   if (deliveries.length === 0) return null
   return (
-    <table className="overview">
-      <thead>
-        <tr>
-          <th className="name">Delivery</th>
-          <th>Boxes</th>
-          <th>Items</th>
-          <th>Waiting on a price</th>
-        </tr>
-      </thead>
-      <tbody>
-        {[...deliveries]
-          .sort((a, b) => b.unitsExpected - a.unitsExpected)
-          .map((d) => (
-            <tr key={d.lotId}>
-              <td className="name">{d.category}</td>
-              <td>
-                {d.cartonsFinished} of {d.cartonsTotal}
-              </td>
-              <td>
-                {d.unitsCounted} of {d.unitsExpected}
-              </td>
-              <td className={d.itemsWithoutMrp ? 'wait' : ''}>
-                {d.itemsWithoutMrp || '—'}
-              </td>
-            </tr>
-          ))}
-      </tbody>
-    </table>
+    <div className="overview-cards">
+      <div className="ov-head">Deliveries</div>
+      {[...deliveries]
+        .sort((a, b) => b.unitsExpected - a.unitsExpected)
+        .map((d) => {
+          const done = d.cartonsFinished === d.cartonsTotal
+          const pct = d.unitsExpected ? Math.round((d.unitsCounted / d.unitsExpected) * 100) : 0
+          return (
+            <div key={d.lotId} className={done ? 'ov done' : 'ov'}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ov-name">{d.category}</div>
+                <div className="ov-stat">
+                  {d.cartonsFinished} of {d.cartonsTotal} boxes · {d.unitsCounted} of{' '}
+                  {d.unitsExpected} items
+                </div>
+                <div className="ov-bar">
+                  <i style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              {d.itemsWithoutMrp > 0 && (
+                <div className="ov-wait" title="items waiting on a price">
+                  {d.itemsWithoutMrp}
+                  <div style={{ fontSize: 10, fontWeight: 400 }}>no price</div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+    </div>
   )
 }
 
