@@ -147,3 +147,27 @@ export const unpacking = {
   releaseCode: (code: string) =>
     post<void>(`/api/unpacking/codes/${encodeURIComponent(code)}/release`),
 }
+
+// --- checkout ---
+import type { CartView as _CartView } from './types'
+
+async function del<T>(path: string): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, { method: 'DELETE' })
+  if (!response.ok) throw new BackendError(await message(response))
+  return response.json() as Promise<T>
+}
+
+export const checkout = {
+  open: () => post<_CartView>('/api/checkout/cart') as Promise<_CartView>,
+  view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
+  scan: (cartId: string, code: string) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/scan`, { code }) as Promise<_CartView>,
+  setQuantity: (cartId: string, lineId: string, quantity: number) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/lines/${lineId}/quantity`, {
+      quantity,
+    }) as Promise<_CartView>,
+  removeLine: (cartId: string, lineId: string) =>
+    del<_CartView>(`/api/checkout/cart/${cartId}/lines/${lineId}`),
+  clear: (cartId: string) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/clear`) as Promise<_CartView>,
+}

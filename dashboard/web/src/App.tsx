@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Checkout } from './Checkout'
 import { Unpacking } from './Unpacking'
 import { Pricing } from './Pricing'
 
@@ -11,11 +12,14 @@ import { Pricing } from './Pricing'
  * different doors. Keeping them apart now makes that a move rather than a untangling.
  */
 export function App() {
-  const [view, setView] = useState<'unpacking' | 'pricing'>('unpacking')
+  const [view, setView] = useState<'checkout' | 'unpacking' | 'pricing'>('checkout')
   return (
     <>
       <nav className="topnav">
         <span className="brand">Bachat Baazar</span>
+        <button className={view === 'checkout' ? 'on' : ''} onClick={() => setView('checkout')}>
+          Till
+        </button>
         <button className={view === 'unpacking' ? 'on' : ''} onClick={() => setView('unpacking')}>
           Unpacking
         </button>
@@ -23,7 +27,7 @@ export function App() {
           Pricing
         </button>
       </nav>
-      <main>{view === 'unpacking' ? <Unpacking /> : <Pricing />}</main>
+      <main>{view === 'checkout' ? <Checkout /> : view === 'unpacking' ? <Unpacking /> : <Pricing />}</main>
     </>
   )
 }

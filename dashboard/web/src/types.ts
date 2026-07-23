@@ -84,3 +84,26 @@ export interface LearntCode {
   origin: string
   releasable: boolean
 }
+
+// --- checkout ---
+export interface CartLineView {
+  lineId: string
+  productId: string
+  name: string
+  mrpPaise: number
+  unitPricePaise: number
+  quantity: number
+  lineTotalPaise: number
+  savingPaise: number
+  savingPercent: number
+}
+
+export interface CartView {
+  cartId: string
+  lines: CartLineView[]
+  subtotalPaise: number
+  taxPaise: number
+  totalPaise: number
+  savingPaise: number
+  taxIsPlaceholder: boolean
+}

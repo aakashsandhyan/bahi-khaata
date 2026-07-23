@@ -246,3 +246,60 @@ tr.damaged { background: var(--warn-tint); }
 .flag.warn { background: var(--warn-tint); color: var(--warn); }
 .flag.stop { background: var(--stop-tint); color: var(--stop); }
 .price-in { width: 88px; padding: 8px; font-size: 14px; text-align: right; border: 1px solid var(--line); border-radius: var(--r1); }
+
+/* ============================================================================
+   Till (checkout) — its own accents per the brief: teal action, coral savings.
+   ============================================================================ */
+.till {
+  --teal: #0f6e56; --teal-dark: #0b5443;
+  --coral-bg: #faece7; --coral-ink: #712b13;
+  max-width: 560px; margin: 0 auto; padding: var(--s4);
+}
+.till-scan {
+  width: 100%; font-size: 20px; font-weight: 600; padding: 16px 18px;
+  border: 2px solid var(--teal); border-radius: var(--r2); background: var(--card);
+  box-shadow: var(--shadow); outline: none; position: sticky; top: var(--s2); z-index: 5;
+}
+.till-scan::placeholder { color: var(--ink-faint); }
+.till-error { margin: var(--s3) 0; padding: 12px 14px; border-radius: var(--r1);
+  background: var(--stop-tint); color: var(--stop); font-weight: 500; }
+
+.till-cart { margin: var(--s3) 0; display: flex; flex-direction: column; gap: var(--s2); }
+.till-empty { text-align: center; color: var(--ink-faint); padding: var(--s6) 0; }
+.till-line {
+  display: flex; align-items: center; gap: var(--s3);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r2);
+  padding: 14px; box-shadow: var(--shadow);
+}
+.till-line-main { flex: 1; min-width: 0; }
+.till-line-name { font-weight: 600; font-size: 15px; }
+.till-line-price { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.till-line-price .mrp { color: var(--ink-faint); text-decoration: line-through; font-size: 13px; }
+.till-line-price .now { font-weight: 700; font-size: 16px; }
+.till-line-price .off {
+  background: var(--coral-bg); color: var(--coral-ink); font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+}
+.qty { display: flex; align-items: center; gap: 4px; }
+.qty button {
+  width: 44px; height: 44px; padding: 0; font-size: 22px; font-weight: 700;
+  border-radius: var(--r1); background: var(--line-soft); border-color: var(--line);
+}
+.qty span { min-width: 28px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.till-line-total { min-width: 72px; text-align: right; font-weight: 700; font-size: 16px; }
+
+.till-totals { background: var(--card); border: 1px solid var(--line); border-radius: var(--r2);
+  padding: var(--s4); box-shadow: var(--shadow); }
+.till-totals .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 16px; }
+.till-totals .row.muted { color: var(--ink-soft); font-size: 14px; }
+.till-totals .tbd { color: var(--warn); font-style: normal; font-size: 12px; }
+.till-totals .row.total { font-size: 24px; font-weight: 800; border-top: 1px solid var(--line);
+  margin-top: 6px; padding-top: 10px; }
+
+.till-saved {
+  background: var(--coral-bg); color: var(--coral-ink); text-align: center; font-weight: 700;
+  padding: 14px; border-radius: var(--r2); margin: var(--s3) 0; font-size: 17px;
+}
+.till-actions { display: flex; gap: var(--s3); margin: var(--s4) 0 var(--s6); }
+.till-actions button { flex: 1; padding: 18px; font-size: 18px; }
+.till-pay { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 700; }
