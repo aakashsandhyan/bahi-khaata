@@ -14,8 +14,8 @@ import { existsSync, readFileSync } from 'node:fs'
 // missing cert degrades a feature rather than breaking the server.
 //
 // If the PC's LAN address changes, regenerate the cert for the new one and update these paths.
-const CERT = './certs/192.168.1.10+3.pem'
-const KEY = './certs/192.168.1.10+3-key.pem'
+const CERT = './certs/192.168.1.2+4.pem'
+const KEY = './certs/192.168.1.2+4-key.pem'
 const https =
   existsSync(CERT) && existsSync(KEY)
     ? { cert: readFileSync(CERT), key: readFileSync(KEY) }
