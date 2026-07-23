@@ -12,7 +12,12 @@ import { Pricing } from './Pricing'
  * different doors. Keeping them apart now makes that a move rather than a untangling.
  */
 export function App() {
-  const [view, setView] = useState<'checkout' | 'unpacking' | 'pricing'>('checkout')
+  // Phones are operators' devices and their nav is hidden, so they must land on unpacking, not
+  // the till they cannot navigate away from. Wider screens — a counter tablet or a desk — are
+  // where the till belongs, so they open on it.
+  const [view, setView] = useState<'checkout' | 'unpacking' | 'pricing'>(
+    typeof window !== 'undefined' && window.innerWidth <= 760 ? 'unpacking' : 'checkout',
+  )
   return (
     <>
       <nav className="topnav">
