@@ -3,7 +3,6 @@ import { unpacking, remediation, BackendError } from './api'
 import type {
   DeliveryProgress,
   IssueTypeOption,
-  LearntCode,
   UnpackingCarton,
   UnpackingLine,
 } from './types'
@@ -50,10 +49,6 @@ export function Unpacking() {
   // A scan that hit a line already fully counted: either another really arrived, or the code is
   // on the wrong goods.
   const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
-  // Codes offered for release after a count is taken back, so a mis-scanned sticker can be freed.
-  const [releaseOffer, setReleaseOffer] = useState<{ name: string; codes: LearntCode[] } | null>(
-    null,
-  )
   // A returns sticker scanned again though it already resolves. Usually a double-scan of the one
   // unit it names; sometimes a legitimate re-set after that unit's count was taken back. The person
   // says which, since the count is not tracked per sticker and the system cannot tell them apart.
@@ -220,14 +215,14 @@ export function Unpacking() {
 
   const takeBack = async (line: UnpackingLine) => {
     try {
+      // Removes one from this box's line only. The sticker mapping stays behind, and freeing it is
+      // not offered here — dumping every code the product ever gathered, across every box, is not
+      // what "take one back" is about. If a specific sticker was mis-mapped, re-scanning it opens
+      // the "forget it and set again" fork, which frees that one code.
       await unpacking.undo(line.lineId, 1)
       if (carton) await refreshLines(carton.boxId)
       loadDeliveries()
       say('Took one back: ' + shortName(line), 'warn')
-      // Taking the count back leaves any code mapping behind — offer to free it, since a sticker
-      // on the wrong goods keeps resolving them.
-      const codes = (await unpacking.codesFor(line.lineId)).filter((c) => c.releasable)
-      if (codes.length > 0) setReleaseOffer({ name: shortName(line), codes })
     } catch (e) {
       fail(e)
     } finally {
@@ -239,7 +234,6 @@ export function Unpacking() {
     try {
       await unpacking.releaseCode(code)
       if (carton) await refreshLines(carton.boxId)
-      setReleaseOffer(null)
       setSurplus(null)
       say(`Forgot ${code}. Scan it again and say which item it really is.`, 'warn')
     } catch (e) {
@@ -260,7 +254,6 @@ export function Unpacking() {
       setChoosing(null)
       setCounting(null)
       setSurplus(null)
-      setReleaseOffer(null)
       setRescan(null)
       loadDeliveries()
       say(
@@ -284,7 +277,6 @@ export function Unpacking() {
     setChoosing(null)
     setCounting(null)
     setSurplus(null)
-    setReleaseOffer(null)
     setRescan(null)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
     setStep('Scan the number printed on the next box.')
@@ -310,7 +302,7 @@ export function Unpacking() {
       <ScanField
         refEl={scanRef}
         onScan={onScan}
-        disabled={!!counting || !!choosing || !!surplus || !!releaseOffer || !!rescan}
+        disabled={!!counting || !!choosing || !!surplus || !!rescan}
       />
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
@@ -393,22 +385,7 @@ export function Unpacking() {
         </div>
       )}
 
-      {releaseOffer && (
-        <div className="card">
-          <h2>Was a code put on this by mistake?</h2>
-          <p className="code">{releaseOffer.name}</p>
-          {releaseOffer.codes.map((c) => (
-            <button key={c.code} className="choice warn-choice" onClick={() => release(c.code)}>
-              Forget {c.code}
-            </button>
-          ))}
-          <button className="back" onClick={() => setReleaseOffer(null)}>
-            ← None of these, done
-          </button>
-        </div>
-      )}
-
-      {carton && !choosing && !counting && !surplus && !releaseOffer && !rescan && (
+      {carton && !choosing && !counting && !surplus && !rescan && (
         <>
           <ItemList lines={lines} onTakeBack={takeBack} />
           <div className="actions">
