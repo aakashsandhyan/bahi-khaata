@@ -383,3 +383,5 @@ tr.damaged { background: var(--warn-tint); }
   color: var(--brand); font-weight: 600;
 }
 .btn-extra.armed { background: var(--brand); border-style: solid; color: #fff; }
+.scan.estimated { border-color: var(--warn); background: var(--warn-tint); }
+.mrp-hint.warn { color: var(--warn); }

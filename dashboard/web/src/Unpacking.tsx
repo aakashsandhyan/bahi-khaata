@@ -175,10 +175,13 @@ export function Unpacking() {
     remark: string | null,
     mrpPaise: number | null,
     issueType: string | null,
+    mrpIsEstimate: boolean,
   ) => {
     if (!counting) return
     const mrp = condition === 'UNUSABLE' ? null : mrpPaise
-    record(counting.line, counting.tagCode, condition, remark, mrp, issueType).catch(fail)
+    record(counting.line, counting.tagCode, condition, remark, mrp, issueType, mrpIsEstimate).catch(
+      fail,
+    )
   }
 
   // An extra the sheet did not name — recorded against this box, costed at the lot average.
@@ -211,11 +214,14 @@ export function Unpacking() {
     remark: string | null,
     mrpPaise: number | null,
     issueType: string | null,
+    mrpIsEstimate: boolean,
   ) => {
     if (!carton) return
     const outcome = tagCode
-      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition, remark, issueType)
-      : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark, issueType)
+      ? await unpacking.tag(
+          line.lineId, tagCode, 1, mrpPaise, condition, remark, issueType, mrpIsEstimate,
+        )
+      : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark, issueType, mrpIsEstimate)
     setChoosing(null)
     setCounting(null)
     const fresh = await refreshLines(carton.boxId)
@@ -521,6 +527,7 @@ function CountPane({
     remark: string | null,
     mrpPaise: number | null,
     issueType: string | null,
+    mrpIsEstimate: boolean,
   ) => void
   onBack: () => void
 }) {
@@ -535,6 +542,11 @@ function CountPane({
   // The kinds of work this department offers, fetched the first time needs-work is chosen.
   const [issues, setIssues] = useState<IssueTypeOption[]>([])
   const [issue, setIssue] = useState<string | null>(null)
+  // A looked-up price, prefilled only if nothing was read yet, and only ever as an estimate the
+  // operator confirms against the pack. Touching the field marks it read, not estimated.
+  const [estimate, setEstimate] = useState(false)
+  const [suggestion, setSuggestion] = useState<string | null>(null)
+  const touched = useRef(false)
   const mrpRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     mrpRef.current?.focus()
@@ -544,6 +556,19 @@ function CountPane({
       remediation.issueTypes(line.categoryCode).then(setIssues).catch(() => {})
     }
   }, [condition, line.categoryCode, issues.length])
+  useEffect(() => {
+    // No price read yet: try a lookup in the background. Slow and often empty, so it never blocks.
+    if (!line.needsMrp) return
+    unpacking
+      .suggestedMrp(line.lineId)
+      .then((s) => {
+        if (s.pricePaise == null || touched.current) return
+        setSuggestion(s.source)
+        setMrp(String(s.pricePaise / 100))
+        setEstimate(true)
+      })
+      .catch(() => {})
+  }, [line.lineId, line.needsMrp])
 
   const sound = condition === 'GOOD'
   const broken = condition === 'UNUSABLE'
@@ -570,7 +595,13 @@ function CountPane({
         mrpPaise = Math.round(Number(cleaned) * 100)
       }
     }
-    onSubmit(condition, sound ? null : remark.trim() || null, mrpPaise, needsWork ? issue : null)
+    onSubmit(
+      condition,
+      sound ? null : remark.trim() || null,
+      mrpPaise,
+      needsWork ? issue : null,
+      mrpPaise != null && estimate,
+    )
   }
 
   return (
@@ -644,15 +675,22 @@ function CountPane({
         <>
           <input
             ref={mrpRef}
-            className="scan"
+            className={`scan${estimate ? ' estimated' : ''}`}
             placeholder="₹ MRP on the pack (blank = none printed)"
             value={mrp}
             onChange={(e) => {
+              touched.current = true
+              setEstimate(false)
               setMrp(e.target.value)
               setError(null)
             }}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
           />
+          {estimate && (
+            <p className="mrp-hint warn">
+              Estimate from {suggestion ?? 'a lookup'} — check it against the pack.
+            </p>
+          )}
           {line.onlinePricePaise != null && <p className="mrp-hint">{rupees(line.onlinePricePaise)} online</p>}
           {error && <p className="mrp-hint stop">{error}</p>}
         </>

@@ -191,3 +191,10 @@ export interface ShortLine {
   counted: number
   shortBy: number
 }
+
+export interface MrpBackfillResult {
+  attempted: number
+  recorded: number
+  refused: number
+  message: string | null
+}

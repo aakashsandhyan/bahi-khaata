@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, BackendError } from './api'
-import type { PriceProposal, PriceableItem } from './types'
+import type { MrpBackfillResult, PriceProposal, PriceableItem } from './types'
 import { rupees } from './money'
 
 /**
@@ -19,6 +19,8 @@ export function Pricing() {
   const [items, setItems] = useState<PriceableItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState<string | null>(null)
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfill, setBackfill] = useState<MrpBackfillResult | null>(null)
 
   const load = () => {
     setError(null)
@@ -28,6 +30,19 @@ export function Pricing() {
       .catch((e) => setError(e instanceof BackendError ? e.message : 'Cannot reach the backend.'))
   }
   useEffect(load, [])
+
+  const runBackfill = async () => {
+    setBackfilling(true)
+    setBackfill(null)
+    try {
+      setBackfill(await api.backfillMrp(25))
+      load()
+    } catch (e) {
+      setError(e instanceof BackendError ? e.message : 'MRP backfill failed.')
+    } finally {
+      setBackfilling(false)
+    }
+  }
 
   const byCategory = useMemo(() => group(items ?? []), [items])
   const categories = Object.keys(byCategory).sort()
@@ -40,7 +55,19 @@ export function Pricing() {
           What goods cost, what they fetch online, and what they may lawfully sell for. Set a
           price that earns, beats online, and stays under the MRP.
         </p>
+        <button className="btn-ghost" onClick={runBackfill} disabled={backfilling}>
+          {backfilling ? 'Looking up MRPs…' : '↻ Fill missing MRPs from Amazon (estimates)'}
+        </button>
       </header>
+
+      {backfill && (
+        <div className="banner ok">
+          MRP lookup: filled {backfill.recorded} of {backfill.attempted} tried
+          {backfill.refused > 0 ? `, ${backfill.refused} not found` : ''} — as estimates, to confirm
+          against the goods.
+          {backfill.message ? ` ${backfill.message}` : ''}
+        </div>
+      )}
 
       {error && <div className="banner stop">{error}</div>}
 

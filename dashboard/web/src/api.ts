@@ -5,7 +5,7 @@
 // sentence meant for a person. It is thrown as-is rather than turned into "request failed",
 // because the sentence is the useful part.
 
-import type { BulkResult, PriceProposal, PriceableItem } from './types'
+import type { BulkResult, MrpBackfillResult, PriceProposal, PriceableItem } from './types'
 
 // Relative, so every call goes through this server, which proxies it to the backend. That keeps
 // the browser on one secure origin — needed for the camera — with no mixed content and no
@@ -63,6 +63,10 @@ export const api = {
     post<BulkResult>(
       `/api/admin/pricing/category/${encodeURIComponent(category)}?marginPercent=${marginPercent}`,
     ),
+
+  // Look up missing MRPs (bounded by a limit; each recorded as an estimate). Slow — a scrape each.
+  backfillMrp: (limit: number) =>
+    post<MrpBackfillResult>(`/api/admin/mrp/backfill?limit=${limit}`),
 }
 
 export { BackendError }
@@ -88,8 +92,9 @@ function countBody(
   condition: string,
   remark: string | null,
   issueType: string | null,
+  mrpIsEstimate: boolean,
 ) {
-  const body: Record<string, unknown> = { quantity, mrpIsEstimate: false, condition }
+  const body: Record<string, unknown> = { quantity, mrpIsEstimate, condition }
   if (mrpPaise != null) body.mrpPaise = mrpPaise
   if (remark) body.remark = remark
   if (issueType) body.issueType = issueType
@@ -117,10 +122,11 @@ export const unpacking = {
     condition: string,
     remark: string | null,
     issueType: string | null = null,
+    mrpIsEstimate = false,
   ) =>
     post<_CountOutcome>(
       `/api/unpacking/lines/${lineId}/count`,
-      countBody(quantity, mrpPaise, condition, remark, issueType),
+      countBody(quantity, mrpPaise, condition, remark, issueType, mrpIsEstimate),
     ),
 
   tag: (
@@ -131,10 +137,11 @@ export const unpacking = {
     condition: string,
     remark: string | null,
     issueType: string | null = null,
+    mrpIsEstimate = false,
   ) =>
     post<_CountOutcome>(`/api/unpacking/lines/${lineId}/tag`, {
       scannedCode,
-      ...countBody(quantity, mrpPaise, condition, remark, issueType),
+      ...countBody(quantity, mrpPaise, condition, remark, issueType, mrpIsEstimate),
     }),
 
   // An extra found in a box that no line names — recorded against the box, costed at the lot
