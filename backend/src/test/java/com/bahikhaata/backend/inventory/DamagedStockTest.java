@@ -229,4 +229,31 @@ class DamagedStockTest {
                 .as("a dented box carries the same printed price as a clean one")
                 .isFalse();
     }
+
+    @Test
+    @DisplayName("The once-asked MRP reaches the condition that skipped the prompt")
+    void theSharedMrpReachesEveryCondition() {
+        // DAMAGED is counted first and carries the printed price. GOOD then counts with none,
+        // because needsMrp is already false — the very case that used to leave sound stock
+        // silently unpriced. It must take the product's MRP, not fall through empty.
+        counting.countExpected(line().getId(), StockCondition.DAMAGED, 1, Money.ofPaise(50_000), false, AT);
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, null, false, AT);
+
+        assertThat(batch(StockCondition.GOOD).getMrp())
+                .as("a dented pack and a clean one share one printed price")
+                .isEqualTo(Money.ofPaise(50_000));
+        assertThat(batch(StockCondition.GOOD).isMrpEstimate()).isFalse();
+    }
+
+    @Test
+    @DisplayName("An estimated MRP stays an estimate when it reaches the other condition")
+    void inheritedMrpKeepsItsEstimateFlag() {
+        counting.countExpected(line().getId(), StockCondition.DAMAGED, 1, Money.ofPaise(50_000), true, AT);
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, null, false, AT);
+
+        assertThat(batch(StockCondition.GOOD).getMrp()).isEqualTo(Money.ofPaise(50_000));
+        assertThat(batch(StockCondition.GOOD).isMrpEstimate())
+                .as("a figure looked up, not read off the goods, stays marked so even when shared")
+                .isTrue();
+    }
 }

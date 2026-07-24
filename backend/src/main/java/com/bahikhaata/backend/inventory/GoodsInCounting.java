@@ -695,6 +695,23 @@ public class GoodsInCounting {
             boolean mrpIsEstimate,
             String remark,
             Instant at) {
+        // The printed price is a property of the product in this delivery, not of one condition:
+        // a dented pack carries the same MRP as a clean one. `needsMrp` promises it is asked once
+        // per product and reused across conditions, but the answer is only ever stored on the
+        // batch that was asked. So when a count arrives with none — the sibling condition that
+        // slipped past the prompt — take the product's MRP off whichever batch already carries it,
+        // rather than leaving these goods silently unpriced.
+        if (mrp == null) {
+            Optional<Batch> priced =
+                    batches.findByLotIdAndProductId(lot.getId(), product.getId()).stream()
+                            .filter(b -> b.getMrp() != null)
+                            .findFirst();
+            if (priced.isPresent()) {
+                mrp = priced.get().getMrp();
+                mrpIsEstimate = priced.get().isMrpEstimate();
+            }
+        }
+
         Optional<Batch> existing =
                 batches.findByLotIdAndProductIdAndCondition(
                         lot.getId(), product.getId(), condition);
