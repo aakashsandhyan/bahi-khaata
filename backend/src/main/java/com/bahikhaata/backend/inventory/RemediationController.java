@@ -103,15 +103,14 @@ class RemediationController {
         return remediation.shortsInLot(lotId);
     }
 
-    /** Reattribute an extra to the real product it turned out to be, filling that line's shortfall. */
+    /** Reattribute an extra to the real product it turned out to be: the two are one, merged. */
     @PostMapping("/link")
     ResponseEntity<Void> link(@RequestBody LinkRequest request) {
-        remediation.linkExtra(
-                request.extraProductId(), request.targetLineId(), request.quantity(), Instant.now());
+        remediation.linkExtra(request.extraProductId(), request.targetLineId(), Instant.now());
         return ResponseEntity.noContent().build();
     }
 
-    record LinkRequest(UUID extraProductId, UUID targetLineId, long quantity) {}
+    record LinkRequest(UUID extraProductId, UUID targetLineId) {}
 
     /** Moves a quantity of a product's units from one state to another within an open lot. */
     @PostMapping("/change-state")

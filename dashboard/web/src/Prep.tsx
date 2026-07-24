@@ -526,21 +526,16 @@ function LinkForm({
 }) {
   const [shorts, setShorts] = useState<ShortLine[]>([])
   const [target, setTarget] = useState<ShortLine | null>(null)
-  const [qty, setQty] = useState(1)
   const [filter, setFilter] = useState('')
 
   useEffect(() => {
     remediation.shortsInLot(extra.lotId).then(setShorts).catch(() => {})
   }, [extra.lotId])
 
-  const pick = (s: ShortLine) => {
-    setTarget(s)
-    setQty(Math.min(extra.quantity, s.shortBy))
-  }
   const submit = () => {
     if (!target) return
     remediation
-      .link({ extraProductId: extra.productId, targetLineId: target.lineId, quantity: qty })
+      .link({ extraProductId: extra.productId, targetLineId: target.lineId })
       .then(onLinked)
       .catch(onError)
   }
@@ -566,7 +561,7 @@ function LinkForm({
           />
           {choices.length === 0 && <p className="empty">No short lines here.</p>}
           {choices.map((s) => (
-            <button key={s.lineId} className="choice" onClick={() => pick(s)}>
+            <button key={s.lineId} className="choice" onClick={() => setTarget(s)}>
               <span>{s.productName}</span>
               <span className="meta">
                 {s.asin} · short {s.shortBy} of {s.expected} · box {s.boxTracking}
@@ -575,26 +570,12 @@ function LinkForm({
           ))}
         </>
       ) : (
-        <>
-          <p>
-            Link <strong>{extra.quantity}</strong> extra to <strong>{target.productName}</strong> —
-            short {target.shortBy}.
-          </p>
-          <div className="qty-row">
-            <label>How many?</label>
-            <input
-              className="scan small"
-              type="number"
-              min={1}
-              max={extra.quantity}
-              value={qty}
-              onChange={(e) =>
-                setQty(Math.max(1, Math.min(extra.quantity, Number(e.target.value) || 1)))
-              }
-            />
-            <span className="meta">of {extra.quantity}</span>
-          </div>
-        </>
+        <p>
+          These are the same product. Merge the whole extra ({extra.quantity}) into{' '}
+          <strong>{target.productName}</strong> — it fills {target.shortBy} short
+          {extra.quantity > target.shortBy ? `, ${extra.quantity - target.shortBy} over` : ''}, and
+          the extra's sticker will name it from now on.
+        </p>
       )}
       <div className="actions">
         <button onClick={target ? () => setTarget(null) : onCancel}>
@@ -602,7 +583,7 @@ function LinkForm({
         </button>
         {target && (
           <button className="btn-primary" onClick={submit}>
-            Link {qty}
+            Merge into {target.productName.length > 24 ? target.productName.slice(0, 21) + '…' : target.productName}
           </button>
         )}
       </div>

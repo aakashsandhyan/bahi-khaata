@@ -136,10 +136,7 @@ public class GoodsRemediation {
      * is unchanged and the ledger is only appended to. Open-lot only.
      */
     @Transactional
-    public void linkExtra(UUID extraProductId, UUID targetLineId, long quantity, Instant at) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("must link a positive number, was " + quantity);
-        }
+    public void linkExtra(UUID extraProductId, UUID targetLineId, Instant at) {
         ExpectedLine target =
                 expectedLines
                         .findById(targetLineId)
@@ -156,39 +153,28 @@ public class GoodsRemediation {
                         .orElseThrow(
                                 () -> new IllegalArgumentException(
                                         "that extra has no sound stock in this delivery to link"));
-        if (extraBatch.getQuantityReceived() < quantity) {
-            throw new IllegalArgumentException(
-                    "cannot link " + quantity + " when only " + extraBatch.getQuantityReceived()
-                            + " extra are held");
+        long quantity = extraBatch.getQuantityReceived();
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("that extra has no units left to link");
         }
         Product extra = extraBatch.getProduct();
+        Product real = target.getProduct();
 
-        // Target side: count against the short line — fills the shortfall, adds to the target's
-        // batch, and writes the receipt. The extra's MRP carries over, since it was read off the
-        // same physical pack.
-        Money mrp = extraBatch.getMrp();
+        // Linking says the two are one product. The whole extra becomes the real one: its units are
+        // counted against the short line (any beyond the shortfall are an ordinary surplus), the
+        // phantom is emptied by an equal adjustment so on-hand is unchanged, and the extra's codes
+        // are reassigned to the real product so its stickers now name it.
         counting.countExpected(
-                targetLineId, StockCondition.GOOD, quantity, mrp, extraBatch.isMrpEstimate(),
-                null, at);
-
-        // Extra side: the phantom loses the units it never really held.
+                targetLineId, StockCondition.GOOD, quantity, extraBatch.getMrp(),
+                extraBatch.isMrpEstimate(), null, at);
         extraBatch.removeCounted(quantity);
         ledger.save(StockLedgerEntry.adjustment(extra, extraBatch, -quantity, at));
+        barcodes.findByProductId(extraProductId).forEach(b -> b.reassignTo(real));
 
-        // Take the reattributed units off the extra's find record so it stops listing them. The
-        // record cannot hold zero (a CHECK enforces it), so a fully-linked extra is deleted.
+        // The find record cannot hold zero (a CHECK enforces it), so the reattributed extra is gone.
         unlistedFinds.findByLotId(lot.getId()).stream()
-                .filter(f -> f.getProduct().getId().equals(extraProductId) && f.getQuantity() > 0)
-                .findFirst()
-                .ifPresent(
-                        f -> {
-                            long take = Math.min(quantity, f.getQuantity());
-                            if (take >= f.getQuantity()) {
-                                unlistedFinds.delete(f);
-                            } else {
-                                f.reduce(take);
-                            }
-                        });
+                .filter(f -> f.getProduct().getId().equals(extraProductId))
+                .forEach(unlistedFinds::delete);
     }
 
     /** The states a scanned code's product is held in, so a rescue can start from a scan. */

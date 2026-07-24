@@ -235,8 +235,8 @@ export const remediation = {
   // The lines of a delivery still missing units — candidates an extra can fill.
   shortsInLot: (lotId: string) => getList<_ShortLine>(`/api/remediation/lots/${lotId}/shorts`),
 
-  // Reattribute an extra to the real product it turned out to be.
-  link: (body: { extraProductId: string; targetLineId: string; quantity: number }) =>
+  // Merge an extra into the real product it turned out to be (the whole extra; they are one).
+  link: (body: { extraProductId: string; targetLineId: string }) =>
     post<void>('/api/remediation/link', body),
 
   // Move a quantity of a product's units from one state to another within an open lot.

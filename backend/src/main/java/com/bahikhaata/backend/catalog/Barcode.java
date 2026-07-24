@@ -75,6 +75,15 @@ public class Barcode extends UuidEntity {
         return product;
     }
 
+    /**
+     * Points this code at a different product, when two products turn out to be one and are merged
+     * — an extra reconciled to the real product it was. The exception to codes being assigned once:
+     * the code did not change, only which single product it names.
+     */
+    public void reassignTo(Product other) {
+        this.product = Objects.requireNonNull(other, "product");
+    }
+
     public String getCode() {
         return code;
     }

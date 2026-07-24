@@ -218,7 +218,7 @@ class GoodsRemediationTest {
         assertThat(stock.onHand(productId())).as("eight against the line").isEqualTo(8);
         assertThat(stock.onHand(extraId)).as("two held as the extra product").isEqualTo(2);
 
-        remediation.linkExtra(extraId, line().getId(), 2, AT);
+        remediation.linkExtra(extraId, line().getId(), AT);
 
         assertThat(line().getQuantityCounted()).as("the shortfall is filled").isEqualTo(10);
         assertThat(line().getDiscrepancy()).isZero();
@@ -230,12 +230,16 @@ class GoodsRemediationTest {
     }
 
     @Test
-    @DisplayName("Linking more than the extra holds is refused")
-    void overLinkRefused() {
-        UUID extraId = recordExtra("LPNEXTRA0002", 1);
-        assertThatThrownBy(() -> remediation.linkExtra(extraId, line().getId(), 3, AT))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("only 1");
+    @DisplayName("Linking merges the extra: its code then names the real product")
+    void linkingReassignsTheCode() {
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, Money.ofPaise(50_000), false, AT);
+        UUID extraId = recordExtra("LPNEXTRA0002", 2);
+
+        remediation.linkExtra(extraId, line().getId(), AT);
+
+        assertThat(remediation.statesByCode("LPNEXTRA0002").productId())
+                .as("the extra's sticker now scans as the real product")
+                .isEqualTo(productId());
     }
 
     @Test
@@ -244,7 +248,7 @@ class GoodsRemediationTest {
         counting.countExpected(line().getId(), StockCondition.GOOD, 8, Money.ofPaise(50_000), false, AT);
         UUID extraId = recordExtra("LPNEXTRA0003", 2);
         closing.close(lotId, false, AT);
-        assertThatThrownBy(() -> remediation.linkExtra(extraId, line().getId(), 2, AT))
+        assertThatThrownBy(() -> remediation.linkExtra(extraId, line().getId(), AT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("closed");
     }
