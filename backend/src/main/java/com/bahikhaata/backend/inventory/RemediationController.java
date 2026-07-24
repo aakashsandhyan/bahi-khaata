@@ -21,6 +21,7 @@ import com.bahikhaata.contracts.BacklogItem;
 import com.bahikhaata.contracts.IssueTypeOption;
 import com.bahikhaata.contracts.ProductStates;
 import com.bahikhaata.contracts.ProductSummary;
+import com.bahikhaata.contracts.ReviewItem;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
@@ -80,6 +81,12 @@ class RemediationController {
     @GetMapping("/backlog")
     List<BacklogItem> backlog() {
         return remediation.backlog();
+    }
+
+    /** Damaged and broken goods with their notes, for sorting the fixable into needs-work. */
+    @GetMapping("/review")
+    List<ReviewItem> review() {
+        return remediation.reviewList();
     }
 
     /** Moves a quantity of a product's units from one state to another within an open lot. */

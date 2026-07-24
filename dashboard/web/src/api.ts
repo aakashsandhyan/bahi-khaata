@@ -182,6 +182,7 @@ import type {
   ProductStates as _ProductStates,
   ProductSummary as _ProductSummary,
   BacklogItem as _BacklogItem,
+  ReviewItem as _ReviewItem,
 } from './types'
 
 export const remediation = {
@@ -203,6 +204,9 @@ export const remediation = {
 
   // Every pile of needs-work goods waiting on preparation.
   backlog: () => getList<_BacklogItem>('/api/remediation/backlog'),
+
+  // Damaged and broken goods with their notes, for sorting the fixable into needs-work.
+  review: () => getList<_ReviewItem>('/api/remediation/review'),
 
   // Move a quantity of a product's units from one state to another within an open lot.
   changeState: (body: {

@@ -25,8 +25,11 @@ import com.bahikhaata.contracts.IssueTypeOption;
 import com.bahikhaata.contracts.ProductStates;
 import com.bahikhaata.contracts.ProductSummary;
 import com.bahikhaata.contracts.RemediationLine;
+import com.bahikhaata.contracts.ReviewItem;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -121,6 +124,33 @@ public class GoodsRemediation {
                         .toList();
         return new ProductStates(
                 productId, product.getName(), product.getCategory().code(), lines);
+    }
+
+    /**
+     * Damaged and broken goods, with the note taken when counted, for sorting the fixable ones into
+     * needs-work from the true seconds — the pile that predates the needs-work state. Those bearing
+     * a note come first, since a note is what makes a pile worth a second look.
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewItem> reviewList() {
+        List<Batch> pile = new ArrayList<>();
+        pile.addAll(batches.findByConditionAndQuantityReceivedGreaterThan(StockCondition.DAMAGED, 0));
+        pile.addAll(batches.findByConditionAndQuantityReceivedGreaterThan(StockCondition.UNUSABLE, 0));
+        return pile.stream()
+                .map(
+                        b ->
+                                new ReviewItem(
+                                        b.getProduct().getId(),
+                                        b.getProduct().getName(),
+                                        b.getProduct().getCategory().code(),
+                                        b.getLot().getId(),
+                                        b.getCondition(),
+                                        b.getRemark(),
+                                        b.getQuantityReceived()))
+                .sorted(
+                        Comparator.comparing((ReviewItem r) -> r.remark() == null)
+                                .thenComparing(ReviewItem::productName))
+                .toList();
     }
 
     /** The needs-work backlog: every pile of goods waiting on preparation, for routing the work. */

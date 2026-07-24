@@ -149,3 +149,13 @@ export interface ProductSummary {
   productName: string
   categoryCode: string
 }
+
+export interface ReviewItem {
+  productId: string
+  productName: string
+  categoryCode: string
+  lotId: string
+  condition: StockCondition
+  remark: string | null
+  quantity: number
+}

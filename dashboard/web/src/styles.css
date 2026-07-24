@@ -353,3 +353,14 @@ tr.damaged { background: var(--warn-tint); }
 .finder { margin: var(--s2) 0 var(--s4); }
 .finder .scan { width: 100%; }
 .backlog-head { margin-top: var(--s5); color: var(--ink-soft); }
+
+/* prep mode toggle + review-damaged list */
+.mode-toggle { display: flex; gap: var(--s2); margin: var(--s3) 0 var(--s4); }
+.mode-toggle button { flex: 1; }
+.mode-toggle button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.review-hint {
+  font-size: 13px; color: var(--ink-soft); background: var(--brand-tint);
+  padding: 10px 12px; border-radius: var(--r2); margin: 0 0 var(--s3);
+}
+.review-item { margin-bottom: var(--s1); }
+.choice.stop-choice { background: var(--stop-tint); border-color: #f2c2c2; color: var(--stop); }

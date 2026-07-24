@@ -6,6 +6,7 @@ import type {
   ProductStates,
   ProductSummary,
   RemediationLine,
+  ReviewItem,
   StockCondition,
 } from './types'
 
@@ -32,7 +33,9 @@ const STATE_CSS: Record<StockCondition, string> = {
 }
 
 export function Prep() {
+  const [mode, setMode] = useState<'backlog' | 'review'>('backlog')
   const [backlog, setBacklog] = useState<BacklogItem[]>([])
+  const [review, setReview] = useState<ReviewItem[]>([])
   const [states, setStates] = useState<ProductStates | null>(null)
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
 
@@ -43,9 +46,13 @@ export function Prep() {
     })
 
   const loadBacklog = () => remediation.backlog().then(setBacklog).catch(() => {})
+  const loadReview = () => remediation.review().then(setReview).catch(() => {})
   useEffect(() => {
     loadBacklog()
   }, [])
+  useEffect(() => {
+    if (mode === 'review') loadReview()
+  }, [mode])
 
   const open = (productId: string) => remediation.states(productId).then(setStates).catch(fail)
 
@@ -61,6 +68,18 @@ export function Prep() {
       await remediation.changeState(body)
       setMessage({ text: `Moved ${body.quantity} to ${label}.`, tone: 'ok' })
       setStates(await remediation.states(body.productId))
+      loadBacklog()
+    } catch (e) {
+      fail(e)
+    }
+  }
+
+  // A move from the review list stays on the list — it does not open the product's state panel.
+  const reviewMove = async (body: Parameters<typeof remediation.changeState>[0], label: string) => {
+    try {
+      await remediation.changeState(body)
+      setMessage({ text: `Moved ${body.quantity} to ${label}.`, tone: 'ok' })
+      loadReview()
       loadBacklog()
     } catch (e) {
       fail(e)
@@ -83,27 +102,45 @@ export function Prep() {
       ) : (
         <>
           <h1>Prep</h1>
-          <ProductFinder onOpen={open} onScan={openByCode} />
-          <h2 className="backlog-head">Backlog</h2>
-          {backlog.length === 0 && <p className="empty">Nothing waiting on work.</p>}
-          {[...groups.entries()].map(([label, items]) => (
-            <section key={label} className="pile">
-              <h2>
-                {label}
-                <span className="pile-count">
-                  {items.reduce((n, i) => n + i.quantity, 0)} units · {items.length} items
-                </span>
-              </h2>
-              {items.map((i) => (
-                <button key={i.productId + i.lotId} className="choice" onClick={() => open(i.productId)}>
-                  <span>{i.productName}</span>
-                  <span className="meta">
-                    {i.quantity} to {label.toLowerCase()} · {i.categoryCode}
-                  </span>
-                </button>
+          <div className="mode-toggle">
+            <button className={mode === 'backlog' ? 'on' : ''} onClick={() => setMode('backlog')}>
+              Backlog
+            </button>
+            <button className={mode === 'review' ? 'on' : ''} onClick={() => setMode('review')}>
+              Review damaged
+            </button>
+          </div>
+
+          {mode === 'backlog' ? (
+            <>
+              <ProductFinder onOpen={open} onScan={openByCode} />
+              {backlog.length === 0 && <p className="empty">Nothing waiting on work.</p>}
+              {[...groups.entries()].map(([label, items]) => (
+                <section key={label} className="pile">
+                  <h2>
+                    {label}
+                    <span className="pile-count">
+                      {items.reduce((n, i) => n + i.quantity, 0)} units · {items.length} items
+                    </span>
+                  </h2>
+                  {items.map((i) => (
+                    <button
+                      key={i.productId + i.lotId}
+                      className="choice"
+                      onClick={() => open(i.productId)}
+                    >
+                      <span>{i.productName}</span>
+                      <span className="meta">
+                        {i.quantity} to {label.toLowerCase()} · {i.categoryCode}
+                      </span>
+                    </button>
+                  ))}
+                </section>
               ))}
-            </section>
-          ))}
+            </>
+          ) : (
+            <ReviewList items={review} onMove={reviewMove} />
+          )}
         </>
       )}
     </div>
@@ -317,6 +354,60 @@ function ProductFinder({
           <span className="meta">{p.categoryCode}</span>
         </button>
       ))}
+    </div>
+  )
+}
+
+function ReviewList({
+  items,
+  onMove,
+}: {
+  items: ReviewItem[]
+  onMove: (body: Parameters<typeof remediation.changeState>[0], label: string) => void
+}) {
+  const [open, setOpen] = useState<string | null>(null)
+  if (items.length === 0) return <p className="empty">Nothing marked damaged or broken.</p>
+  return (
+    <div className="review">
+      <p className="review-hint">
+        Sort the fixable — missing a part, needs a wash — into <strong>Needs work</strong>: they sell
+        at full price once mended. Leave the true scratches as <strong>Seconds</strong>.
+      </p>
+      {items.map((it) => {
+        const key = it.productId + it.lotId + it.condition
+        return (
+          <div key={key} className="review-item">
+            <button
+              className={`choice ${it.condition === 'UNUSABLE' ? 'stop-choice' : 'warn-choice'}`}
+              onClick={() => setOpen(open === key ? null : key)}
+            >
+              <span>{it.productName}</span>
+              <span className="meta">
+                {STATE_LABEL[it.condition]} · {it.quantity} · {it.categoryCode}
+                {it.remark ? ` — ${it.remark}` : ''}
+              </span>
+            </button>
+            {open === key && (
+              <MoveForm
+                productId={it.productId}
+                categoryCode={it.categoryCode}
+                from={{
+                  lotId: it.lotId,
+                  condition: it.condition,
+                  issueType: null,
+                  issueLabel: null,
+                  quantity: it.quantity,
+                }}
+                onCancel={() => setOpen(null)}
+                onMove={(body, label) => {
+                  onMove(body, label)
+                  setOpen(null)
+                }}
+              />
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
