@@ -367,47 +367,62 @@ function ReviewList({
 }) {
   const [open, setOpen] = useState<string | null>(null)
   if (items.length === 0) return <p className="empty">Nothing marked damaged or broken.</p>
+
+  // Group by department, keeping the backend's notes-first order within each.
+  const groups = new Map<string, ReviewItem[]>()
+  for (const it of items) groups.set(it.categoryCode, [...(groups.get(it.categoryCode) ?? []), it])
+
   return (
     <div className="review">
       <p className="review-hint">
         Sort the fixable — missing a part, needs a wash — into <strong>Needs work</strong>: they sell
         at full price once mended. Leave the true scratches as <strong>Seconds</strong>.
       </p>
-      {items.map((it) => {
-        const key = it.productId + it.lotId + it.condition
-        return (
-          <div key={key} className="review-item">
-            <button
-              className={`choice ${it.condition === 'UNUSABLE' ? 'stop-choice' : 'warn-choice'}`}
-              onClick={() => setOpen(open === key ? null : key)}
-            >
-              <span>{it.productName}</span>
-              <span className="meta">
-                {STATE_LABEL[it.condition]} · {it.quantity} · {it.categoryCode}
-                {it.remark ? ` — ${it.remark}` : ''}
-              </span>
-            </button>
-            {open === key && (
-              <MoveForm
-                productId={it.productId}
-                categoryCode={it.categoryCode}
-                from={{
-                  lotId: it.lotId,
-                  condition: it.condition,
-                  issueType: null,
-                  issueLabel: null,
-                  quantity: it.quantity,
-                }}
-                onCancel={() => setOpen(null)}
-                onMove={(body, label) => {
-                  onMove(body, label)
-                  setOpen(null)
-                }}
-              />
-            )}
-          </div>
-        )
-      })}
+      {[...groups.entries()].map(([category, catItems]) => (
+        <section key={category} className="pile">
+          <h2>
+            {category}
+            <span className="pile-count">
+              {catItems.reduce((n, i) => n + i.quantity, 0)} units · {catItems.length} items
+            </span>
+          </h2>
+          {catItems.map((it) => {
+            const key = it.productId + it.lotId + it.condition
+            return (
+              <div key={key} className="review-item">
+                <button
+                  className={`choice ${it.condition === 'UNUSABLE' ? 'stop-choice' : 'warn-choice'}`}
+                  onClick={() => setOpen(open === key ? null : key)}
+                >
+                  <span>{it.productName}</span>
+                  <span className="meta">
+                    {STATE_LABEL[it.condition]} · {it.quantity}
+                    {it.remark ? ` — ${it.remark}` : ''}
+                  </span>
+                </button>
+                {open === key && (
+                  <MoveForm
+                    productId={it.productId}
+                    categoryCode={it.categoryCode}
+                    from={{
+                      lotId: it.lotId,
+                      condition: it.condition,
+                      issueType: null,
+                      issueLabel: null,
+                      quantity: it.quantity,
+                    }}
+                    onCancel={() => setOpen(null)}
+                    onMove={(body, label) => {
+                      onMove(body, label)
+                      setOpen(null)
+                    }}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </section>
+      ))}
     </div>
   )
 }
