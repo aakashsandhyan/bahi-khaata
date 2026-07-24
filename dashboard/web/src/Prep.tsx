@@ -36,6 +36,7 @@ export function Prep() {
   const [mode, setMode] = useState<'backlog' | 'review'>('backlog')
   const [backlog, setBacklog] = useState<BacklogItem[]>([])
   const [review, setReview] = useState<ReviewItem[]>([])
+  const [folded, setFolded] = useState<Set<string>>(new Set())
   const [states, setStates] = useState<ProductStates | null>(null)
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
 
@@ -86,6 +87,13 @@ export function Prep() {
     }
   }
 
+  const foldPile = (label: string) =>
+    setFolded((prev) => {
+      const next = new Set(prev)
+      next.has(label) ? next.delete(label) : next.add(label)
+      return next
+    })
+
   // Group the backlog by the kind of work, so it reads as piles to route.
   const groups = new Map<string, BacklogItem[]>()
   for (const item of backlog) {
@@ -117,24 +125,27 @@ export function Prep() {
               {backlog.length === 0 && <p className="empty">Nothing waiting on work.</p>}
               {[...groups.entries()].map(([label, items]) => (
                 <section key={label} className="pile">
-                  <h2>
-                    {label}
+                  <h2 className="pile-toggle" onClick={() => foldPile(label)}>
+                    <span>
+                      {folded.has(label) ? '▸' : '▾'} {label}
+                    </span>
                     <span className="pile-count">
                       {items.reduce((n, i) => n + i.quantity, 0)} units · {items.length} items
                     </span>
                   </h2>
-                  {items.map((i) => (
-                    <button
-                      key={i.productId + i.lotId}
-                      className="choice"
-                      onClick={() => open(i.productId)}
-                    >
-                      <span>{i.productName}</span>
-                      <span className="meta">
-                        {i.quantity} to {label.toLowerCase()} · {i.categoryCode}
-                      </span>
-                    </button>
-                  ))}
+                  {!folded.has(label) &&
+                    items.map((i) => (
+                      <button
+                        key={i.productId + i.lotId}
+                        className="choice"
+                        onClick={() => open(i.productId)}
+                      >
+                        <span>{i.productName}</span>
+                        <span className="meta">
+                          {i.quantity} to {label.toLowerCase()} · {i.categoryCode}
+                        </span>
+                      </button>
+                    ))}
                 </section>
               ))}
             </>
