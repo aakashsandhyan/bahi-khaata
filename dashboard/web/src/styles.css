@@ -174,10 +174,18 @@ button:disabled { opacity: 0.45; cursor: default; }
 .cond.on-damaged.sel { background: var(--warn); color: #fff; border-color: var(--warn); }
 .cond.on-broken.sel { background: var(--stop); color: #fff; border-color: var(--stop); }
 
-/* the one pane: name, state row, optional remark, MRP, submit */
+/* the one pane, docked to the right as a side drawer: name, state, remark, MRP, submit */
+.count-pane {
+  position: fixed; top: 0; right: 0; z-index: 50;
+  width: min(420px, 94vw); height: 100vh; margin: 0;
+  border: none; border-left: 1px solid var(--line); border-radius: 0;
+  box-shadow: -10px 0 28px rgba(15, 23, 42, 0.14);
+  overflow-y: auto; display: flex; flex-direction: column;
+}
 .count-pane h2 { margin: 0 0 var(--s2); font-size: 17px; }
 .count-pane .scan { margin: var(--s2) 0 4px; }
-.count-pane .btn-primary { width: 100%; margin-top: var(--s3); padding: 16px; font-size: 18px; }
+/* submit sits at the foot of the drawer, thumb-reachable, not chasing the content up */
+.count-pane .btn-primary { width: 100%; margin-top: auto; padding: 16px; font-size: 18px; }
 .mrp-hint { font-size: 13px; color: var(--ink-faint); margin: 2px 0 0; }
 .mrp-hint.stop { color: var(--stop); }
 
