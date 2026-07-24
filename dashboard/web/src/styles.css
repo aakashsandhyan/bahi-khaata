@@ -207,11 +207,19 @@ button:disabled { opacity: 0.45; cursor: default; }
 .overview-cards { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s4); }
 .ov-head { font-size: 13px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--s4) 0 var(--s2); }
 .ov {
-  display: flex; align-items: center; gap: var(--s3);
   padding: 14px 16px; background: var(--card); border: 1px solid var(--line);
   border-radius: var(--r2); box-shadow: var(--shadow);
 }
+.ov-row { display: flex; align-items: center; gap: var(--s3); cursor: pointer; user-select: none; }
 .ov.done { background: var(--good-tint); border-color: #cdebd6; }
+.ov-boxes {
+  margin-top: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--line-soft);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ov-boxes .empty { font-size: 13px; color: var(--ink-faint); margin: 4px 0; }
+.ov-box { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 12px; font-size: 14px; }
+.ov-box-num { font-family: ui-monospace, monospace; }
+.ov-box-left { color: var(--brand); font-weight: 600; }
 .ov .ov-name { flex: 1; font-weight: 650; }
 .ov .ov-stat { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .ov .ov-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 6px; }

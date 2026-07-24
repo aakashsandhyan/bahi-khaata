@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { unpacking, remediation, BackendError } from './api'
 import type {
+  CartonProgress,
   DeliveryProgress,
   IssueTypeOption,
   UnpackingCarton,
@@ -397,7 +398,7 @@ export function Unpacking() {
         </>
       )}
 
-      {!carton && deliveries && <Overview deliveries={deliveries} />}
+      {!carton && deliveries && <Overview deliveries={deliveries} onOpenBox={openBox} />}
     </div>
   )
 }
@@ -698,32 +699,84 @@ function DeliveryLine({
   )
 }
 
-function Overview({ deliveries }: { deliveries: DeliveryProgress[] }) {
+function Overview({
+  deliveries,
+  onOpenBox,
+}: {
+  deliveries: DeliveryProgress[]
+  onOpenBox: (tracking: string) => void
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [boxes, setBoxes] = useState<Record<string, CartonProgress[]>>({})
+
+  const toggle = (lotId: string) => {
+    if (expanded === lotId) {
+      setExpanded(null)
+      return
+    }
+    setExpanded(lotId)
+    if (!boxes[lotId]) {
+      unpacking
+        .boxesOf(lotId)
+        .then((b) => setBoxes((prev) => ({ ...prev, [lotId]: b })))
+        .catch(() => {})
+    }
+  }
+
   if (deliveries.length === 0) return null
   return (
     <div className="overview-cards">
-      <div className="ov-head">Deliveries</div>
+      <div className="ov-head">Deliveries — tap a department to see boxes left</div>
       {[...deliveries]
         .sort((a, b) => b.unitsExpected - a.unitsExpected)
         .map((d) => {
           const done = d.cartonsFinished === d.cartonsTotal
           const pct = d.unitsExpected ? Math.round((d.unitsCounted / d.unitsExpected) * 100) : 0
+          const left = (boxes[d.lotId] ?? [])
+            .filter((b) => !b.finished && b.unitsExpected - b.unitsCounted > 0)
+            .sort(
+              (a, b) => b.unitsExpected - b.unitsCounted - (a.unitsExpected - a.unitsCounted),
+            )
           return (
             <div key={d.lotId} className={done ? 'ov done' : 'ov'}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="ov-name">{d.category}</div>
-                <div className="ov-stat">
-                  {d.cartonsFinished} of {d.cartonsTotal} boxes · {d.unitsCounted} of{' '}
-                  {d.unitsExpected} items
+              <div className="ov-row" onClick={() => toggle(d.lotId)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="ov-name">
+                    {expanded === d.lotId ? '▾' : '▸'} {d.category}
+                  </div>
+                  <div className="ov-stat">
+                    {d.cartonsFinished} of {d.cartonsTotal} boxes · {d.unitsCounted} of{' '}
+                    {d.unitsExpected} items
+                  </div>
+                  <div className="ov-bar">
+                    <i style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-                <div className="ov-bar">
-                  <i style={{ width: `${pct}%` }} />
-                </div>
+                {d.itemsWithoutMrp > 0 && (
+                  <div className="ov-wait" title="items waiting on a price">
+                    {d.itemsWithoutMrp}
+                    <div style={{ fontSize: 10, fontWeight: 400 }}>no price</div>
+                  </div>
+                )}
               </div>
-              {d.itemsWithoutMrp > 0 && (
-                <div className="ov-wait" title="items waiting on a price">
-                  {d.itemsWithoutMrp}
-                  <div style={{ fontSize: 10, fontWeight: 400 }}>no price</div>
+              {expanded === d.lotId && (
+                <div className="ov-boxes">
+                  {!boxes[d.lotId] && <p className="empty">Loading…</p>}
+                  {boxes[d.lotId] && left.length === 0 && (
+                    <p className="empty">Every box here is done.</p>
+                  )}
+                  {left.map((b) => (
+                    <button
+                      key={b.boxId}
+                      className="ov-box"
+                      onClick={() => onOpenBox(b.trackingNumber)}
+                    >
+                      <span className="ov-box-num">{b.trackingNumber}</span>
+                      <span className="ov-box-left">
+                        {b.unitsExpected - b.unitsCounted} left →
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>

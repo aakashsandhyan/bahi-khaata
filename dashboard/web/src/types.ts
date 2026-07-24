@@ -160,3 +160,13 @@ export interface ReviewItem {
   remark: string | null
   quantity: number
 }
+
+export interface CartonProgress {
+  boxId: string
+  trackingNumber: string
+  lines: number
+  unitsExpected: number
+  unitsCounted: number
+  unitsUnlisted: number
+  finished: boolean
+}

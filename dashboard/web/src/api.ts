@@ -79,6 +79,7 @@ import type {
   SuggestedMrp as _SuggestedMrp,
   UnpackingCarton as _UnpackingCarton,
   UnpackingLine as _UnpackingLine,
+  CartonProgress as _CartonProgress,
 } from './types'
 
 function countBody(
@@ -102,6 +103,9 @@ export const unpacking = {
     getList<_UnpackingCarton>(`/api/unpacking/boxes/by-tracking?tracking=${encodeURIComponent(tracking)}`),
 
   lines: (boxId: string) => getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/lines`),
+
+  // Every carton of a delivery and how far each is counted, for the "what to open next" list.
+  boxesOf: (lotId: string) => getList<_CartonProgress>(`/api/unpacking/lots/${lotId}/boxes`),
 
   resolve: (boxId: string, code: string) =>
     getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/resolve?code=${encodeURIComponent(code)}`),
