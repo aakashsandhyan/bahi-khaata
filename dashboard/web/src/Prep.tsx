@@ -366,7 +366,15 @@ function ReviewList({
   onMove: (body: Parameters<typeof remediation.changeState>[0], label: string) => void
 }) {
   const [open, setOpen] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   if (items.length === 0) return <p className="empty">Nothing marked damaged or broken.</p>
+
+  const toggle = (category: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      next.has(category) ? next.delete(category) : next.add(category)
+      return next
+    })
 
   // Group by department, keeping the backend's notes-first order within each.
   const groups = new Map<string, ReviewItem[]>()
@@ -380,13 +388,16 @@ function ReviewList({
       </p>
       {[...groups.entries()].map(([category, catItems]) => (
         <section key={category} className="pile">
-          <h2>
-            {category}
+          <h2 className="pile-toggle" onClick={() => toggle(category)}>
+            <span>
+              {collapsed.has(category) ? '▸' : '▾'} {category}
+            </span>
             <span className="pile-count">
               {catItems.reduce((n, i) => n + i.quantity, 0)} units · {catItems.length} items
             </span>
           </h2>
-          {catItems.map((it) => {
+          {!collapsed.has(category) &&
+            catItems.map((it) => {
             const key = it.productId + it.lotId + it.condition
             return (
               <div key={key} className="review-item">

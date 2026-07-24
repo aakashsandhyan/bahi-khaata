@@ -364,3 +364,5 @@ tr.damaged { background: var(--warn-tint); }
 }
 .review-item { margin-bottom: var(--s1); }
 .choice.stop-choice { background: var(--stop-tint); border-color: #f2c2c2; color: var(--stop); }
+.pile-toggle { cursor: pointer; user-select: none; }
+.pile-toggle:hover { color: var(--brand-dark); }
