@@ -635,7 +635,7 @@ function WhichItem({
         <button key={line.lineId} className="choice" onClick={() => onChoose(line)}>
           <span>{shortName(line)}</span>
           <span className="meta">
-            {line.outstanding} to find · {rupees(line.indicativeCostPaise)} cost ·{' '}
+            {line.code} · {line.outstanding} to find · {rupees(line.indicativeCostPaise)} cost ·{' '}
             {rupees(line.onlinePricePaise)} online
           </span>
         </button>
