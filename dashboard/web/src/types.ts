@@ -92,6 +92,7 @@ export interface CartLineView {
   lineId: string
   productId: string
   name: string
+  asin: string | null
   mrpPaise: number
   unitPricePaise: number
   quantity: number

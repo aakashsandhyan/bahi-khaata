@@ -30,6 +30,7 @@ public record CartLineView(
         UUID lineId,
         UUID productId,
         String name,
+        String asin,
         long mrpPaise,
         long unitPricePaise,
         long quantity,

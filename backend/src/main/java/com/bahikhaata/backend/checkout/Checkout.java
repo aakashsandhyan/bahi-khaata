@@ -19,6 +19,7 @@ package com.bahikhaata.backend.checkout;
 
 import com.bahikhaata.backend.catalog.Barcode;
 import com.bahikhaata.backend.catalog.BarcodeRepository;
+import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
@@ -160,12 +161,22 @@ public class Checkout {
                 line.getId(),
                 line.getProduct().getId(),
                 line.getProduct().getName(),
+                asinOf(line.getProduct()),
                 mrp,
                 line.getUnitPrice().paise(),
                 line.getQuantity(),
                 total,
                 saving,
                 percent);
+    }
+
+    /** The product's marketplace reference (ASIN), so the counter can confirm the right item. */
+    private String asinOf(Product product) {
+        return barcodes.findByProductId(product.getId()).stream()
+                .filter(b -> b.getOrigin() == Origin.MARKETPLACE)
+                .map(Barcode::getCode)
+                .findFirst()
+                .orElse(null);
     }
 
     /** The printed MRP the goods on the shelf carry: the newest labelled batch with one. */

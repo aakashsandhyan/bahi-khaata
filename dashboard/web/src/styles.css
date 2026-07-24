@@ -366,3 +366,4 @@ tr.damaged { background: var(--warn-tint); }
 .choice.stop-choice { background: var(--stop-tint); border-color: #f2c2c2; color: var(--stop); }
 .pile-toggle { cursor: pointer; user-select: none; }
 .pile-toggle:hover { color: var(--brand-dark); }
+.till-line-asin { font-size: 11px; color: var(--ink-faint); font-family: ui-monospace, monospace; margin: 1px 0 3px; }

@@ -133,6 +133,7 @@ function Line({
     <div className="till-line">
       <div className="till-line-main">
         <div className="till-line-name">{line.name.length > 48 ? line.name.slice(0, 45) + '…' : line.name}</div>
+        {line.asin && <div className="till-line-asin">{line.asin}</div>}
         <div className="till-line-price">
           <span className="mrp">{rupees(line.mrpPaise)}</span>
           <span className="now">{rupees(line.unitPricePaise)}</span>
