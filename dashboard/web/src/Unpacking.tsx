@@ -50,6 +50,8 @@ export function Unpacking() {
   // A scan that hit a line already fully counted: either another really arrived, or the code is
   // on the wrong goods.
   const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
+  // A code that matches nothing on this box's sheet, being recorded as an extra found here.
+  const [extra, setExtra] = useState<{ code: string } | null>(null)
   // A returns sticker scanned again though it already resolves. Usually a double-scan of the one
   // unit it names; sometimes a legitimate re-set after that unit's count was taken back. The person
   // says which, since the count is not tracked per sticker and the system cannot tell them apart.
@@ -169,6 +171,29 @@ export function Unpacking() {
     record(counting.line, counting.tagCode, condition, remark, mrp, issueType).catch(fail)
   }
 
+  // An extra the sheet did not name — recorded against this box, costed at the lot average.
+  const recordExtra = async (name: string, categoryCode: string, mrpPaise: number | null) => {
+    if (!carton || !extra) return
+    try {
+      await unpacking.unlisted(carton.boxId, {
+        code: extra.code,
+        name,
+        categoryCode,
+        quantity: 1,
+        mrpPaise,
+        mrpIsEstimate: false,
+      })
+      setExtra(null)
+      await refreshLines(carton.boxId)
+      loadDeliveries()
+      say('Recorded one extra found here.', 'ok')
+      setStep('Scan the next item, or press "Box is done".')
+      focusScan()
+    } catch (e) {
+      fail(e)
+    }
+  }
+
   const record = async (
     line: UnpackingLine,
     tagCode: string | null,
@@ -256,6 +281,7 @@ export function Unpacking() {
       setCounting(null)
       setSurplus(null)
       setRescan(null)
+      setExtra(null)
       loadDeliveries()
       say(
         missing > 0
@@ -279,6 +305,7 @@ export function Unpacking() {
     setCounting(null)
     setSurplus(null)
     setRescan(null)
+    setExtra(null)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
     setStep('Scan the number printed on the next box.')
     focusScan()
@@ -303,7 +330,7 @@ export function Unpacking() {
       <ScanField
         refEl={scanRef}
         onScan={onScan}
-        disabled={!!counting || !!choosing || !!surplus || !!rescan}
+        disabled={!!counting || !!choosing || !!surplus || !!rescan || !!extra}
       />
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
@@ -327,8 +354,26 @@ export function Unpacking() {
           lines={lines}
           onFilter={(f) => setChoosing({ code: choosing.code, filter: f })}
           onChoose={(line) => beginCount(line, choosing.code)}
+          onExtra={() => {
+            const c = choosing.code
+            setChoosing(null)
+            setExtra({ code: c })
+            setStep('Not on the sheet — record it as extra found here.')
+          }}
           onBack={() => {
             setChoosing(null)
+            setStep('Scan the next item, or press "Box is done".')
+            focusScan()
+          }}
+        />
+      )}
+
+      {extra && (
+        <ExtraForm
+          code={extra.code}
+          onSubmit={recordExtra}
+          onBack={() => {
+            setExtra(null)
             setStep('Scan the next item, or press "Box is done".')
             focusScan()
           }}
@@ -386,7 +431,7 @@ export function Unpacking() {
         </div>
       )}
 
-      {carton && !choosing && !counting && !surplus && !rescan && (
+      {carton && !choosing && !counting && !surplus && !rescan && !extra && (
         <>
           <ItemList lines={lines} onTakeBack={takeBack} />
           <div className="actions">
@@ -600,6 +645,7 @@ function WhichItem({
   lines,
   onFilter,
   onChoose,
+  onExtra,
   onBack,
 }: {
   code: string
@@ -607,6 +653,7 @@ function WhichItem({
   lines: UnpackingLine[]
   onFilter: (f: string) => void
   onChoose: (line: UnpackingLine) => void
+  onExtra: () => void
   onBack: () => void
 }) {
   const needle = filter.trim().toLowerCase()
@@ -641,6 +688,132 @@ function WhichItem({
           </span>
         </button>
       ))}
+      <button className="choice warn-choice" onClick={onExtra}>
+        None of these — record it as extra found here
+      </button>
+    </div>
+  )
+}
+
+const CATEGORIES = [
+  'KITCHEN',
+  'WIRELESS',
+  'FASHION',
+  'FOOTWEAR',
+  'HOME_ESSENTIALS',
+  'PERSONAL_CARE',
+  'GARDEN',
+]
+
+// Recording an extra the sheet did not name. If the scanned code is already a known product — a
+// mispack that belongs in another box — it is recognised and recorded with one tap. Otherwise its
+// name and department are asked, to make a new product. An MRP is optional either way.
+function ExtraForm({
+  code,
+  onSubmit,
+  onBack,
+}: {
+  code: string
+  onSubmit: (name: string, categoryCode: string, mrpPaise: number | null) => void
+  onBack: () => void
+}) {
+  // undefined = still resolving, null = unknown code, object = a known product.
+  const [known, setKnown] = useState<{ name: string; categoryCode: string } | null | undefined>(
+    undefined,
+  )
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState(CATEGORIES[0])
+  const [mrp, setMrp] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    remediation
+      .statesByCode(code)
+      .then((s) => setKnown({ name: s.productName, categoryCode: s.categoryCode }))
+      .catch(() => setKnown(null))
+  }, [code])
+
+  const submit = () => {
+    let mrpPaise: number | null = null
+    const cleaned = mrp.trim().replace(/,/g, '').replace('₹', '')
+    if (cleaned) {
+      if (!/^\d+(\.\d{1,2})?$/.test(cleaned) || Number(cleaned) <= 0) {
+        setError('That is not a price. Type the number on the pack, like 249.')
+        return
+      }
+      mrpPaise = Math.round(Number(cleaned) * 100)
+    }
+    if (known) {
+      onSubmit(known.name, known.categoryCode, mrpPaise)
+    } else {
+      if (!name.trim()) {
+        setError('Give it a name so it can be found and priced.')
+        return
+      }
+      onSubmit(name.trim(), category, mrpPaise)
+    }
+  }
+
+  return (
+    <div className="card">
+      <button className="back" onClick={onBack}>
+        ← Back
+      </button>
+      <h2>Extra found in this box</h2>
+      <p className="code">Code on the item: {code}</p>
+
+      {known === undefined && <p>Checking the code…</p>}
+
+      {known && (
+        <p>
+          This is{' '}
+          <strong>{known.name.length > 60 ? known.name.slice(0, 57) + '…' : known.name}</strong> —
+          from another box. Record one here as extra.
+        </p>
+      )}
+
+      {known === null && (
+        <>
+          <input
+            className="scan small"
+            autoFocus
+            placeholder="What is it? A short name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setError(null)
+            }}
+          />
+          <select className="scan small" value={category} onChange={(e) => setCategory(e.target.value)}>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
+      {known !== undefined && (
+        <input
+          className="scan"
+          placeholder="₹ MRP on the pack (blank = none printed)"
+          value={mrp}
+          onChange={(e) => {
+            setMrp(e.target.value)
+            setError(null)
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+        />
+      )}
+
+      {error && <p className="mrp-hint stop">{error}</p>}
+
+      {known !== undefined && (
+        <button className="btn-primary big" onClick={submit}>
+          Record as extra
+        </button>
+      )}
     </div>
   )
 }

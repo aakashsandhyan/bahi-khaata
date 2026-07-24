@@ -137,6 +137,21 @@ export const unpacking = {
       ...countBody(quantity, mrpPaise, condition, remark, issueType),
     }),
 
+  // An extra found in a box that no line names — recorded against the box, costed at the lot
+  // average. The code resolves to a known product where possible; otherwise name + category make
+  // a new one.
+  unlisted: (
+    boxId: string,
+    body: {
+      code: string
+      name: string
+      categoryCode: string
+      quantity: number
+      mrpPaise: number | null
+      mrpIsEstimate: boolean
+    },
+  ) => post<_CountOutcome>(`/api/unpacking/boxes/${boxId}/unlisted`, body),
+
   suggestedMrp: (lineId: string) =>
     get<_SuggestedMrp>(`/api/unpacking/lines/${lineId}/suggested-mrp`),
 
