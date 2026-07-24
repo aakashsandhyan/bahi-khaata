@@ -349,3 +349,7 @@ tr.damaged { background: var(--warn-tint); }
 .qty-row { display: flex; align-items: center; gap: var(--s2); margin: var(--s2) 0; }
 .qty-row label { font-size: 14px; color: var(--ink-soft); }
 .qty-row input { width: 90px; }
+
+.finder { margin: var(--s2) 0 var(--s4); }
+.finder .scan { width: 100%; }
+.backlog-head { margin-top: var(--s5); color: var(--ink-soft); }

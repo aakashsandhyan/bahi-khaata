@@ -143,3 +143,9 @@ export interface BacklogItem {
   issueLabel: string | null
   quantity: number
 }
+
+export interface ProductSummary {
+  productId: string
+  productName: string
+  categoryCode: string
+}

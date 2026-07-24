@@ -20,6 +20,7 @@ package com.bahikhaata.backend.inventory;
 import com.bahikhaata.contracts.BacklogItem;
 import com.bahikhaata.contracts.IssueTypeOption;
 import com.bahikhaata.contracts.ProductStates;
+import com.bahikhaata.contracts.ProductSummary;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
@@ -61,6 +62,18 @@ class RemediationController {
     @GetMapping("/products/{productId}/states")
     ProductStates states(@PathVariable UUID productId) {
         return remediation.statesOf(productId);
+    }
+
+    /** The states a scanned code's product is held in — a rescue reached straight from a scan. */
+    @GetMapping("/resolve")
+    ProductStates resolve(@RequestParam String code) {
+        return remediation.statesByCode(code);
+    }
+
+    /** Products whose name matches, for looking one up by search rather than scan. */
+    @GetMapping("/search")
+    List<ProductSummary> search(@RequestParam String q) {
+        return remediation.search(q);
     }
 
     /** The needs-work backlog: every pile waiting on preparation, grouped by the UI. */

@@ -4,6 +4,7 @@ import type {
   BacklogItem,
   IssueTypeOption,
   ProductStates,
+  ProductSummary,
   RemediationLine,
   StockCondition,
 } from './types'
@@ -48,6 +49,13 @@ export function Prep() {
 
   const open = (productId: string) => remediation.states(productId).then(setStates).catch(fail)
 
+  // A scanned code (LSN, EAN, or the ASIN) resolves straight to its product's states.
+  const openByCode = (code: string) =>
+    remediation
+      .statesByCode(code.trim())
+      .then(setStates)
+      .catch(() => setMessage({ text: `Nothing scans as "${code.trim()}".`, tone: 'warn' }))
+
   const move = async (body: Parameters<typeof remediation.changeState>[0], label: string) => {
     try {
       await remediation.changeState(body)
@@ -74,7 +82,9 @@ export function Prep() {
         <StatesPanel states={states} onBack={() => setStates(null)} onMove={move} />
       ) : (
         <>
-          <h1>Prep backlog</h1>
+          <h1>Prep</h1>
+          <ProductFinder onOpen={open} onScan={openByCode} />
+          <h2 className="backlog-head">Backlog</h2>
           {backlog.length === 0 && <p className="empty">Nothing waiting on work.</p>}
           {[...groups.entries()].map(([label, items]) => (
             <section key={label} className="pile">
@@ -241,6 +251,72 @@ function MoveForm({
           Move {qty} to {STATE_LABEL[to]}
         </button>
       </div>
+    </div>
+  )
+}
+
+function ProductFinder({
+  onOpen,
+  onScan,
+}: {
+  onOpen: (productId: string) => void
+  onScan: (code: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ProductSummary[]>([])
+
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) {
+      setResults([])
+      return
+    }
+    let live = true
+    remediation
+      .search(q)
+      .then((r) => live && setResults(r))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [query])
+
+  const clear = () => {
+    setQuery('')
+    setResults([])
+  }
+
+  return (
+    <div className="finder">
+      <input
+        className="scan small"
+        autoFocus
+        placeholder="Scan an item, or type a name to find it"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          // A scanner types the code then Enter, resolving straight to the product. A typed name
+          // shows matches; Enter then opens the first, since the code path would find nothing.
+          if (e.key === 'Enter' && query.trim()) {
+            if (results.length > 0) onOpen(results[0].productId)
+            else onScan(query)
+            clear()
+          }
+        }}
+      />
+      {results.map((p) => (
+        <button
+          key={p.productId}
+          className="choice"
+          onClick={() => {
+            onOpen(p.productId)
+            clear()
+          }}
+        >
+          <span>{p.productName}</span>
+          <span className="meta">{p.categoryCode}</span>
+        </button>
+      ))}
     </div>
   )
 }

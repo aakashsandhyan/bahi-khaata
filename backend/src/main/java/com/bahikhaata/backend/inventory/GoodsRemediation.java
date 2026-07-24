@@ -17,11 +17,13 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.BacklogItem;
 import com.bahikhaata.contracts.IssueTypeOption;
 import com.bahikhaata.contracts.ProductStates;
+import com.bahikhaata.contracts.ProductSummary;
 import com.bahikhaata.contracts.RemediationLine;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
@@ -56,6 +58,7 @@ public class GoodsRemediation {
     private final ProductRepository products;
     private final LotRepository lots;
     private final IssueTypeRepository issueTypes;
+    private final BarcodeRepository barcodes;
 
     GoodsRemediation(
             GoodsInCounting counting,
@@ -63,13 +66,33 @@ public class GoodsRemediation {
             StockLedgerRepository ledger,
             ProductRepository products,
             LotRepository lots,
-            IssueTypeRepository issueTypes) {
+            IssueTypeRepository issueTypes,
+            BarcodeRepository barcodes) {
         this.counting = counting;
         this.batches = batches;
         this.ledger = ledger;
         this.products = products;
         this.lots = lots;
         this.issueTypes = issueTypes;
+        this.barcodes = barcodes;
+    }
+
+    /** The states a scanned code's product is held in, so a rescue can start from a scan. */
+    @Transactional(readOnly = true)
+    public ProductStates statesByCode(String code) {
+        return barcodes
+                .findByCode(code)
+                .map(b -> statesOf(b.getProduct().getId()))
+                .orElseThrow(
+                        () -> new IllegalArgumentException("no goods scan as \"" + code + "\""));
+    }
+
+    /** Products whose name contains the query, for looking one up to change its stock's state. */
+    @Transactional(readOnly = true)
+    public List<ProductSummary> search(String query) {
+        return products.findTop25ByNameContainingIgnoreCaseOrderByName(query).stream()
+                .map(p -> new ProductSummary(p.getId(), p.getName(), p.getCategory().code()))
+                .toList();
     }
 
     /** The kinds of work offered for a department — the menu when marking an item needs-work. */

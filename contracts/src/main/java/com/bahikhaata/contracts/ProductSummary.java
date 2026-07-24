@@ -15,17 +15,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.catalog;
+package com.bahikhaata.contracts;
 
-import java.util.List;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ProductRepository extends JpaRepository<Product, UUID> {
-
-    /** Products with no selling price — the queue a manager works through to price stock. */
-    List<Product> findBySellingPriceIsNull();
-
-    /** Products whose name contains the query, for looking one up to change its stock's state. */
-    List<Product> findTop25ByNameContainingIgnoreCaseOrderByName(String query);
-}
+/** A product found by a search, enough to name it and open its state breakdown. */
+public record ProductSummary(UUID productId, String productName, String categoryCode) {}

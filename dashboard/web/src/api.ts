@@ -180,6 +180,7 @@ export const checkout = {
 import type {
   IssueTypeOption as _IssueTypeOption,
   ProductStates as _ProductStates,
+  ProductSummary as _ProductSummary,
   BacklogItem as _BacklogItem,
 } from './types'
 
@@ -192,6 +193,13 @@ export const remediation = {
 
   // A product and every state its stock is held in, for moving units between them.
   states: (productId: string) => get<_ProductStates>(`/api/remediation/products/${productId}/states`),
+
+  // The same, reached from a scanned code rather than a product id.
+  statesByCode: (code: string) =>
+    get<_ProductStates>(`/api/remediation/resolve?code=${encodeURIComponent(code)}`),
+
+  // Products whose name matches, for looking one up by search.
+  search: (q: string) => getList<_ProductSummary>(`/api/remediation/search?q=${encodeURIComponent(q)}`),
 
   // Every pile of needs-work goods waiting on preparation.
   backlog: () => getList<_BacklogItem>('/api/remediation/backlog'),
