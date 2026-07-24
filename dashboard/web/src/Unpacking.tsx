@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { unpacking, BackendError } from './api'
-import type { DeliveryProgress, LearntCode, UnpackingCarton, UnpackingLine } from './types'
+import { unpacking, remediation, BackendError } from './api'
+import type {
+  DeliveryProgress,
+  IssueTypeOption,
+  LearntCode,
+  UnpackingCarton,
+  UnpackingLine,
+} from './types'
 import { rupees } from './money'
 
 /**
@@ -20,7 +26,7 @@ import { rupees } from './money'
  * scan field must keep focus, or a scan lands nowhere — the same rule as on the terminal, and the
  * reason focus is pulled back after every action.
  */
-type Condition = 'GOOD' | 'DAMAGED' | 'UNUSABLE'
+type Condition = 'GOOD' | 'DAMAGED' | 'NEEDS_WORK' | 'UNUSABLE'
 
 export function Unpacking() {
   const [deliveries, setDeliveries] = useState<DeliveryProgress[] | null>(null)
@@ -153,13 +159,18 @@ export function Unpacking() {
     setStep('Say what state it is in, add the MRP, and submit.')
   }
 
-  // One pane answers state, remark, and MRP together, then submits. Broken goods are never sold,
-  // so their MRP is dropped whatever was typed; an empty MRP field means none was printed and the
-  // goods are counted unpriced, to be found later in the backlog.
-  const submitCount = (condition: Condition, remark: string | null, mrpPaise: number | null) => {
+  // One pane answers state, remark, MRP, and — for needs-work — the kind of work, then submits.
+  // Broken goods are never sold, so their MRP is dropped whatever was typed; an empty MRP field
+  // means none was printed and the goods are counted unpriced, to be found later in the backlog.
+  const submitCount = (
+    condition: Condition,
+    remark: string | null,
+    mrpPaise: number | null,
+    issueType: string | null,
+  ) => {
     if (!counting) return
     const mrp = condition === 'UNUSABLE' ? null : mrpPaise
-    record(counting.line, counting.tagCode, condition, remark, mrp).catch(fail)
+    record(counting.line, counting.tagCode, condition, remark, mrp, issueType).catch(fail)
   }
 
   const record = async (
@@ -168,11 +179,12 @@ export function Unpacking() {
     condition: Condition,
     remark: string | null,
     mrpPaise: number | null,
+    issueType: string | null,
   ) => {
     if (!carton) return
     const outcome = tagCode
-      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition, remark)
-      : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark)
+      ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition, remark, issueType)
+      : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark, issueType)
     setChoosing(null)
     setCounting(null)
     const fresh = await refreshLines(carton.boxId)
@@ -185,8 +197,15 @@ export function Unpacking() {
       return
     }
 
-    const mark = condition === 'DAMAGED' ? ' (damaged)' : condition === 'UNUSABLE' ? ' (broken)' : ''
-    const tone = condition === 'UNUSABLE' ? 'stop' : condition === 'DAMAGED' ? 'warn' : 'ok'
+    const mark =
+      condition === 'DAMAGED'
+        ? ' (damaged)'
+        : condition === 'UNUSABLE'
+          ? ' (broken)'
+          : condition === 'NEEDS_WORK'
+            ? ' (needs work)'
+            : ''
+    const tone = condition === 'UNUSABLE' ? 'stop' : condition === 'GOOD' ? 'ok' : 'warn'
     const left = Math.max(0, (outcome?.quantityExpected ?? 0) - (outcome?.quantityCounted ?? 0))
     say(
       shortName(line) + mark +
@@ -448,7 +467,12 @@ function CountPane({
   onBack,
 }: {
   line: UnpackingLine
-  onSubmit: (condition: Condition, remark: string | null, mrpPaise: number | null) => void
+  onSubmit: (
+    condition: Condition,
+    remark: string | null,
+    mrpPaise: number | null,
+    issueType: string | null,
+  ) => void
   onBack: () => void
 }) {
   const [condition, setCondition] = useState<Condition>('GOOD')
@@ -459,15 +483,28 @@ function CountPane({
     line.recordedMrpPaise != null ? String(line.recordedMrpPaise / 100) : '',
   )
   const [error, setError] = useState<string | null>(null)
+  // The kinds of work this department offers, fetched the first time needs-work is chosen.
+  const [issues, setIssues] = useState<IssueTypeOption[]>([])
+  const [issue, setIssue] = useState<string | null>(null)
   const mrpRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     mrpRef.current?.focus()
   }, [])
+  useEffect(() => {
+    if (condition === 'NEEDS_WORK' && issues.length === 0) {
+      remediation.issueTypes(line.categoryCode).then(setIssues).catch(() => {})
+    }
+  }, [condition, line.categoryCode, issues.length])
 
   const sound = condition === 'GOOD'
   const broken = condition === 'UNUSABLE'
+  const needsWork = condition === 'NEEDS_WORK'
 
   const submit = () => {
+    if (needsWork && !issue) {
+      setError('Pick the kind of work it needs.')
+      return
+    }
     let mrpPaise: number | null = null
     if (!broken) {
       const cleaned = mrp.trim().replace(/,/g, '').replace('₹', '')
@@ -484,7 +521,7 @@ function CountPane({
         mrpPaise = Math.round(Number(cleaned) * 100)
       }
     }
-    onSubmit(condition, sound ? null : remark.trim() || null, mrpPaise)
+    onSubmit(condition, sound ? null : remark.trim() || null, mrpPaise, needsWork ? issue : null)
   }
 
   return (
@@ -505,6 +542,15 @@ function CountPane({
           Damaged
         </button>
         <button
+          className={`cond on-needswork${needsWork ? ' sel' : ''}`}
+          onClick={() => {
+            setCondition('NEEDS_WORK')
+            setError(null)
+          }}
+        >
+          Needs work
+        </button>
+        <button
           className={`cond on-broken${broken ? ' sel' : ''}`}
           onClick={() => setCondition('UNUSABLE')}
         >
@@ -512,10 +558,34 @@ function CountPane({
         </button>
       </div>
 
+      {needsWork && (
+        <div className="issue-row">
+          {issues.map((it) => (
+            <button
+              key={it.code}
+              className={`issue${issue === it.code ? ' sel' : ''}`}
+              onClick={() => {
+                setIssue(it.code)
+                setError(null)
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+          {issues.length === 0 && <p className="mrp-hint">No kinds of work listed for this department.</p>}
+        </div>
+      )}
+
       {!sound && (
         <input
           className="scan small"
-          placeholder={broken ? 'What is broken? e.g. screen dead' : "What's wrong? e.g. lid cracked"}
+          placeholder={
+            broken
+              ? 'What is broken? e.g. screen dead'
+              : needsWork
+                ? 'Note, if any — e.g. missing base'
+                : "What's wrong? e.g. lid cracked"
+          }
           value={remark}
           onChange={(e) => setRemark(e.target.value)}
         />

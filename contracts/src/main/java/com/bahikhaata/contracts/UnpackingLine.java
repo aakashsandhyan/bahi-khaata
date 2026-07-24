@@ -45,6 +45,7 @@ public record UnpackingLine(
         UUID lineId,
         String code,
         String name,
+        String categoryCode,
         long expected,
         long counted,
         long outstanding,

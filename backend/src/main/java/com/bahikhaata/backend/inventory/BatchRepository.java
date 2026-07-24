@@ -42,8 +42,23 @@ public interface BatchRepository extends JpaRepository<Batch, UUID> {
      */
     List<Batch> findByLotIdAndProductId(UUID lotId, UUID productId);
 
+    /** Every batch of a product across its deliveries, for the state breakdown a rescue works from. */
+    List<Batch> findByProductId(UUID productId);
+
+    /** Held stock in a condition — used to gather the needs-work backlog (quantity above zero). */
+    List<Batch> findByConditionAndQuantityReceivedGreaterThan(
+            StockCondition condition, long quantity);
+
     Optional<Batch> findByLotIdAndProductIdAndCondition(
             UUID lotId, UUID productId, StockCondition condition);
+
+    /**
+     * A needs-work batch is keyed also by the kind of work it needs, since one product may hold
+     * units under different kinds at once. The other three conditions have a null issue type and
+     * are looked up by the method above.
+     */
+    Optional<Batch> findByLotIdAndProductIdAndConditionAndIssueType(
+            UUID lotId, UUID productId, StockCondition condition, String issueType);
 
     /**
      * A product's batches in FIFO order: oldest delivery first, by the lot's business date

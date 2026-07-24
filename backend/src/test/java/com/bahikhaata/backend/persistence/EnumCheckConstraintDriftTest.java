@@ -81,7 +81,7 @@ class EnumCheckConstraintDriftTest {
                 arguments(
                         StockCondition.class,
                         "condition",
-                        "/db/migration/V20__unusable_condition.sql"));
+                        "/db/migration/V25__needs_work_condition.sql"));
     }
 
     @ParameterizedTest(name = "{0} matches the {1} CHECK constraint")

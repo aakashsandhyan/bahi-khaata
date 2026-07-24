@@ -170,9 +170,19 @@ button:disabled { opacity: 0.45; cursor: default; }
   flex: 1; padding: 14px 8px; font-size: 16px; font-weight: 650; text-align: center;
   border: 1px solid var(--line); background: var(--card); color: var(--ink-soft);
 }
+.cond { flex: 1 1 0; padding: 12px 6px; font-size: 15px; }
 .cond.on-good.sel { background: var(--good); color: #fff; border-color: var(--good); }
 .cond.on-damaged.sel { background: var(--warn); color: #fff; border-color: var(--warn); }
+.cond.on-needswork.sel { background: var(--brand); color: #fff; border-color: var(--brand); }
 .cond.on-broken.sel { background: var(--stop); color: #fff; border-color: var(--stop); }
+
+/* the kind-of-work picker, shown when needs-work is chosen — a wrap of small chips */
+.issue-row { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0 0 var(--s2); }
+.issue {
+  padding: 8px 12px; font-size: 14px; font-weight: 600;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink-soft);
+}
+.issue.sel { background: var(--brand-tint); border-color: var(--brand); color: var(--brand); }
 
 /* the one pane, docked to the right as a side drawer: name, state, remark, MRP, submit */
 .count-pane {
@@ -183,7 +193,9 @@ button:disabled { opacity: 0.45; cursor: default; }
   overflow-y: auto; display: flex; flex-direction: column;
 }
 .count-pane h2 { margin: 0 0 var(--s2); font-size: 17px; }
-.count-pane .scan { margin: var(--s2) 0 4px; }
+/* .scan carries flex:1 for the scan row; in this flex column that would stretch the inputs to
+   the full height, so hold them to their natural size. */
+.count-pane .scan { flex: 0 0 auto; margin: var(--s2) 0 4px; }
 /* submit sits at the foot of the drawer, thumb-reachable, not chasing the content up */
 .count-pane .btn-primary { width: 100%; margin-top: auto; padding: 16px; font-size: 18px; }
 .mrp-hint { font-size: 13px; color: var(--ink-faint); margin: 2px 0 0; }
@@ -318,3 +330,22 @@ tr.damaged { background: var(--warn-tint); }
 .till-actions { display: flex; gap: var(--s3); margin: var(--s4) 0 var(--s6); }
 .till-actions button { flex: 1; padding: 18px; font-size: 18px; }
 .till-pay { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 700; }
+
+/* ---- prep (remediation): backlog and state changes ---- */
+.prep, .states { max-width: 640px; margin: 0 auto; }
+.prep h1, .states h1 { font-size: 22px; margin: var(--s3) 0 var(--s2); }
+.prep .empty, .states .empty { color: var(--ink-faint); }
+.pile { margin: var(--s4) 0; }
+.pile h2 {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 16px; margin: 0 0 var(--s2); color: var(--brand);
+}
+.pile-count { font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+.move-form {
+  margin-top: var(--s3); padding: var(--s3); border-radius: var(--r2);
+  background: var(--bg); border: 1px solid var(--line);
+}
+.move-form > p { margin: 0 0 var(--s2); font-size: 14px; color: var(--ink-soft); }
+.qty-row { display: flex; align-items: center; gap: var(--s2); margin: var(--s2) 0; }
+.qty-row label { font-size: 14px; color: var(--ink-soft); }
+.qty-row input { width: 90px; }

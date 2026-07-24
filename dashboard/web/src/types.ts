@@ -57,6 +57,7 @@ export interface UnpackingLine {
   lineId: string
   code: string
   name: string
+  categoryCode: string
   expected: number
   counted: number
   outstanding: number
@@ -107,4 +108,38 @@ export interface CartView {
   totalPaise: number
   savingPaise: number
   taxIsPlaceholder: boolean
+}
+
+// --- remediation ---
+
+export type StockCondition = 'GOOD' | 'DAMAGED' | 'NEEDS_WORK' | 'UNUSABLE'
+
+export interface IssueTypeOption {
+  code: string
+  label: string
+}
+
+export interface RemediationLine {
+  lotId: string
+  condition: StockCondition
+  issueType: string | null
+  issueLabel: string | null
+  quantity: number
+}
+
+export interface ProductStates {
+  productId: string
+  productName: string
+  categoryCode: string
+  lines: RemediationLine[]
+}
+
+export interface BacklogItem {
+  productId: string
+  productName: string
+  categoryCode: string
+  lotId: string
+  issueType: string | null
+  issueLabel: string | null
+  quantity: number
 }

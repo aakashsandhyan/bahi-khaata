@@ -134,6 +134,27 @@ public class GoodsInCounting {
             boolean mrpIsEstimate,
             String remark,
             Instant at) {
+        return countExpected(
+                expectedLineId, condition, quantity, mrp, mrpIsEstimate, remark, null, at);
+    }
+
+    /**
+     * As above, for goods counted straight into needs-work, naming the work they need.
+     *
+     * <p>The issue type is required when the condition is needs-work and must be null otherwise —
+     * the same rule the batch enforces. Needs-work goods are counted against the expectation like
+     * any other: they arrived, whatever state they are in.
+     */
+    @Transactional
+    public CountOutcome countExpected(
+            UUID expectedLineId,
+            StockCondition condition,
+            long quantity,
+            Money mrp,
+            boolean mrpIsEstimate,
+            String remark,
+            String issueType,
+            Instant at) {
         ExpectedLine line =
                 expectedLines
                         .findById(expectedLineId)
@@ -147,7 +168,7 @@ public class GoodsInCounting {
         Batch batch =
                 addToBatch(
                         line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
-                        remark, at);
+                        remark, issueType, at);
 
         return new CountOutcome(
                 batch.getId(),
@@ -187,6 +208,16 @@ public class GoodsInCounting {
     public CountOutcome tagAndCount(
             UUID expectedLineId, String scannedCode, StockCondition condition, long quantity,
             Money mrp, boolean mrpIsEstimate, String remark, Instant at) {
+        return tagAndCount(
+                expectedLineId, scannedCode, condition, quantity, mrp, mrpIsEstimate, remark, null,
+                at);
+    }
+
+    /** As above, for goods tagged and counted straight into needs-work, naming the work needed. */
+    @Transactional
+    public CountOutcome tagAndCount(
+            UUID expectedLineId, String scannedCode, StockCondition condition, long quantity,
+            Money mrp, boolean mrpIsEstimate, String remark, String issueType, Instant at) {
         ExpectedLine line =
                 expectedLines
                         .findById(expectedLineId)
@@ -201,7 +232,8 @@ public class GoodsInCounting {
                         () -> barcodes.save(
                                 new Barcode(product, scannedCode, originOf(scannedCode))));
 
-        return countExpected(expectedLineId, condition, quantity, mrp, mrpIsEstimate, remark, at);
+        return countExpected(
+                expectedLineId, condition, quantity, mrp, mrpIsEstimate, remark, issueType, at);
     }
 
     /**
@@ -284,7 +316,7 @@ public class GoodsInCounting {
         Batch batch =
                 addToBatch(
                         box.getLot(), product, StockCondition.GOOD, quantity, mrp, mrpIsEstimate,
-                        null, at);
+                        null, null, at);
 
         return new CountOutcome(batch.getId(), 0, find.getQuantity(), find.getQuantity());
     }
@@ -472,6 +504,7 @@ public class GoodsInCounting {
                                         line.getId(),
                                         line.getCode(),
                                         line.getProduct().getName(),
+                                        line.getProduct().getCategory().code(),
                                         line.getQuantityExpected(),
                                         line.getQuantityCounted(),
                                         line.getQuantityOutstanding(),
@@ -703,7 +736,9 @@ public class GoodsInCounting {
      * receipt for the increment only — not for the batch total, which would count everything
      * already found a second time.
      */
-    private Batch addToBatch(
+    // Package-private: the remediation service adds to a target batch through this same path, so
+    // the MRP inheritance and the off-ledger rule below are written once.
+    Batch addToBatch(
             Lot lot,
             Product product,
             StockCondition condition,
@@ -711,6 +746,7 @@ public class GoodsInCounting {
             Money mrp,
             boolean mrpIsEstimate,
             String remark,
+            String issueType,
             Instant at) {
         // The printed price is a property of the product in this delivery, not of one condition:
         // a dented pack carries the same MRP as a clean one. `needsMrp` promises it is asked once
@@ -729,9 +765,14 @@ public class GoodsInCounting {
             }
         }
 
+        // A needs-work batch is keyed also by the kind of work, since a product may hold units
+        // needing different work at once; the other conditions have one batch per condition.
         Optional<Batch> existing =
-                batches.findByLotIdAndProductIdAndCondition(
-                        lot.getId(), product.getId(), condition);
+                condition == StockCondition.NEEDS_WORK
+                        ? batches.findByLotIdAndProductIdAndConditionAndIssueType(
+                                lot.getId(), product.getId(), condition, issueType)
+                        : batches.findByLotIdAndProductIdAndCondition(
+                                lot.getId(), product.getId(), condition);
         Batch batch;
         if (existing.isPresent()) {
             batch = existing.get();
@@ -741,13 +782,14 @@ public class GoodsInCounting {
             }
         } else {
             batch = batches.save(
-                    Batch.counted(product, lot, condition, quantity, mrp, mrpIsEstimate));
+                    Batch.counted(product, lot, condition, quantity, mrp, mrpIsEstimate, issueType));
         }
         batch.addRemark(remark);
-        // Unusable goods arrived but never became stock, so nothing goes to the ledger. Writing
-        // a receipt and reversing it would add two entries that cancel out and one more moment
-        // where on-hand is wrong. The batch is the record that they came.
-        if (condition != StockCondition.UNUSABLE) {
+        // GOOD and DAMAGED are stock the moment they are counted; UNUSABLE never was, and
+        // NEEDS_WORK is not until it is prepared and moved to a sellable state. Only the two
+        // stock-bearing conditions reach the ledger — writing then reversing a receipt for the
+        // others would add entries that cancel out and a moment where on-hand is wrong.
+        if (condition == StockCondition.GOOD || condition == StockCondition.DAMAGED) {
             ledger.save(StockLedgerEntry.receipt(product, batch, quantity, at));
         }
         return batch;

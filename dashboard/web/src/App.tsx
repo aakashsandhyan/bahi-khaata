@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Checkout } from './Checkout'
 import { Unpacking } from './Unpacking'
 import { Pricing } from './Pricing'
+import { Prep } from './Prep'
 
 /**
  * The admin dashboard shell.
@@ -15,7 +16,7 @@ export function App() {
   // Phones are operators' devices and their nav is hidden, so they must land on unpacking, not
   // the till they cannot navigate away from. Wider screens — a counter tablet or a desk — are
   // where the till belongs, so they open on it.
-  const [view, setView] = useState<'checkout' | 'unpacking' | 'pricing'>(
+  const [view, setView] = useState<'checkout' | 'unpacking' | 'prep' | 'pricing'>(
     typeof window !== 'undefined' && window.innerWidth <= 760 ? 'unpacking' : 'checkout',
   )
   return (
@@ -28,11 +29,24 @@ export function App() {
         <button className={view === 'unpacking' ? 'on' : ''} onClick={() => setView('unpacking')}>
           Unpacking
         </button>
+        <button className={view === 'prep' ? 'on' : ''} onClick={() => setView('prep')}>
+          Prep
+        </button>
         <button className={view === 'pricing' ? 'on' : ''} onClick={() => setView('pricing')}>
           Pricing
         </button>
       </nav>
-      <main>{view === 'checkout' ? <Checkout /> : view === 'unpacking' ? <Unpacking /> : <Pricing />}</main>
+      <main>
+        {view === 'checkout' ? (
+          <Checkout />
+        ) : view === 'unpacking' ? (
+          <Unpacking />
+        ) : view === 'prep' ? (
+          <Prep />
+        ) : (
+          <Pricing />
+        )}
+      </main>
     </>
   )
 }

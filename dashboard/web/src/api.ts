@@ -86,10 +86,12 @@ function countBody(
   mrpPaise: number | null,
   condition: string,
   remark: string | null,
+  issueType: string | null,
 ) {
   const body: Record<string, unknown> = { quantity, mrpIsEstimate: false, condition }
   if (mrpPaise != null) body.mrpPaise = mrpPaise
   if (remark) body.remark = remark
+  if (issueType) body.issueType = issueType
   return body
 }
 
@@ -110,10 +112,11 @@ export const unpacking = {
     mrpPaise: number | null,
     condition: string,
     remark: string | null,
+    issueType: string | null = null,
   ) =>
     post<_CountOutcome>(
       `/api/unpacking/lines/${lineId}/count`,
-      countBody(quantity, mrpPaise, condition, remark),
+      countBody(quantity, mrpPaise, condition, remark, issueType),
     ),
 
   tag: (
@@ -123,10 +126,11 @@ export const unpacking = {
     mrpPaise: number | null,
     condition: string,
     remark: string | null,
+    issueType: string | null = null,
   ) =>
     post<_CountOutcome>(`/api/unpacking/lines/${lineId}/tag`, {
       scannedCode,
-      ...countBody(quantity, mrpPaise, condition, remark),
+      ...countBody(quantity, mrpPaise, condition, remark, issueType),
     }),
 
   suggestedMrp: (lineId: string) =>
@@ -170,4 +174,36 @@ export const checkout = {
     del<_CartView>(`/api/checkout/cart/${cartId}/lines/${lineId}`),
   clear: (cartId: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/clear`) as Promise<_CartView>,
+}
+
+// --- remediation ---
+import type {
+  IssueTypeOption as _IssueTypeOption,
+  ProductStates as _ProductStates,
+  BacklogItem as _BacklogItem,
+} from './types'
+
+export const remediation = {
+  // The kinds of work a department offers, for the picker when marking an item needs-work.
+  issueTypes: (category: string) =>
+    getList<_IssueTypeOption>(
+      `/api/remediation/issue-types?category=${encodeURIComponent(category)}`,
+    ),
+
+  // A product and every state its stock is held in, for moving units between them.
+  states: (productId: string) => get<_ProductStates>(`/api/remediation/products/${productId}/states`),
+
+  // Every pile of needs-work goods waiting on preparation.
+  backlog: () => getList<_BacklogItem>('/api/remediation/backlog'),
+
+  // Move a quantity of a product's units from one state to another within an open lot.
+  changeState: (body: {
+    productId: string
+    lotId: string
+    from: string
+    fromIssueType: string | null
+    to: string
+    toIssueType: string | null
+    quantity: number
+  }) => post<void>('/api/remediation/change-state', body),
 }

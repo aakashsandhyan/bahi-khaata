@@ -69,6 +69,15 @@ public class Batch extends UuidEntity {
     private StockCondition condition = StockCondition.GOOD;
 
     /**
+     * The kind of work a needs-work item requires — cleaning, repair, rebuild — an issue-type code
+     * scoped to the product's category. Null for every other condition; a needs-work batch always
+     * carries one. It splits the batch key, so one product may hold units under different kinds of
+     * work at the same time.
+     */
+    @Column(name = "issue_type", columnDefinition = "text")
+    private String issueType;
+
+    /**
      * This line's whole share of the lot amount. Authoritative: the shares of a lot's batches
      * sum to what was paid, exactly. The unit cost below is derived from it and rounded down,
      * so multiplying that back out does not recover this figure — which is precisely why both
@@ -159,7 +168,22 @@ public class Batch extends UuidEntity {
             long quantityCounted,
             Money mrp,
             boolean mrpIsEstimate) {
-        return new Batch(product, lot, condition, quantityCounted, mrp, mrpIsEstimate);
+        return counted(product, lot, condition, quantityCounted, mrp, mrpIsEstimate, null);
+    }
+
+    /**
+     * As above, naming the kind of work needs-work goods require. The issue type is required for a
+     * needs-work batch and forbidden for any other condition, matching the column's own constraint.
+     */
+    public static Batch counted(
+            Product product,
+            Lot lot,
+            StockCondition condition,
+            long quantityCounted,
+            Money mrp,
+            boolean mrpIsEstimate,
+            String issueType) {
+        return new Batch(product, lot, condition, quantityCounted, mrp, mrpIsEstimate, issueType);
     }
 
     /** Uncosted stock. Reached through {@link #counted}, which says what it is for. */
@@ -169,9 +193,15 @@ public class Batch extends UuidEntity {
             StockCondition condition,
             long quantityCounted,
             Money mrp,
-            boolean mrpIsEstimate) {
+            boolean mrpIsEstimate,
+            String issueType) {
         super(newId());
         this.condition = Objects.requireNonNull(condition, "condition");
+        if ((condition == StockCondition.NEEDS_WORK) != (issueType != null)) {
+            throw new IllegalArgumentException(
+                    "a needs-work batch names the work it needs; any other condition names none");
+        }
+        this.issueType = issueType;
         this.product = Objects.requireNonNull(product, "product");
         this.lot = Objects.requireNonNull(lot, "lot");
         if (quantityCounted <= 0) {
@@ -250,6 +280,16 @@ public class Batch extends UuidEntity {
 
     public boolean isDamaged() {
         return condition == StockCondition.DAMAGED;
+    }
+
+    /** The kind of work these goods need, or null unless they are needs-work. */
+    public String getIssueType() {
+        return issueType;
+    }
+
+    /** Goods held to be prepared before sale, not yet sellable and not yet on the ledger. */
+    public boolean isNeedsWork() {
+        return condition == StockCondition.NEEDS_WORK;
     }
 
     /**

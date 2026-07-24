@@ -44,6 +44,17 @@ public enum StockCondition {
     DAMAGED,
 
     /**
+     * Works, or is fixable, but not yet shelf-ready — dirty, creased, or missing a part it can be
+     * given. Will sell at full price once the work is done, so it is not cheaper seconds.
+     *
+     * <p>Cost-bearing like GOOD: it belongs in the divisor at close, because it will be sold at
+     * full price. But it is not sellable until prepared, so — like {@link #UNUSABLE} — it stays off
+     * the stock ledger and out of on-hand until it is moved to a sellable state. Owned, costed, not
+     * yet sellable. It carries the kind of work it needs in {@code batch.issue_type}.
+     */
+    NEEDS_WORK,
+
+    /**
      * Arrived fit for nothing. It cannot be sold at any price.
      *
      * <p>Costs nothing: its share is absorbed by the goods that can be sold, which carry the

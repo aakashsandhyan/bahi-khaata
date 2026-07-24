@@ -142,6 +142,7 @@ class UnpackingController {
                 request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
                 request.mrpIsEstimate(),
                 request.remark(),
+                request.issueType(),
                 Instant.now());
     }
 
@@ -162,6 +163,7 @@ class UnpackingController {
                 request.mrpPaise() == null ? null : Money.ofPaise(request.mrpPaise()),
                 request.mrpIsEstimate(),
                 request.remark(),
+                request.issueType(),
                 Instant.now());
     }
 
@@ -265,10 +267,13 @@ class UnpackingController {
         return ResponseEntity.status(409).body(e.getMessage());
     }
 
-    /** {@code condition} may be omitted; sound goods are the ordinary case. */
+    /**
+     * {@code condition} may be omitted; sound goods are the ordinary case. {@code issueType} names
+     * the work when the condition is needs-work, and is null otherwise.
+     */
     record CountRequest(
             long quantity, Long mrpPaise, boolean mrpIsEstimate, StockCondition condition,
-            String remark) {}
+            String remark, String issueType) {}
 
     record UndoRequest(long quantity, StockCondition condition, String untagCode) {}
 
@@ -278,7 +283,8 @@ class UnpackingController {
             Long mrpPaise,
             boolean mrpIsEstimate,
             StockCondition condition,
-            String remark) {}
+            String remark,
+            String issueType) {}
 
     record UnlistedRequest(
             String code,
