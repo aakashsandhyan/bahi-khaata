@@ -168,8 +168,11 @@ public class GoodsInCounting {
      * the floor to the line on the sheet. Everything downstream — pricing, labelling, selling —
      * needs a code that a scanner at the counter will actually read.
      *
-     * <p>Refused when the code already belongs to a different product, because a code that
-     * resolves to two things resolves to neither.
+     * <p>A returns label already on a different product is refused — one sticker names one unit
+     * and cannot be on two. A manufacturer barcode already on a different product is not: the same
+     * item is routinely split across marketplace listings (variation ASINs), each imported as its
+     * own row, so the code is left where it is and the unit is counted against the line in hand.
+     * Collapsing the duplicate rows is deferred to pricing, where a single label is chosen.
      */
     /** As below, with no remark. */
     @Transactional
@@ -194,22 +197,42 @@ public class GoodsInCounting {
         Product product = line.getProduct();
         barcodes.findByCode(scannedCode)
                 .ifPresentOrElse(
-                        existing -> {
-                            if (!existing.getProduct().getId().equals(product.getId())) {
-                                throw new IllegalArgumentException(
-                                        "the code "
-                                                + scannedCode
-                                                + " is already on \""
-                                                + existing.getProduct().getName()
-                                                + "\". One code cannot mean two different"
-                                                + " things — check the item, or have the earlier"
-                                                + " mapping corrected.");
-                            }
-                        },
+                        existing -> reconcileCode(scannedCode, existing, product),
                         () -> barcodes.save(
                                 new Barcode(product, scannedCode, originOf(scannedCode))));
 
         return countExpected(expectedLineId, condition, quantity, mrp, mrpIsEstimate, remark, at);
+    }
+
+    /**
+     * Resolves a scan whose code already names a product.
+     *
+     * <p>Same product: nothing to do — the mapping is already there, and the count that follows is
+     * all that was wanted.
+     *
+     * <p>A returns label ({@code LPN…}) on a <em>different</em> product is a real mistake, since one
+     * sticker names one physical unit and cannot be on two; it is refused so the error is seen at
+     * once. A manufacturer barcode on a different product is not a mistake: the same item is
+     * routinely listed under several marketplace references (variation ASINs), each imported as its
+     * own row, so the code sitting on a sibling row is expected. The code is left where it is — a
+     * code stays one-to-one — and the unit is counted against the line the operator pointed at.
+     * Collapsing the duplicate rows into one, and correcting the append-only ledger to match, is
+     * deferred to pricing, where a single label is chosen.
+     */
+    private void reconcileCode(String scannedCode, Barcode existing, Product lineProduct) {
+        if (existing.getProduct().getId().equals(lineProduct.getId())) {
+            return;
+        }
+        if (originOf(scannedCode) == Origin.UNIT_LABEL) {
+            throw new IllegalArgumentException(
+                    "the returns label "
+                            + scannedCode
+                            + " is already on \""
+                            + existing.getProduct().getName()
+                            + "\". A returns label names one item and cannot be on two — check the"
+                            + " item, or take the earlier count back.");
+        }
+        // A manufacturer code on a sibling variation row: count here, leave the code where it is.
     }
 
     /**

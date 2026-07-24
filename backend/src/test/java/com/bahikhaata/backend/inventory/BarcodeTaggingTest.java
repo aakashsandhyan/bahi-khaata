@@ -141,17 +141,37 @@ class BarcodeTaggingTest {
     }
 
     @Test
-    @DisplayName("A code already meaning something else is refused, naming what it means")
-    void aCodeCannotMeanTwoThings() {
+    @DisplayName("A manufacturer code already on a sibling row counts here without stealing the code")
+    void aManufacturerCodeOnASiblingRowCountsWithoutRetagging() {
         counting.tagAndCount(lineFor("B07KT9Q54M").getId(), "8901234567890",
+                StockCondition.GOOD, 1, null, false, AT);
+        ExpectedLine earbuds = lineFor("B0DBHYTM2X");
+
+        // The same printed barcode turning up on another marketplace listing of the same physical
+        // item is routine, not an error. It counts against the line in hand; the code is not moved.
+        counting.tagAndCount(earbuds.getId(), "8901234567890", StockCondition.GOOD, 1, null,
+                false, AT);
+
+        assertThat(stock.onHand(earbuds.getProduct().getId()))
+                .as("the unit is counted where the operator pointed")
+                .isEqualTo(1);
+        assertThat(barcodes.findByCode("8901234567890").orElseThrow().getProduct().getId())
+                .as("the code stays on its first owner; duplicates collapse at pricing, not here")
+                .isEqualTo(lineFor("B07KT9Q54M").getProduct().getId());
+    }
+
+    @Test
+    @DisplayName("A returns label already on another product is refused — one sticker, one item")
+    void aReturnsLabelCannotMeanTwoThings() {
+        counting.tagAndCount(lineFor("B07KT9Q54M").getId(), "LPNBLR5Q0000042",
                 StockCondition.GOOD, 1, null, false, AT);
         UUID earbuds = lineFor("B0DBHYTM2X").getId();
 
         assertThatThrownBy(
                         () -> counting.tagAndCount(
-                                earbuds, "8901234567890", StockCondition.GOOD, 1, null, false,
+                                earbuds, "LPNBLR5Q0000042", StockCondition.GOOD, 1, null, false,
                                 AT))
-                .as("a code resolving to two products resolves to neither")
+                .as("a returns label names one physical unit and cannot be on two products")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Garbage bags");
     }
