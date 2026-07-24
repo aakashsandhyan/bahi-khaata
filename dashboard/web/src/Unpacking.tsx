@@ -1,25 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { unpacking, BackendError } from './api'
 import type { DeliveryProgress, LearntCode, UnpackingCarton, UnpackingLine } from './types'
 import { rupees } from './money'
-import { CameraScanner } from './CameraScanner'
 
 /**
  * Unpacking, on the web, so several people scan at once.
  *
- * The terminal is one machine; this is any phone or tablet with a scanner paired to it. The
- * flow is the terminal's: scan a box, scan each item, and because a returns sticker covers the
- * printed barcode, every scan is a code the manifest does not know — so it is matched to a line
- * (by itself where a box has one thing left, by a quick search otherwise) and the sticker is
- * remembered against those goods. The price printed on the pack is asked once per product.
+ * The terminal is one machine; this is any laptop with a scanner attached. The flow is the
+ * terminal's: scan a box, scan each item, and because a returns sticker covers the printed
+ * barcode, every scan is a code the manifest does not know — so it is matched to a line (by
+ * itself where a box has one thing left, by a quick search otherwise) and the sticker is
+ * remembered against those goods.
  *
- * A Bluetooth scanner is a keyboard: it types the code into the focused field and presses
- * Enter. So the scan field must keep focus, or a scan lands nowhere — the same rule as on the
- * terminal, and the reason focus is pulled back after every action.
+ * Once the item is identified, one pane takes everything about it at once — its state (fine,
+ * damaged, broken), a remark if it is not sound, and the price printed on the pack — and submits
+ * in a single step, rather than walking through a screen each.
  *
- * Corrections — taking a count back, giving up a mis-scanned code, marking damage — are not
- * here yet. They remain on the terminal for now; this is the fast path for getting stock
- * counted, and the corrections follow.
+ * A scanner is a keyboard: it types the code into the focused field and presses Enter. So the
+ * scan field must keep focus, or a scan lands nowhere — the same rule as on the terminal, and the
+ * reason focus is pulled back after every action.
  */
 type Condition = 'GOOD' | 'DAMAGED' | 'UNUSABLE'
 
@@ -32,31 +31,16 @@ export function Unpacking() {
 
   // A code scanned off a pack that matched nothing, waiting for someone to say which line it is.
   const [choosing, setChoosing] = useState<{ code: string; filter: string } | null>(null)
-  // A line whose printed price is being asked for, with the code to tag if this began as a tag.
-  const [askingMrp, setAskingMrp] = useState<{
-    line: UnpackingLine
-    code: string | null
-    condition: Condition
-    remark: string | null
-  } | null>(null)
+  // A product is identified — scanned-and-known, or picked from the list — and its count pane is
+  // open. State, an optional remark, and the MRP are answered together in one pane, then submitted.
+  // tagCode carries a code that still needs mapping to this line.
+  const [counting, setCounting] = useState<{ line: UnpackingLine; tagCode: string | null } | null>(
+    null,
+  )
 
   const scanRef = useRef<HTMLInputElement>(null)
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
-  const [cameraOn, setCameraOn] = useState(false)
-  // What condition scanned items are recorded in. Stays until changed, and is repeated back on
-  // every count so a setting left on is seen, not remembered — the same rule as the terminal.
-  // Set per item, after it is scanned, not held across the box: scan an item, then say what
-  // state it is in. tagCode carries a code that still needs mapping to this line.
-  const [picking, setPicking] = useState<{ line: UnpackingLine; tagCode: string | null } | null>(
-    null,
-  )
-  // A note on damaged or broken goods — why they are not sound. Optional.
-  const [remarking, setRemarking] = useState<{
-    line: UnpackingLine
-    tagCode: string | null
-    condition: Condition
-  } | null>(null)
   // A scan that hit a line already fully counted: either another really arrived, or the code is
   // on the wrong goods.
   const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
@@ -64,17 +48,10 @@ export function Unpacking() {
   const [releaseOffer, setReleaseOffer] = useState<{ name: string; codes: LearntCode[] } | null>(
     null,
   )
-  // The camera fires many times a second from a stable callback; this ref lets that callback
-  // reach the latest handler without being rebuilt, which would restart the camera each time.
-  const handleScanRef = useRef<(code: string) => void>(() => {})
-  const onCameraDetect = useCallback((code: string) => {
-    // Stop after a read. The camera closes on a successful scan — the shutter and light go off,
-    // and it cannot double-read the same or the next barcode — then the scan is handled. Reopen
-    // it for the next item.
-    setCameraOn(false)
-    handleScanRef.current(code)
-  }, [])
-
+  // A returns sticker scanned again though it already resolves. Usually a double-scan of the one
+  // unit it names; sometimes a legitimate re-set after that unit's count was taken back. The person
+  // says which, since the count is not tracked per sticker and the system cannot tell them apart.
+  const [rescan, setRescan] = useState<{ code: string; line: UnpackingLine } | null>(null)
   const loadDeliveries = () => unpacking.deliveries().then(setDeliveries).catch(() => {})
   useEffect(() => {
     loadDeliveries()
@@ -102,16 +79,9 @@ export function Unpacking() {
     return fresh
   }
 
-  // A camera read is ignored while a question is open — the same rule as the typed field being
-  // disabled then. The person must answer the price or pick the item before the next scan lands.
-  handleScanRef.current = (code: string) => {
-    if (askingMrp || choosing || surplus || releaseOffer || picking || remarking) return
-    onScan(code)
-  }
-
   const onScan = async (raw: string) => {
-    // A camera or a scanner can deliver stray control characters; they break the request URL
-    // before it ever reaches the backend. Strip them, keep the printable code.
+    // A scanner can deliver stray control characters; they break the request URL before it ever
+    // reaches the backend. Strip them, keep the printable code.
     const scanned = raw.replace(/[\x00-\x1f\x7f]/g, '').trim()
     if (!scanned) return
     try {
@@ -130,6 +100,17 @@ export function Unpacking() {
   const onItem = async (code: string) => {
     if (!carton) return
     const resolved = await unpacking.resolve(carton.boxId, code)
+    // A returns sticker (LPN…) names one physical unit. Once scanned it is tagged and counted, so
+    // it resolves from then on — which means a second scan of the same sticker is that same item,
+    // not another. Do not silently count it. A manufacturer code is shared by every unit of a
+    // product, so scanning it again is a genuine second unit and passes straight through; only the
+    // per-unit sticker is caught. The person decides between a slip and a real re-set, because the
+    // count is held per product, not per sticker, so the two cannot be told apart here.
+    if (resolved[0] && code.trim().toUpperCase().startsWith('LPN')) {
+      setRescan({ code, line: resolved[0] })
+      setStep('That sticker is already counted — a slip, or set it again?')
+      return
+    }
     const match = resolved[0] ?? lines.find((l) => l.code.toLowerCase() === code.toLowerCase())
     if (match) {
       if (match.outstanding <= 0) {
@@ -152,30 +133,33 @@ export function Unpacking() {
     }
   }
 
+  // The sticker was taken back or put on the wrong goods: forget the mapping, then run the scan
+  // again — now unknown, it goes to setting it fresh rather than being refused as a double-scan.
+  const forgetAndReset = async (code: string) => {
+    try {
+      await unpacking.releaseCode(code)
+      setRescan(null)
+      await onItem(code)
+    } catch (e) {
+      fail(e)
+    }
+  }
+
   // An item is in hand: ask its condition before counting it.
   const beginCount = (line: UnpackingLine, tagCode: string | null) => {
     setChoosing(null)
     setSurplus(null)
-    setPicking({ line, tagCode })
-    setStep('What state is this item in?')
+    setCounting({ line, tagCode })
+    setStep('Say what state it is in, add the MRP, and submit.')
   }
 
-  const countOrAskMrp = async (
-    line: UnpackingLine,
-    tagCode: string | null,
-    condition: Condition,
-    remark: string | null,
-  ) => {
-    setPicking(null)
-    setRemarking(null)
-    // Broken goods are never sold, so a printed price means nothing for them — counted straight
-    // through without asking.
-    if (condition !== 'UNUSABLE' && line.needsMrp) {
-      setAskingMrp({ line, code: tagCode, condition, remark })
-      setStep('Type the MRP printed on the pack, then press Enter.')
-      return
-    }
-    await record(line, tagCode, condition, remark, null)
+  // One pane answers state, remark, and MRP together, then submits. Broken goods are never sold,
+  // so their MRP is dropped whatever was typed; an empty MRP field means none was printed and the
+  // goods are counted unpriced, to be found later in the backlog.
+  const submitCount = (condition: Condition, remark: string | null, mrpPaise: number | null) => {
+    if (!counting) return
+    const mrp = condition === 'UNUSABLE' ? null : mrpPaise
+    record(counting.line, counting.tagCode, condition, remark, mrp).catch(fail)
   }
 
   const record = async (
@@ -190,7 +174,7 @@ export function Unpacking() {
       ? await unpacking.tag(line.lineId, tagCode, 1, mrpPaise, condition, remark)
       : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark)
     setChoosing(null)
-    setAskingMrp(null)
+    setCounting(null)
     const fresh = await refreshLines(carton.boxId)
     loadDeliveries()
 
@@ -255,11 +239,10 @@ export function Unpacking() {
       setCarton(null)
       setLines([])
       setChoosing(null)
-      setAskingMrp(null)
-      setPicking(null)
-      setRemarking(null)
+      setCounting(null)
       setSurplus(null)
       setReleaseOffer(null)
+      setRescan(null)
       loadDeliveries()
       say(
         missing > 0
@@ -280,11 +263,10 @@ export function Unpacking() {
     setCarton(null)
     setLines([])
     setChoosing(null)
-    setAskingMrp(null)
-    setPicking(null)
-    setRemarking(null)
+    setCounting(null)
     setSurplus(null)
     setReleaseOffer(null)
+    setRescan(null)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
     setStep('Scan the number printed on the next box.')
     focusScan()
@@ -309,49 +291,19 @@ export function Unpacking() {
       <ScanField
         refEl={scanRef}
         onScan={onScan}
-        disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
+        disabled={!!counting || !!choosing || !!surplus || !!releaseOffer || !!rescan}
       />
-      <button
-        className="camera-btn"
-        onClick={() => setCameraOn((on) => !on)}
-        disabled={!!askingMrp || !!choosing || !!surplus || !!releaseOffer || !!picking || !!remarking}
-      >
-        {cameraOn ? 'Hide camera' : '📷 Scan with camera'}
-      </button>
-
-      {cameraOn && !askingMrp && !choosing && (
-        <CameraScanner onDetected={onCameraDetect} onClose={() => setCameraOn(false)} />
-      )}
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 
-      {askingMrp && (
-        <MrpPrompt
-          line={askingMrp.line}
-          onEnter={(paise) =>
-            record(
-              askingMrp.line,
-              askingMrp.code,
-              askingMrp.condition,
-              askingMrp.remark,
-              paise,
-            ).catch(fail)
-          }
-          onError={(m) => say(m, 'warn')}
+      {counting && (
+        <CountPane
+          line={counting.line}
+          onSubmit={submitCount}
           onBack={() => {
-            setAskingMrp(null)
+            setCounting(null)
             setStep('Scan the next item, or press "Box is done".')
             focusScan()
-          }}
-          onSkip={() => {
-            record(
-              askingMrp.line,
-              askingMrp.code,
-              askingMrp.condition,
-              askingMrp.remark,
-              null,
-            ).catch(fail)
-            say('Counted without a price. It cannot be sold until someone finds one.', 'warn')
           }}
         />
       )}
@@ -369,6 +321,33 @@ export function Unpacking() {
             focusScan()
           }}
         />
+      )}
+
+      {rescan && (
+        <div className="card">
+          <h2>That sticker is already counted</h2>
+          <p className="code">
+            {rescan.code} · {shortName(rescan.line)}
+          </p>
+          <p>
+            A returns sticker names one item, so scanning it again is usually the same one twice.
+            If its count was taken back, or it was put on the wrong goods, forget it and set it
+            again.
+          </p>
+          <button
+            className="choice"
+            onClick={() => {
+              setRescan(null)
+              setStep('Scan the next item, or press "Box is done".')
+              focusScan()
+            }}
+          >
+            It&rsquo;s a slip — ignore
+          </button>
+          <button className="choice warn-choice" onClick={() => forgetAndReset(rescan.code)}>
+            Taken back or wrong — forget it and set it again
+          </button>
+        </div>
       )}
 
       {surplus && (
@@ -410,54 +389,7 @@ export function Unpacking() {
         </div>
       )}
 
-      {picking && (
-        <div className="card">
-          <button className="back" onClick={() => { setPicking(null); focusScan() }}>
-            ← Back
-          </button>
-          <h2>What state is it in?</h2>
-          <p className="code">{shortName(picking.line)}</p>
-          <button
-            className="cond on-good big"
-            onClick={() => countOrAskMrp(picking.line, picking.tagCode, 'GOOD', null).catch(fail)}
-          >
-            Fine
-          </button>
-          <button
-            className="cond on-damaged big"
-            onClick={() =>
-              setRemarking({ line: picking.line, tagCode: picking.tagCode, condition: 'DAMAGED' })
-            }
-          >
-            Damaged — sells cheaper
-          </button>
-          <button
-            className="cond on-broken big"
-            onClick={() =>
-              setRemarking({ line: picking.line, tagCode: picking.tagCode, condition: 'UNUSABLE' })
-            }
-          >
-            Broken — cannot sell
-          </button>
-        </div>
-      )}
-
-      {remarking && (
-        <RemarkPrompt
-          line={remarking.line}
-          condition={remarking.condition}
-          onDone={(note) =>
-            countOrAskMrp(remarking.line, remarking.tagCode, remarking.condition, note).catch(fail)
-          }
-          onBack={() => {
-            // Back to the condition choice, not out of the item entirely.
-            setPicking({ line: remarking.line, tagCode: remarking.tagCode })
-            setRemarking(null)
-          }}
-        />
-      )}
-
-      {carton && !choosing && !askingMrp && !surplus && !releaseOffer && !picking && (
+      {carton && !choosing && !counting && !surplus && !releaseOffer && !rescan && (
         <>
           <ItemList lines={lines} onTakeBack={takeBack} />
           <div className="actions">
@@ -505,51 +437,110 @@ function ScanField({
   )
 }
 
-function MrpPrompt({
+// One pane for an identified item: its state, a remark if not sound, and the MRP — answered
+// together and submitted in a single step. The state defaults to Fine and the MRP field takes
+// focus, so the common case is scan, type the price, Enter. An empty MRP means none was printed;
+// the goods are counted unpriced and show up later in the price backlog. Broken goods are never
+// sold, so their price row is hidden.
+function CountPane({
   line,
-  onEnter,
-  onError,
+  onSubmit,
   onBack,
-  onSkip,
 }: {
   line: UnpackingLine
-  onEnter: (paise: number) => void
-  onError: (message: string) => void
+  onSubmit: (condition: Condition, remark: string | null, mrpPaise: number | null) => void
   onBack: () => void
-  onSkip: () => void
 }) {
-  const [value, setValue] = useState('')
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => ref.current?.focus(), [])
+  const [condition, setCondition] = useState<Condition>('GOOD')
+  const [remark, setRemark] = useState('')
+  // Prefilled with the price already read off this product earlier in the delivery, so a later
+  // unit shows it back rather than asking again; editable in case this pack is printed different.
+  const [mrp, setMrp] = useState(
+    line.recordedMrpPaise != null ? String(line.recordedMrpPaise / 100) : '',
+  )
+  const [error, setError] = useState<string | null>(null)
+  const mrpRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    mrpRef.current?.focus()
+  }, [])
+
+  const sound = condition === 'GOOD'
+  const broken = condition === 'UNUSABLE'
+
   const submit = () => {
-    const cleaned = value.trim().replace(/,/g, '').replace('₹', '')
-    if (/^\d{8}|\d{12,14}$/.test(cleaned)) {
-      onError('That is the barcode, not the price. Type the MRP printed on the pack.')
-      setValue('')
-      return
+    let mrpPaise: number | null = null
+    if (!broken) {
+      const cleaned = mrp.trim().replace(/,/g, '').replace('₹', '')
+      if (cleaned) {
+        if (/^\d{8}|\d{12,14}$/.test(cleaned)) {
+          setError('That is the barcode, not the price. Type the MRP printed on the pack.')
+          setMrp('')
+          return
+        }
+        if (!/^\d+(\.\d{1,2})?$/.test(cleaned) || Number(cleaned) <= 0) {
+          setError('That is not a price. Type the number printed on the pack, like 249.')
+          return
+        }
+        mrpPaise = Math.round(Number(cleaned) * 100)
+      }
     }
-    if (!/^\d+(\.\d{1,2})?$/.test(cleaned) || Number(cleaned) <= 0) {
-      onError('That is not a price. Type the number printed on the pack, like 249.')
-      return
-    }
-    onEnter(Math.round(Number(cleaned) * 100))
+    onSubmit(condition, sound ? null : remark.trim() || null, mrpPaise)
   }
+
   return (
-    <div className="card">
+    <div className="card count-pane">
       <button className="back" onClick={onBack}>
         ← Back
       </button>
-      <p>MRP printed on {shortName(line)}?</p>
-      <input
-        ref={ref}
-        className="scan"
-        placeholder="₹ printed on the pack"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && submit()}
-      />
-      <button className="choice" onClick={onSkip}>
-        No MRP printed on it — count it anyway
+      <h2>{shortName(line)}</h2>
+
+      <div className="cond-row">
+        <button className={`cond on-good${sound ? ' sel' : ''}`} onClick={() => setCondition('GOOD')}>
+          Fine
+        </button>
+        <button
+          className={`cond on-damaged${condition === 'DAMAGED' ? ' sel' : ''}`}
+          onClick={() => setCondition('DAMAGED')}
+        >
+          Damaged
+        </button>
+        <button
+          className={`cond on-broken${broken ? ' sel' : ''}`}
+          onClick={() => setCondition('UNUSABLE')}
+        >
+          Broken
+        </button>
+      </div>
+
+      {!sound && (
+        <input
+          className="scan small"
+          placeholder={broken ? 'What is broken? e.g. screen dead' : "What's wrong? e.g. lid cracked"}
+          value={remark}
+          onChange={(e) => setRemark(e.target.value)}
+        />
+      )}
+
+      {!broken && (
+        <>
+          <input
+            ref={mrpRef}
+            className="scan"
+            placeholder="₹ MRP on the pack (blank = none printed)"
+            value={mrp}
+            onChange={(e) => {
+              setMrp(e.target.value)
+              setError(null)
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          {line.onlinePricePaise != null && <p className="mrp-hint">{rupees(line.onlinePricePaise)} online</p>}
+          {error && <p className="mrp-hint stop">{error}</p>}
+        </>
+      )}
+
+      <button className="btn-primary big" onClick={submit}>
+        Submit
       </button>
     </div>
   )
@@ -602,43 +593,6 @@ function WhichItem({
           </span>
         </button>
       ))}
-    </div>
-  )
-}
-
-function RemarkPrompt({
-  line,
-  condition,
-  onDone,
-  onBack,
-}: {
-  line: UnpackingLine
-  condition: Condition
-  onDone: (note: string | null) => void
-  onBack: () => void
-}) {
-  const [note, setNote] = useState('')
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => ref.current?.focus(), [])
-  const done = () => onDone(note.trim() || null)
-  return (
-    <div className="card">
-      <button className="back" onClick={onBack}>
-        ← Back
-      </button>
-      <h2>{condition === 'UNUSABLE' ? 'What is broken?' : "What's wrong with it?"}</h2>
-      <p className="code">{shortName(line)}</p>
-      <input
-        ref={ref}
-        className="scan small"
-        placeholder="e.g. lid cracked, box opened, screen dead"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && done()}
-      />
-      <button className="choice" onClick={done}>
-        {note.trim() ? 'Save note and continue' : 'No note — continue'}
-      </button>
     </div>
   )
 }

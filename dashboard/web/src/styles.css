@@ -120,15 +120,6 @@ button:disabled { opacity: 0.45; cursor: default; }
 .scan::placeholder { color: var(--ink-faint); font-weight: 600; }
 .scan:disabled { border-color: var(--line); background: var(--line-soft); }
 .scan.small { font-size: 17px; font-weight: 500; padding: 12px 14px; }
-/* The camera is a phone thing — a rear lens to point at a barcode — so it is offered only on a
-   phone-width screen and hidden on a desk, which has no useful camera. A full-width button below
-   the scan field, not squeezed beside it, so it is actually visible and easy to tap. */
-.camera-btn {
-  display: block; width: 100%; margin: var(--s2) 0; padding: 14px; font-size: 16px;
-  border-radius: var(--r2); background: var(--brand-tint); border-color: transparent;
-  color: var(--brand); font-weight: 600;
-}
-@media (min-width: 761px) { .camera-btn { display: none; } }
 
 /* item cards */
 .items { display: flex; flex-direction: column; gap: var(--s2); margin: var(--s3) 0; }
@@ -173,11 +164,22 @@ button:disabled { opacity: 0.45; cursor: default; }
 .choice .meta { font-size: 12px; color: var(--ink-faint); font-weight: 400; }
 .choice.warn-choice { background: var(--warn-tint); border-color: #f6d3ba; color: var(--warn); }
 
-/* condition buttons, full width, colour-coded */
-.cond { display: block; width: 100%; margin: var(--s2) 0; padding: 18px; font-size: 18px; font-weight: 650; text-align: center; }
-.cond.on-good { background: var(--good); color: #fff; border-color: var(--good); }
-.cond.on-damaged { background: var(--warn); color: #fff; border-color: var(--warn); }
-.cond.on-broken { background: var(--stop); color: #fff; border-color: var(--stop); }
+/* condition selector — a row of three; the chosen one is filled, the others sit muted */
+.cond-row { display: flex; gap: var(--s2); margin: var(--s3) 0; }
+.cond {
+  flex: 1; padding: 14px 8px; font-size: 16px; font-weight: 650; text-align: center;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink-soft);
+}
+.cond.on-good.sel { background: var(--good); color: #fff; border-color: var(--good); }
+.cond.on-damaged.sel { background: var(--warn); color: #fff; border-color: var(--warn); }
+.cond.on-broken.sel { background: var(--stop); color: #fff; border-color: var(--stop); }
+
+/* the one pane: name, state row, optional remark, MRP, submit */
+.count-pane h2 { margin: 0 0 var(--s2); font-size: 17px; }
+.count-pane .scan { margin: var(--s2) 0 4px; }
+.count-pane .btn-primary { width: 100%; margin-top: var(--s3); padding: 16px; font-size: 18px; }
+.mrp-hint { font-size: 13px; color: var(--ink-faint); margin: 2px 0 0; }
+.mrp-hint.stop { color: var(--stop); }
 
 .back { border: none; background: transparent; color: var(--brand); font-size: 16px; padding: 4px 0; margin-bottom: var(--s2); }
 

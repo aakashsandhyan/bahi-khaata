@@ -482,7 +482,8 @@ public class GoodsInCounting {
                                         line.getProduct().getOnlinePrice() == null
                                                 ? null
                                                 : line.getProduct().getOnlinePrice().paise(),
-                                        indicativeCost(line, rate)))
+                                        indicativeCost(line, rate),
+                                        recordedMrp(line)))
                 .toList();
     }
 
@@ -500,6 +501,22 @@ public class GoodsInCounting {
         return batches.findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
                 .stream()
                 .noneMatch(batch -> batch.getMrp() != null);
+    }
+
+    /**
+     * The MRP already read off this line's goods this delivery, or null if none has been yet.
+     *
+     * <p>The figure {@link #needsMrp} decides by its presence, returned so the screen can show it
+     * back on a later unit of the same product rather than ask for a price it already holds.
+     */
+    private Long recordedMrp(ExpectedLine line) {
+        return batches.findByLotIdAndProductId(line.getLot().getId(), line.getProduct().getId())
+                .stream()
+                .map(Batch::getMrp)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .map(Money::paise)
+                .orElse(null);
     }
 
     /**

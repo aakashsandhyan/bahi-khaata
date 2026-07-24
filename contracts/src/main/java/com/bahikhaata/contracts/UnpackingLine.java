@@ -37,6 +37,9 @@ import java.util.UUID;
  *     scaled by the rate paid for the delivery. <strong>Not the final cost.</strong> That is
  *     settled only when the delivery closes and is spread across what actually arrived, so a
  *     line that turns up short ends up costing more per unit than this says.
+ * @param recordedMrpPaise the MRP already read off these goods this delivery, where one has been,
+ *     so the screen can show it back rather than ask again. Null until the first unit is priced;
+ *     the inverse of {@code needsMrp} carrying the figure instead of just a flag.
  */
 public record UnpackingLine(
         UUID lineId,
@@ -48,4 +51,5 @@ public record UnpackingLine(
         boolean needsMrp,
         Long statedValuePaise,
         Long onlinePricePaise,
-        Long indicativeCostPaise) {}
+        Long indicativeCostPaise,
+        Long recordedMrpPaise) {}

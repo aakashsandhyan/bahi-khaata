@@ -64,6 +64,7 @@ export interface UnpackingLine {
   statedValuePaise: number | null
   onlinePricePaise: number | null
   indicativeCostPaise: number | null
+  recordedMrpPaise: number | null
 }
 
 export interface CountOutcome {
