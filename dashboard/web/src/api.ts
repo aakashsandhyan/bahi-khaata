@@ -202,6 +202,8 @@ import type {
   ProductSummary as _ProductSummary,
   BacklogItem as _BacklogItem,
   ReviewItem as _ReviewItem,
+  ExtraRecord as _ExtraRecord,
+  ShortLine as _ShortLine,
 } from './types'
 
 export const remediation = {
@@ -226,6 +228,16 @@ export const remediation = {
 
   // Damaged and broken goods with their notes, for sorting the fixable into needs-work.
   review: () => getList<_ReviewItem>('/api/remediation/review'),
+
+  // Extras recorded against boxes, held as their own product, waiting to be linked.
+  extras: () => getList<_ExtraRecord>('/api/remediation/extras'),
+
+  // The lines of a delivery still missing units — candidates an extra can fill.
+  shortsInLot: (lotId: string) => getList<_ShortLine>(`/api/remediation/lots/${lotId}/shorts`),
+
+  // Reattribute an extra to the real product it turned out to be.
+  link: (body: { extraProductId: string; targetLineId: string; quantity: number }) =>
+    post<void>('/api/remediation/link', body),
 
   // Move a quantity of a product's units from one state to another within an open lot.
   changeState: (body: {

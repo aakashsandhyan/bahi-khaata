@@ -197,6 +197,58 @@ class GoodsRemediationTest {
                 .hasMessageContaining("closed");
     }
 
+    private UUID recordExtra(String code, long quantity) {
+        counting.countUnlisted(
+                line().getBox().getId(), code, "Mystery extra", "KITCHEN", quantity,
+                Money.ofPaise(50_000), false, AT);
+        return remediation.extras().stream()
+                .filter(e -> code.equals(e.code()))
+                .findFirst()
+                .orElseThrow()
+                .productId();
+    }
+
+    @Test
+    @DisplayName("Linking an extra to a short line fills it, moving attribution not stock")
+    void linkingExtraFillsTheShort() {
+        // The line expects 10; count 8, leaving it two short. Then two turn up as an extra.
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, Money.ofPaise(50_000), false, AT);
+        UUID extraId = recordExtra("LPNEXTRA0001", 2);
+
+        assertThat(stock.onHand(productId())).as("eight against the line").isEqualTo(8);
+        assertThat(stock.onHand(extraId)).as("two held as the extra product").isEqualTo(2);
+
+        remediation.linkExtra(extraId, line().getId(), 2, AT);
+
+        assertThat(line().getQuantityCounted()).as("the shortfall is filled").isEqualTo(10);
+        assertThat(line().getDiscrepancy()).isZero();
+        assertThat(stock.onHand(productId()))
+                .as("the target now holds all ten — the two were reattributed, not created")
+                .isEqualTo(10);
+        assertThat(stock.onHand(extraId)).as("the phantom extra is emptied").isZero();
+        assertThat(remediation.extras()).as("and no longer lists as an extra").isEmpty();
+    }
+
+    @Test
+    @DisplayName("Linking more than the extra holds is refused")
+    void overLinkRefused() {
+        UUID extraId = recordExtra("LPNEXTRA0002", 1);
+        assertThatThrownBy(() -> remediation.linkExtra(extraId, line().getId(), 3, AT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only 1");
+    }
+
+    @Test
+    @DisplayName("Linking into a closed lot is refused")
+    void linkIntoClosedLotRefused() {
+        counting.countExpected(line().getId(), StockCondition.GOOD, 8, Money.ofPaise(50_000), false, AT);
+        UUID extraId = recordExtra("LPNEXTRA0003", 2);
+        closing.close(lotId, false, AT);
+        assertThatThrownBy(() -> remediation.linkExtra(extraId, line().getId(), 2, AT))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("closed");
+    }
+
     @Test
     @DisplayName("The issue-type menu is scoped to the department")
     void issueTypesAreScopedToCategory() {

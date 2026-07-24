@@ -109,6 +109,15 @@ public class UnlistedFind extends UuidEntity {
         this.quantity += more;
     }
 
+    /** Taken down when some of the extra is reattributed to a real product it turned out to be. */
+    public void reduce(long fewer) {
+        if (fewer <= 0 || fewer > quantity) {
+            throw new IllegalArgumentException(
+                    "cannot reduce " + quantity + " extra by " + fewer);
+        }
+        this.quantity -= fewer;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

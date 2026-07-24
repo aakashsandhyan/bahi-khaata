@@ -21,11 +21,14 @@ import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.BacklogItem;
+import com.bahikhaata.contracts.ExtraRecord;
 import com.bahikhaata.contracts.IssueTypeOption;
+import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.ProductStates;
 import com.bahikhaata.contracts.ProductSummary;
 import com.bahikhaata.contracts.RemediationLine;
 import com.bahikhaata.contracts.ReviewItem;
+import com.bahikhaata.contracts.ShortLine;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,6 +65,8 @@ public class GoodsRemediation {
     private final LotRepository lots;
     private final IssueTypeRepository issueTypes;
     private final BarcodeRepository barcodes;
+    private final UnlistedFindRepository unlistedFinds;
+    private final ExpectedLineRepository expectedLines;
 
     GoodsRemediation(
             GoodsInCounting counting,
@@ -70,7 +75,9 @@ public class GoodsRemediation {
             ProductRepository products,
             LotRepository lots,
             IssueTypeRepository issueTypes,
-            BarcodeRepository barcodes) {
+            BarcodeRepository barcodes,
+            UnlistedFindRepository unlistedFinds,
+            ExpectedLineRepository expectedLines) {
         this.counting = counting;
         this.batches = batches;
         this.ledger = ledger;
@@ -78,6 +85,110 @@ public class GoodsRemediation {
         this.lots = lots;
         this.issueTypes = issueTypes;
         this.barcodes = barcodes;
+        this.unlistedFinds = unlistedFinds;
+        this.expectedLines = expectedLines;
+    }
+
+    /** Extras recorded against boxes, still held as their own product, waiting to be linked. */
+    @Transactional(readOnly = true)
+    public List<ExtraRecord> extras() {
+        return unlistedFinds.findAll().stream()
+                .filter(f -> f.getQuantity() > 0)
+                .map(
+                        f ->
+                                new ExtraRecord(
+                                        f.getProduct().getId(),
+                                        f.getProduct().getName(),
+                                        f.getProduct().getCategory().code(),
+                                        f.getLot().getId(),
+                                        f.getBox().getTrackingNumber(),
+                                        barcodes.findByProductId(f.getProduct().getId()).stream()
+                                                .map(b -> b.getCode())
+                                                .findFirst()
+                                                .orElse(null),
+                                        f.getQuantity()))
+                .toList();
+    }
+
+    /** The lines of a delivery still missing units — what an extra might really be. */
+    @Transactional(readOnly = true)
+    public List<ShortLine> shortsInLot(UUID lotId) {
+        return expectedLines.findByLotIdOrderByCode(lotId).stream()
+                .filter(l -> l.getQuantityOutstanding() > 0)
+                .map(
+                        l ->
+                                new ShortLine(
+                                        l.getId(),
+                                        l.getProduct().getId(),
+                                        l.getProduct().getName(),
+                                        l.getCode(),
+                                        l.getBox().getTrackingNumber(),
+                                        l.getQuantityExpected(),
+                                        l.getQuantityCounted(),
+                                        l.getQuantityOutstanding()))
+                .toList();
+    }
+
+    /**
+     * Reattributes a quantity of an extra to the real product it turned out to be, filling that
+     * product's shortfall. The units never move — only which product owns them: the target gains a
+     * receipt and the count against its short line, the extra loses an equal adjustment, so on-hand
+     * is unchanged and the ledger is only appended to. Open-lot only.
+     */
+    @Transactional
+    public void linkExtra(UUID extraProductId, UUID targetLineId, long quantity, Instant at) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("must link a positive number, was " + quantity);
+        }
+        ExpectedLine target =
+                expectedLines
+                        .findById(targetLineId)
+                        .orElseThrow(() -> new IllegalArgumentException("no such line: " + targetLineId));
+        Lot lot = target.getLot();
+        if (!lot.isOpen()) {
+            throw new IllegalStateException(
+                    "lot " + lot.getId() + " is closed; its counts are settled and an extra can no"
+                            + " longer be linked into it");
+        }
+        Batch extraBatch =
+                batches.findByLotIdAndProductIdAndCondition(
+                                lot.getId(), extraProductId, StockCondition.GOOD)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "that extra has no sound stock in this delivery to link"));
+        if (extraBatch.getQuantityReceived() < quantity) {
+            throw new IllegalArgumentException(
+                    "cannot link " + quantity + " when only " + extraBatch.getQuantityReceived()
+                            + " extra are held");
+        }
+        Product extra = extraBatch.getProduct();
+
+        // Target side: count against the short line — fills the shortfall, adds to the target's
+        // batch, and writes the receipt. The extra's MRP carries over, since it was read off the
+        // same physical pack.
+        Money mrp = extraBatch.getMrp();
+        counting.countExpected(
+                targetLineId, StockCondition.GOOD, quantity, mrp, extraBatch.isMrpEstimate(),
+                null, at);
+
+        // Extra side: the phantom loses the units it never really held.
+        extraBatch.removeCounted(quantity);
+        ledger.save(StockLedgerEntry.adjustment(extra, extraBatch, -quantity, at));
+
+        // Take the reattributed units off the extra's find record so it stops listing them. The
+        // record cannot hold zero (a CHECK enforces it), so a fully-linked extra is deleted.
+        unlistedFinds.findByLotId(lot.getId()).stream()
+                .filter(f -> f.getProduct().getId().equals(extraProductId) && f.getQuantity() > 0)
+                .findFirst()
+                .ifPresent(
+                        f -> {
+                            long take = Math.min(quantity, f.getQuantity());
+                            if (take >= f.getQuantity()) {
+                                unlistedFinds.delete(f);
+                            } else {
+                                f.reduce(take);
+                            }
+                        });
     }
 
     /** The states a scanned code's product is held in, so a rescue can start from a scan. */

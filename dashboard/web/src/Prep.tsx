@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { remediation, BackendError } from './api'
 import type {
   BacklogItem,
+  ExtraRecord,
   IssueTypeOption,
   ProductStates,
   ProductSummary,
   RemediationLine,
   ReviewItem,
+  ShortLine,
   StockCondition,
 } from './types'
 
@@ -33,9 +35,10 @@ const STATE_CSS: Record<StockCondition, string> = {
 }
 
 export function Prep() {
-  const [mode, setMode] = useState<'backlog' | 'review'>('backlog')
+  const [mode, setMode] = useState<'backlog' | 'review' | 'extras'>('backlog')
   const [backlog, setBacklog] = useState<BacklogItem[]>([])
   const [review, setReview] = useState<ReviewItem[]>([])
+  const [extras, setExtras] = useState<ExtraRecord[]>([])
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const [states, setStates] = useState<ProductStates | null>(null)
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
@@ -48,11 +51,13 @@ export function Prep() {
 
   const loadBacklog = () => remediation.backlog().then(setBacklog).catch(() => {})
   const loadReview = () => remediation.review().then(setReview).catch(() => {})
+  const loadExtras = () => remediation.extras().then(setExtras).catch(() => {})
   useEffect(() => {
     loadBacklog()
   }, [])
   useEffect(() => {
     if (mode === 'review') loadReview()
+    if (mode === 'extras') loadExtras()
   }, [mode])
 
   const open = (productId: string) => remediation.states(productId).then(setStates).catch(fail)
@@ -117,9 +122,22 @@ export function Prep() {
             <button className={mode === 'review' ? 'on' : ''} onClick={() => setMode('review')}>
               Review damaged
             </button>
+            <button className={mode === 'extras' ? 'on' : ''} onClick={() => setMode('extras')}>
+              Extras{extras.length > 0 ? ` (${extras.length})` : ''}
+            </button>
           </div>
 
-          {mode === 'backlog' ? (
+          {mode === 'extras' ? (
+            <ExtrasList
+              items={extras}
+              onLinked={() => {
+                loadExtras()
+                loadBacklog()
+                setMessage({ text: 'Linked.', tone: 'ok' })
+              }}
+              onError={fail}
+            />
+          ) : mode === 'backlog' ? (
             <>
               <ProductFinder onOpen={open} onScan={openByCode} />
               {backlog.length === 0 && <p className="empty">Nothing waiting on work.</p>}
@@ -445,6 +463,149 @@ function ReviewList({
           })}
         </section>
       ))}
+    </div>
+  )
+}
+
+function ExtrasList({
+  items,
+  onLinked,
+  onError,
+}: {
+  items: ExtraRecord[]
+  onLinked: () => void
+  onError: (e: unknown) => void
+}) {
+  const [open, setOpen] = useState<string | null>(null)
+  if (items.length === 0) return <p className="empty">No extras waiting to be linked.</p>
+  return (
+    <div className="extras">
+      <p className="review-hint">
+        An extra was recorded as its own product. If a line came up short, link the extra to it — the
+        units become that product's and the shortfall fills. Leave it if it's genuinely new.
+      </p>
+      {items.map((e) => (
+        <div key={e.productId} className="review-item">
+          <button
+            className="choice"
+            onClick={() => setOpen(open === e.productId ? null : e.productId)}
+          >
+            <span>{e.productName}</span>
+            <span className="meta">
+              {e.quantity} · box {e.boxTracking} · {e.categoryCode}
+              {e.code ? ` · ${e.code}` : ''}
+            </span>
+          </button>
+          {open === e.productId && (
+            <LinkForm
+              extra={e}
+              onCancel={() => setOpen(null)}
+              onLinked={() => {
+                setOpen(null)
+                onLinked()
+              }}
+              onError={onError}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function LinkForm({
+  extra,
+  onCancel,
+  onLinked,
+  onError,
+}: {
+  extra: ExtraRecord
+  onCancel: () => void
+  onLinked: () => void
+  onError: (e: unknown) => void
+}) {
+  const [shorts, setShorts] = useState<ShortLine[]>([])
+  const [target, setTarget] = useState<ShortLine | null>(null)
+  const [qty, setQty] = useState(1)
+  const [filter, setFilter] = useState('')
+
+  useEffect(() => {
+    remediation.shortsInLot(extra.lotId).then(setShorts).catch(() => {})
+  }, [extra.lotId])
+
+  const pick = (s: ShortLine) => {
+    setTarget(s)
+    setQty(Math.min(extra.quantity, s.shortBy))
+  }
+  const submit = () => {
+    if (!target) return
+    remediation
+      .link({ extraProductId: extra.productId, targetLineId: target.lineId, quantity: qty })
+      .then(onLinked)
+      .catch(onError)
+  }
+
+  const needle = filter.trim().toLowerCase()
+  const choices = shorts.filter(
+    (s) =>
+      !needle ||
+      s.productName.toLowerCase().includes(needle) ||
+      s.asin.toLowerCase().includes(needle),
+  )
+
+  return (
+    <div className="move-form">
+      {!target ? (
+        <>
+          <p>Which product is it really? (lines still short in this delivery)</p>
+          <input
+            className="scan small"
+            placeholder="Type part of the name or ASIN"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          {choices.length === 0 && <p className="empty">No short lines here.</p>}
+          {choices.map((s) => (
+            <button key={s.lineId} className="choice" onClick={() => pick(s)}>
+              <span>{s.productName}</span>
+              <span className="meta">
+                {s.asin} · short {s.shortBy} of {s.expected} · box {s.boxTracking}
+              </span>
+            </button>
+          ))}
+        </>
+      ) : (
+        <>
+          <p>
+            Link <strong>{extra.quantity}</strong> extra to <strong>{target.productName}</strong> —
+            short {target.shortBy}.
+          </p>
+          <div className="qty-row">
+            <label>How many?</label>
+            <input
+              className="scan small"
+              type="number"
+              min={1}
+              max={extra.quantity}
+              value={qty}
+              onChange={(e) =>
+                setQty(Math.max(1, Math.min(extra.quantity, Number(e.target.value) || 1)))
+              }
+            />
+            <span className="meta">of {extra.quantity}</span>
+          </div>
+        </>
+      )}
+      <div className="actions">
+        <button onClick={target ? () => setTarget(null) : onCancel}>
+          {target ? 'Back' : 'Cancel'}
+        </button>
+        {target && (
+          <button className="btn-primary" onClick={submit}>
+            Link {qty}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

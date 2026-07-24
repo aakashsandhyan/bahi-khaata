@@ -18,10 +18,12 @@
 package com.bahikhaata.backend.inventory;
 
 import com.bahikhaata.contracts.BacklogItem;
+import com.bahikhaata.contracts.ExtraRecord;
 import com.bahikhaata.contracts.IssueTypeOption;
 import com.bahikhaata.contracts.ProductStates;
 import com.bahikhaata.contracts.ProductSummary;
 import com.bahikhaata.contracts.ReviewItem;
+import com.bahikhaata.contracts.ShortLine;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
@@ -88,6 +90,28 @@ class RemediationController {
     List<ReviewItem> review() {
         return remediation.reviewList();
     }
+
+    /** Extras recorded against boxes, still held as their own product, waiting to be linked. */
+    @GetMapping("/extras")
+    List<ExtraRecord> extras() {
+        return remediation.extras();
+    }
+
+    /** The lines of a delivery still missing units — candidates an extra can be linked to fill. */
+    @GetMapping("/lots/{lotId}/shorts")
+    List<ShortLine> shorts(@PathVariable UUID lotId) {
+        return remediation.shortsInLot(lotId);
+    }
+
+    /** Reattribute an extra to the real product it turned out to be, filling that line's shortfall. */
+    @PostMapping("/link")
+    ResponseEntity<Void> link(@RequestBody LinkRequest request) {
+        remediation.linkExtra(
+                request.extraProductId(), request.targetLineId(), request.quantity(), Instant.now());
+        return ResponseEntity.noContent().build();
+    }
+
+    record LinkRequest(UUID extraProductId, UUID targetLineId, long quantity) {}
 
     /** Moves a quantity of a product's units from one state to another within an open lot. */
     @PostMapping("/change-state")

@@ -170,3 +170,24 @@ export interface CartonProgress {
   unitsUnlisted: number
   finished: boolean
 }
+
+export interface ExtraRecord {
+  productId: string
+  productName: string
+  categoryCode: string
+  lotId: string
+  boxTracking: string
+  code: string | null
+  quantity: number
+}
+
+export interface ShortLine {
+  lineId: string
+  productId: string
+  productName: string
+  asin: string
+  boxTracking: string
+  expected: number
+  counted: number
+  shortBy: number
+}
