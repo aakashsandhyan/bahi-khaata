@@ -52,6 +52,9 @@ export function Unpacking() {
   const [surplus, setSurplus] = useState<{ line: UnpackingLine; code: string } | null>(null)
   // A code that matches nothing on this box's sheet, being recorded as an extra found here.
   const [extra, setExtra] = useState<{ code: string } | null>(null)
+  // Set by "Add extra product": the next scan is taken as an extra rather than counted against a
+  // line — a deliberate escape from the sheet, added as its own product in this lot.
+  const [expectExtra, setExpectExtra] = useState(false)
   // A returns sticker scanned again though it already resolves. Usually a double-scan of the one
   // unit it names; sometimes a legitimate re-set after that unit's count was taken back. The person
   // says which, since the count is not tracked per sticker and the system cannot tell them apart.
@@ -103,6 +106,13 @@ export function Unpacking() {
 
   const onItem = async (code: string) => {
     if (!carton) return
+    // "Add extra product" was pressed: take this scan as an extra, straight past the sheet.
+    if (expectExtra) {
+      setExpectExtra(false)
+      setExtra({ code })
+      setStep('Add this extra as its own product.')
+      return
+    }
     const resolved = await unpacking.resolve(carton.boxId, code)
     // A returns sticker (LPN…) names one physical unit. Once scanned it is tagged and counted, so
     // it resolves from then on — which means a second scan of the same sticker is that same item,
@@ -306,6 +316,7 @@ export function Unpacking() {
     setSurplus(null)
     setRescan(null)
     setExtra(null)
+    setExpectExtra(false)
     say('Left the box as it is. Everything counted so far is saved. Scan another box.', 'ok')
     setStep('Scan the number printed on the next box.')
     focusScan()
@@ -434,6 +445,21 @@ export function Unpacking() {
       {carton && !choosing && !counting && !surplus && !rescan && !extra && (
         <>
           <ItemList lines={lines} onTakeBack={takeBack} />
+          <button
+            className={`btn-extra${expectExtra ? ' armed' : ''}`}
+            onClick={() => {
+              if (expectExtra) {
+                setExpectExtra(false)
+                setStep('Scan the next item, or press "Box is done".')
+              } else {
+                setExpectExtra(true)
+                setStep('Scan the extra item — it is added as its own product in this delivery.')
+              }
+              focusScan()
+            }}
+          >
+            {expectExtra ? '✕ Cancel — waiting to scan an extra' : '+ Add an extra product'}
+          </button>
           <div className="actions">
             <button onClick={leave}>Leave this box</button>
             <button className="btn-primary" onClick={() => finish()}>

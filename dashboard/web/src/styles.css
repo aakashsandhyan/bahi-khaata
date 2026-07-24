@@ -375,3 +375,11 @@ tr.damaged { background: var(--warn-tint); }
 .pile-toggle { cursor: pointer; user-select: none; }
 .pile-toggle:hover { color: var(--brand-dark); }
 .till-line-asin { font-size: 11px; color: var(--ink-faint); font-family: ui-monospace, monospace; margin: 1px 0 3px; }
+
+/* add-an-extra button on the box screen */
+.btn-extra {
+  display: block; width: 100%; margin: var(--s3) 0 0; padding: 12px; font-size: 15px;
+  border-radius: var(--r2); border: 1px dashed var(--brand); background: var(--brand-tint);
+  color: var(--brand); font-weight: 600;
+}
+.btn-extra.armed { background: var(--brand); border-style: solid; color: #fff; }
