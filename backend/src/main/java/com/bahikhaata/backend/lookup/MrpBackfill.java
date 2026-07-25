@@ -99,9 +99,12 @@ public class MrpBackfill {
 
         Map<String, Money> found = lookup.lookup(List.copyOf(byAsin.keySet()));
 
+        java.time.Instant at = java.time.Instant.now();
         int recorded = 0;
         int refused = 0;
         for (Map.Entry<String, List<Batch>> entry : byAsin.entrySet()) {
+            // Tried, found or not — mark so a later background fill does not ask it again.
+            entry.getValue().forEach(batch -> batch.getProduct().markMrpLookupAttempted(at));
             Money price = found.get(entry.getKey());
             if (price == null) {
                 continue;
@@ -130,15 +133,18 @@ public class MrpBackfill {
     }
 
     /**
-     * Every distinct marketplace reference held with no price yet — the work list for a background
-     * fill. Snapshotted once so the fill walks each item a single time; a look-up that finds nothing
-     * leaves the item unpriced, and re-attempting it forever is exactly what the snapshot avoids.
+     * Every distinct marketplace reference held with no price yet whose product has not already been
+     * tried — the work list for a background fill. A product tried once is skipped for good: the
+     * snapshot keeps one run from re-walking an item, and the attempted mark keeps every later run
+     * from re-scraping the same dead ends. A person holding the pack still reads it either way.
      */
     @Transactional(readOnly = true)
     public List<String> waitingAsins() {
         java.util.LinkedHashSet<String> asins = new java.util.LinkedHashSet<>();
         for (Batch batch : batches.findAll()) {
-            if (batch.getMrp() == null && batch.getQuantityReceived() > 0) {
+            if (batch.getMrp() == null
+                    && batch.getQuantityReceived() > 0
+                    && !batch.getProduct().isMrpLookupAttempted()) {
                 marketplaceCodeOf(batch.getProduct().getId()).ifPresent(asins::add);
             }
         }
@@ -149,6 +155,10 @@ public class MrpBackfill {
      * Looks up one chunk of ASINs and records what is found, each in its own transaction so a long
      * background fill commits as it goes rather than holding one lock for minutes. Only still-unpriced
      * held batches are touched, so a chunk is safe to run over items another pass already filled.
+     *
+     * <p>Every product in the chunk is marked as tried, found or not, so no later run scrapes it
+     * again. A chunk is small and the runner stops after a run of empty ones, which bounds how many
+     * items a source that is merely blocked can burn before the fill backs off.
      */
     @Transactional
     public int fillChunk(List<String> asins) {
@@ -156,22 +166,29 @@ public class MrpBackfill {
             return 0;
         }
         Map<String, Money> found = lookup.lookup(asins);
+        java.time.Instant at = java.time.Instant.now();
         int recorded = 0;
-        for (Map.Entry<String, Money> entry : found.entrySet()) {
+        for (String asin : asins) {
             com.bahikhaata.backend.catalog.Product product =
-                    barcodes.findByCode(entry.getKey())
+                    barcodes.findByCode(asin)
                             .map(com.bahikhaata.backend.catalog.Barcode::getProduct)
                             .orElse(null);
             if (product == null) {
                 continue;
             }
+            // Tried, whether or not a price came back — never ask this one again.
+            product.markMrpLookupAttempted(at);
+            Money price = found.get(asin);
+            if (price == null) {
+                continue;
+            }
             for (Batch batch : batches.findByProductId(product.getId())) {
                 if (batch.getMrp() == null && batch.getQuantityReceived() > 0) {
                     try {
-                        batch.recordMrp(entry.getValue(), true);
+                        batch.recordMrp(price, true);
                         recorded++;
                     } catch (RuntimeException e) {
-                        log.info("Refused a looked-up price for {}: {}", entry.getKey(), e.getMessage());
+                        log.info("Refused a looked-up price for {}: {}", asin, e.getMessage());
                     }
                 }
             }

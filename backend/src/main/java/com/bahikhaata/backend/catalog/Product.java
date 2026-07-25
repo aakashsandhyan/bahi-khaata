@@ -117,6 +117,16 @@ public class Product extends UuidEntity {
     @Column(name = "price_review_flagged", nullable = false)
     private boolean priceReviewFlagged;
 
+    /**
+     * When a price look-up last tried this product, or null if never. Recorded whether or not a
+     * price was found, so a background fill asks each product once and never scrapes the same dead
+     * end again. It bounds only the automatic pass — a person holding the pack still reads it, and
+     * a deliberate one-item suggestion is free to ask again.
+     */
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "mrp_lookup_attempted_at", columnDefinition = "text")
+    private Instant mrpLookupAttemptedAt;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -170,6 +180,20 @@ public class Product extends UuidEntity {
      */
     public boolean isPriced() {
         return sellingPrice != null;
+    }
+
+    /**
+     * Whether a price look-up has already tried this product. Once tried, a background fill leaves
+     * it alone: the same source asked twice returns the same answer, so a second scrape only spends
+     * the rate budget on a settled question.
+     */
+    public boolean isMrpLookupAttempted() {
+        return mrpLookupAttemptedAt != null;
+    }
+
+    /** Records that a look-up tried this product, found or not, so no later run repeats it. */
+    public void markMrpLookupAttempted(Instant at) {
+        this.mrpLookupAttemptedAt = Objects.requireNonNull(at, "at");
     }
 
     /**
