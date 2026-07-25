@@ -130,6 +130,56 @@ public class MrpBackfill {
     }
 
     /**
+     * Every distinct marketplace reference held with no price yet — the work list for a background
+     * fill. Snapshotted once so the fill walks each item a single time; a look-up that finds nothing
+     * leaves the item unpriced, and re-attempting it forever is exactly what the snapshot avoids.
+     */
+    @Transactional(readOnly = true)
+    public List<String> waitingAsins() {
+        java.util.LinkedHashSet<String> asins = new java.util.LinkedHashSet<>();
+        for (Batch batch : batches.findAll()) {
+            if (batch.getMrp() == null && batch.getQuantityReceived() > 0) {
+                marketplaceCodeOf(batch.getProduct().getId()).ifPresent(asins::add);
+            }
+        }
+        return List.copyOf(asins);
+    }
+
+    /**
+     * Looks up one chunk of ASINs and records what is found, each in its own transaction so a long
+     * background fill commits as it goes rather than holding one lock for minutes. Only still-unpriced
+     * held batches are touched, so a chunk is safe to run over items another pass already filled.
+     */
+    @Transactional
+    public int fillChunk(List<String> asins) {
+        if (!lookup.isAvailable() || asins.isEmpty()) {
+            return 0;
+        }
+        Map<String, Money> found = lookup.lookup(asins);
+        int recorded = 0;
+        for (Map.Entry<String, Money> entry : found.entrySet()) {
+            com.bahikhaata.backend.catalog.Product product =
+                    barcodes.findByCode(entry.getKey())
+                            .map(com.bahikhaata.backend.catalog.Barcode::getProduct)
+                            .orElse(null);
+            if (product == null) {
+                continue;
+            }
+            for (Batch batch : batches.findByProductId(product.getId())) {
+                if (batch.getMrp() == null && batch.getQuantityReceived() > 0) {
+                    try {
+                        batch.recordMrp(entry.getValue(), true);
+                        recorded++;
+                    } catch (RuntimeException e) {
+                        log.info("Refused a looked-up price for {}: {}", entry.getKey(), e.getMessage());
+                    }
+                }
+            }
+        }
+        return recorded;
+    }
+
+    /**
      * Looks up one line's printed price, for someone to accept or ignore.
      *
      * <p>Called while the goods are in hand, so it is deliberately not applied: the pack itself

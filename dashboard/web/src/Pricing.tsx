@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, BackendError } from './api'
-import type { MrpBackfillResult, PriceProposal, PriceableItem } from './types'
+import type { MrpBackfillStatus, PriceProposal, PriceableItem } from './types'
 import { rupees } from './money'
 
 /**
@@ -19,8 +19,7 @@ export function Pricing() {
   const [items, setItems] = useState<PriceableItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState<string | null>(null)
-  const [backfilling, setBackfilling] = useState(false)
-  const [backfill, setBackfill] = useState<MrpBackfillResult | null>(null)
+  const [mrp, setMrp] = useState<MrpBackfillStatus | null>(null)
 
   const load = () => {
     setError(null)
@@ -31,16 +30,31 @@ export function Pricing() {
   }
   useEffect(load, [])
 
-  const runBackfill = async () => {
-    setBackfilling(true)
-    setBackfill(null)
+  // Show a fill already in progress (or its last result) on open.
+  useEffect(() => {
+    api.mrpBackfillStatus().then(setMrp).catch(() => {})
+  }, [])
+
+  // While a background fill runs, poll it; refresh the priceable list once it finishes.
+  useEffect(() => {
+    if (!mrp?.running) return
+    const id = setInterval(() => {
+      api
+        .mrpBackfillStatus()
+        .then((s) => {
+          setMrp(s)
+          if (!s.running) load()
+        })
+        .catch(() => {})
+    }, 3000)
+    return () => clearInterval(id)
+  }, [mrp?.running])
+
+  const startBackfill = async () => {
     try {
-      setBackfill(await api.backfillMrp(25))
-      load()
+      setMrp(await api.startMrpBackfill())
     } catch (e) {
-      setError(e instanceof BackendError ? e.message : 'MRP backfill failed.')
-    } finally {
-      setBackfilling(false)
+      setError(e instanceof BackendError ? e.message : 'Could not start the MRP fill.')
     }
   }
 
@@ -55,17 +69,18 @@ export function Pricing() {
           What goods cost, what they fetch online, and what they may lawfully sell for. Set a
           price that earns, beats online, and stays under the MRP.
         </p>
-        <button className="btn-ghost" onClick={runBackfill} disabled={backfilling}>
-          {backfilling ? 'Looking up MRPs…' : '↻ Fill missing MRPs from Amazon (estimates)'}
+        <button className="btn-ghost" onClick={startBackfill} disabled={mrp?.running}>
+          {mrp?.running
+            ? `Filling MRPs… ${mrp.done}/${mrp.total}`
+            : '↻ Fill all missing MRPs in the background (estimates)'}
         </button>
       </header>
 
-      {backfill && (
-        <div className="banner ok">
-          MRP lookup: filled {backfill.recorded} of {backfill.attempted} tried
-          {backfill.refused > 0 ? `, ${backfill.refused} not found` : ''} — as estimates, to confirm
-          against the goods.
-          {backfill.message ? ` ${backfill.message}` : ''}
+      {mrp && (mrp.running || mrp.done > 0) && (
+        <div className={`banner ${mrp.running ? 'warn' : 'ok'}`}>
+          {mrp.running
+            ? `Filling MRPs in the background — ${mrp.done} of ${mrp.total} checked, ${mrp.recorded} priced (estimates). Leave this open or come back.`
+            : mrp.message}
         </div>
       )}
 

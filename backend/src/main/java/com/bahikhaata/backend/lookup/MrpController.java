@@ -18,6 +18,8 @@
 package com.bahikhaata.backend.lookup;
 
 import com.bahikhaata.contracts.MrpBackfillResult;
+import com.bahikhaata.contracts.MrpBackfillStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,14 +37,29 @@ import org.springframework.web.bind.annotation.RestController;
 class MrpController {
 
     private final MrpBackfill backfill;
+    private final MrpBackfillRunner runner;
 
-    MrpController(MrpBackfill backfill) {
+    MrpController(MrpBackfill backfill, MrpBackfillRunner runner) {
         this.backfill = backfill;
+        this.runner = runner;
     }
 
+    /** A bounded, synchronous run — a small first try before trusting the source. */
     @PostMapping("/backfill")
     MrpBackfillResult backfill(@RequestParam(defaultValue = "25") int limit) {
         MrpBackfill.Outcome o = backfill.run(limit);
         return new MrpBackfillResult(o.attempted(), o.recorded(), o.refused(), o.message());
+    }
+
+    /** Starts a background fill of every unpriced item; returns immediately with the progress. */
+    @PostMapping("/backfill/start")
+    MrpBackfillStatus start() {
+        return runner.start();
+    }
+
+    /** How the background fill is going, for the screen to poll. */
+    @GetMapping("/backfill/status")
+    MrpBackfillStatus backfillStatus() {
+        return runner.status();
     }
 }

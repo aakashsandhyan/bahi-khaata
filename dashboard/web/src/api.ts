@@ -5,7 +5,13 @@
 // sentence meant for a person. It is thrown as-is rather than turned into "request failed",
 // because the sentence is the useful part.
 
-import type { BulkResult, MrpBackfillResult, PriceProposal, PriceableItem } from './types'
+import type {
+  BulkResult,
+  MrpBackfillResult,
+  MrpBackfillStatus,
+  PriceProposal,
+  PriceableItem,
+} from './types'
 
 // Relative, so every call goes through this server, which proxies it to the backend. That keeps
 // the browser on one secure origin — needed for the camera — with no mixed content and no
@@ -67,6 +73,10 @@ export const api = {
   // Look up missing MRPs (bounded by a limit; each recorded as an estimate). Slow — a scrape each.
   backfillMrp: (limit: number) =>
     post<MrpBackfillResult>(`/api/admin/mrp/backfill?limit=${limit}`),
+
+  // Start a background fill of every unpriced item, and poll how it is going.
+  startMrpBackfill: () => post<MrpBackfillStatus>('/api/admin/mrp/backfill/start'),
+  mrpBackfillStatus: () => get<MrpBackfillStatus>('/api/admin/mrp/backfill/status'),
 }
 
 export { BackendError }

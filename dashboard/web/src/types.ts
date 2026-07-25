@@ -198,3 +198,11 @@ export interface MrpBackfillResult {
   refused: number
   message: string | null
 }
+
+export interface MrpBackfillStatus {
+  running: boolean
+  total: number
+  done: number
+  recorded: number
+  message: string
+}
