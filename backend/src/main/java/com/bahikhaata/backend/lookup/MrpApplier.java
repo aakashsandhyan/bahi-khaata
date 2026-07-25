@@ -129,6 +129,19 @@ class MrpApplier {
         return new Applied(recorded, refused);
     }
 
+    /**
+     * Clears the tried-mark for a set of references — used when a run stops because the source was
+     * blocking, so a source that never really answered leaves nothing burned behind it.
+     */
+    @Transactional
+    void forget(List<String> asins) {
+        for (String asin : asins) {
+            barcodes.findByCode(asin)
+                    .map(Barcode::getProduct)
+                    .ifPresent(Product::clearMrpLookupAttempted);
+        }
+    }
+
     /** The supplier's marketplace reference for a product, which is what a look-up takes. */
     @Transactional(readOnly = true)
     Optional<String> marketplaceCode(UUID productId) {

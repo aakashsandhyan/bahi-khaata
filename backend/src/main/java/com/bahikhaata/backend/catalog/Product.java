@@ -197,6 +197,15 @@ public class Product extends UuidEntity {
     }
 
     /**
+     * Clears the tried-mark, for a product a blocked source only appeared to try. A source that
+     * refused to answer never really tested it, so it must be free to try again when the source is
+     * healthy — otherwise one throttled afternoon would burn the catalogue to "tried, no price".
+     */
+    public void clearMrpLookupAttempted() {
+        this.mrpLookupAttemptedAt = null;
+    }
+
+    /**
      * Whether this product may be sold.
      *
      * <p>Requires a price and a recorded MRP. The MRP is not a formality: it is the printed

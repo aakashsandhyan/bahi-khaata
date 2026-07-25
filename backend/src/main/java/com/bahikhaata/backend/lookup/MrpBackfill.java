@@ -88,6 +88,14 @@ public class MrpBackfill {
     }
 
     /**
+     * Un-marks a set of references, for a run that stopped because the source was blocking. What a
+     * blocked source appeared to try was never a fair test, so it is freed to try again later.
+     */
+    public void forget(List<String> asins) {
+        applier.forget(asins);
+    }
+
+    /**
      * Looks up one chunk and records what is found. The scrape runs here with no transaction open,
      * so the single database connection stays free for scans and sales while it waits on the
      * network; only the short write that follows touches the database. Every product in the chunk is

@@ -85,11 +85,15 @@ public class MrpBackfillRunner {
                 done += chunk.size();
                 dryStreak = filled == 0 ? dryStreak + 1 : 0;
                 if (dryStreak >= DRY_STREAK_STOP && recorded == 0) {
+                    // Found nothing at all — the source is blocking, not the goods priceless. What
+                    // it appeared to try was no fair test, so free those items to try again later.
+                    backfill.forget(asins.subList(0, done));
                     status.set(
                             new MrpBackfillStatus(
-                                    false, asins.size(), done, recorded,
+                                    false, asins.size(), 0, recorded,
                                     "Stopped early — the source found nothing (likely throttling or"
-                                            + " blocking). Try again later, or read the packs."));
+                                            + " blocking). Nothing was marked tried; try again later,"
+                                            + " or read the packs."));
                     return;
                 }
                 status.set(new MrpBackfillStatus(true, asins.size(), done, recorded, "Filling…"));
@@ -99,6 +103,8 @@ public class MrpBackfillRunner {
                             false, asins.size(), done, recorded,
                             "Done: " + recorded + " priced as estimates — read the pack to confirm."));
         } catch (RuntimeException e) {
+            // An aborted run was not a fair test of what it had reached; free it to try again.
+            backfill.forget(asins.subList(0, done));
             log.warn("Background MRP fill stopped: {}", e.getMessage());
             status.set(
                     new MrpBackfillStatus(
