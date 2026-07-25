@@ -206,6 +206,9 @@ button:disabled { opacity: 0.45; cursor: default; }
 /* ---- delivery overview (idle) --------------------------------------------- */
 .overview-cards { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s4); }
 .ov-head { font-size: 13px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--s4) 0 var(--s2); }
+.mrp-fill { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin: 0 0 var(--s3); }
+.mrp-fill .btn-ghost { padding: 6px 8px; }
+.mrp-fill-note { font-size: 12px; color: var(--ink-faint); }
 .ov {
   padding: 14px 16px; background: var(--card); border: 1px solid var(--line);
   border-radius: var(--r2); box-shadow: var(--shadow);

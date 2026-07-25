@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { unpacking, remediation, BackendError } from './api'
+import { api, unpacking, remediation, BackendError } from './api'
 import type {
   CartonProgress,
   DeliveryProgress,
   IssueTypeOption,
+  MrpBackfillStatus,
   UnpackingCarton,
   UnpackingLine,
 } from './types'
@@ -475,7 +476,9 @@ export function Unpacking() {
         </>
       )}
 
-      {!carton && deliveries && <Overview deliveries={deliveries} onOpenBox={openBox} />}
+      {!carton && deliveries && (
+        <Overview deliveries={deliveries} onOpenBox={openBox} onRefresh={loadDeliveries} />
+      )}
     </div>
   )
 }
@@ -939,12 +942,15 @@ function DeliveryLine({
 function Overview({
   deliveries,
   onOpenBox,
+  onRefresh,
 }: {
   deliveries: DeliveryProgress[]
   onOpenBox: (tracking: string) => void
+  onRefresh: () => void
 }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [boxes, setBoxes] = useState<Record<string, CartonProgress[]>>({})
+  const waiting = deliveries.reduce((sum, d) => sum + d.itemsWithoutMrp, 0)
 
   const toggle = (lotId: string) => {
     if (expanded === lotId) {
@@ -964,6 +970,7 @@ function Overview({
   return (
     <div className="overview-cards">
       <div className="ov-head">Deliveries — tap a department to see boxes left</div>
+      <MrpFillBar waiting={waiting} onDone={onRefresh} />
       {[...deliveries]
         .sort((a, b) => b.unitsExpected - a.unitsExpected)
         .map((d) => {
@@ -1019,6 +1026,66 @@ function Overview({
             </div>
           )
         })}
+    </div>
+  )
+}
+
+/**
+ * Fill missing printed prices from a marketplace listing, in the background, right where the
+ * backlog shows. It never blocks unpacking: it runs on the server, one product is ever looked up
+ * once, and what it writes is an estimate to be confirmed against the pack — not a price read off
+ * the goods. The same control lives on Pricing; this puts it where the "no price" counts are seen.
+ */
+function MrpFillBar({ waiting, onDone }: { waiting: number; onDone: () => void }) {
+  const [mrp, setMrp] = useState<MrpBackfillStatus | null>(null)
+
+  // Show a fill already running (or its last result) on open.
+  useEffect(() => {
+    api.mrpBackfillStatus().then(setMrp).catch(() => {})
+  }, [])
+
+  // While one runs, poll it; refresh the delivery counts once it finishes.
+  useEffect(() => {
+    if (!mrp?.running) return
+    const id = setInterval(() => {
+      api
+        .mrpBackfillStatus()
+        .then((s) => {
+          setMrp(s)
+          if (!s.running) onDone()
+        })
+        .catch(() => {})
+    }, 3000)
+    return () => clearInterval(id)
+  }, [mrp?.running])
+
+  const start = async () => {
+    try {
+      setMrp(await api.startMrpBackfill())
+    } catch {
+      // A fill is best-effort; a failure to start is not worth interrupting unpacking over.
+    }
+  }
+
+  // Nothing waiting and nothing to report — stay out of the way.
+  if (waiting === 0 && !mrp?.running && !(mrp && mrp.done > 0)) return null
+
+  return (
+    <div className="mrp-fill">
+      <button className="btn-ghost" onClick={start} disabled={mrp?.running}>
+        {mrp?.running
+          ? `Filling prices… ${mrp.done}/${mrp.total}`
+          : '↻ Fill missing prices in the background (estimates)'}
+      </button>
+      {mrp && (mrp.running || mrp.done > 0) ? (
+        <span className="mrp-fill-note">
+          {mrp.running
+            ? `${mrp.done} of ${mrp.total} checked, ${mrp.recorded} priced`
+            : mrp.message}
+        </span>
+      ) : (
+        waiting > 0 && <span className="mrp-fill-note">{waiting} waiting on a price</span>
+      )}
     </div>
   )
 }
