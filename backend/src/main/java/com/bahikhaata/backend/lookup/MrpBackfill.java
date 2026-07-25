@@ -17,22 +17,12 @@
  */
 package com.bahikhaata.backend.lookup;
 
-import com.bahikhaata.backend.catalog.Barcode;
-import com.bahikhaata.backend.catalog.BarcodeRepository;
-import com.bahikhaata.backend.inventory.Batch;
-import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.contracts.Money;
-import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.contracts.SuggestedMrp;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Filling in printed prices nobody has read yet, in the background.
@@ -45,170 +35,86 @@ import org.springframework.transaction.annotation.Transactional;
  * pack; a number fetched from a website is evidence about that figure, not the figure. It never
  * overwrites one somebody read off the goods, and anyone holding the pack overrides it.
  *
- * <p>It never blocks anything. Called deliberately rather than on a timer, so it cannot start
- * competing with someone unpacking, and a failure is logged rather than raised — the shop
- * carries on exactly as it would with no internet at all, which is a state it must survive.
+ * <p>It never blocks anything. This class does the <em>network</em> half and holds no transaction
+ * while it does — the look-up takes seconds a page and SQLite runs on a single connection, so a
+ * scrape inside a transaction would freeze every scan and sale until it finished. The database half
+ * is {@link MrpApplier}, reached across a proxy so each write is its own short, committed unit. A
+ * failure is logged rather than raised — the shop carries on exactly as it would with no internet
+ * at all, which is a state it must survive.
  */
 @Service
 public class MrpBackfill {
 
-    private static final Logger log = LoggerFactory.getLogger(MrpBackfill.class);
-
     private final MrpLookup lookup;
-    private final BatchRepository batches;
-    private final BarcodeRepository barcodes;
+    private final MrpApplier applier;
 
-    MrpBackfill(MrpLookup lookup, BatchRepository batches, BarcodeRepository barcodes) {
+    MrpBackfill(MrpLookup lookup, MrpApplier applier) {
         this.lookup = lookup;
-        this.batches = batches;
-        this.barcodes = barcodes;
+        this.applier = applier;
     }
 
     /**
-     * Looks up every counted item that has no MRP, and records what is found as an estimate.
+     * Looks up a bounded batch of unpriced items and records what is found — a small first run to be
+     * tried before the source is trusted. The look-up runs outside any transaction.
      *
-     * @param limit how many to attempt, so a first run can be tried small before it is trusted
+     * @param limit how many distinct references to attempt
      */
-    @Transactional
     public Outcome run(int limit) {
         if (!lookup.isAvailable()) {
             return new Outcome(0, 0, 0, lookup.unavailableReason());
         }
-
-        // Only stock actually held. Looking up goods that never arrived spends money on
-        // questions nobody asked.
-        List<Batch> waiting =
-                batches.findAll().stream()
-                        .filter(batch -> batch.getMrp() == null)
-                        .limit(limit)
-                        .toList();
-        if (waiting.isEmpty()) {
-            return new Outcome(0, 0, 0, "Nothing is waiting on a price.");
+        List<String> asins = applier.waiting(limit);
+        if (asins.isEmpty()) {
+            return new Outcome(0, 0, 0,
+                    "Nothing is waiting on a price that has not already been tried.");
         }
-
-        Map<String, List<Batch>> byAsin = new LinkedHashMap<>();
-        for (Batch batch : waiting) {
-            marketplaceCodeOf(batch.getProduct().getId())
-                    .ifPresent(asin -> byAsin.computeIfAbsent(asin, key -> new ArrayList<>())
-                            .add(batch));
-        }
-        if (byAsin.isEmpty()) {
-            return new Outcome(waiting.size(), 0, 0,
-                    "None of these carry a marketplace reference to look up.");
-        }
-
-        Map<String, Money> found = lookup.lookup(List.copyOf(byAsin.keySet()));
-
-        java.time.Instant at = java.time.Instant.now();
-        int recorded = 0;
-        int refused = 0;
-        for (Map.Entry<String, List<Batch>> entry : byAsin.entrySet()) {
-            // Tried, found or not — mark so a later background fill does not ask it again.
-            entry.getValue().forEach(batch -> batch.getProduct().markMrpLookupAttempted(at));
-            Money price = found.get(entry.getKey());
-            if (price == null) {
-                continue;
-            }
-            for (Batch batch : entry.getValue()) {
-                try {
-                    // Marked an estimate, and subject to the same plausibility checks as a
-                    // figure typed by hand — a lookup is no more trustworthy than a person.
-                    batch.recordMrp(price, true);
-                    recorded++;
-                } catch (RuntimeException e) {
-                    refused++;
-                    log.info("Refused a looked-up price for {}: {}", entry.getKey(),
-                            e.getMessage());
-                }
-            }
-        }
-
+        Map<String, Money> found = lookup.lookup(asins); // slow network, no transaction held
+        MrpApplier.Applied applied = applier.apply(asins, found);
         return new Outcome(
-                byAsin.size(),
-                recorded,
-                refused,
-                recorded + " price(s) found and recorded as estimates. Anyone holding the goods"
-                        + " should still read the pack — an estimate is evidence, not the"
+                asins.size(),
+                applied.recorded(),
+                applied.refused(),
+                applied.recorded() + " price(s) found and recorded as estimates. Anyone holding the"
+                        + " goods should still read the pack — an estimate is evidence, not the"
                         + " printed figure.");
     }
 
     /**
-     * Every distinct marketplace reference held with no price yet whose product has not already been
-     * tried — the work list for a background fill. A product tried once is skipped for good: the
-     * snapshot keeps one run from re-walking an item, and the attempted mark keeps every later run
-     * from re-scraping the same dead ends. A person holding the pack still reads it either way.
+     * Every distinct marketplace reference held with no price yet and not already tried — the work
+     * list for a background fill, snapshotted once so the fill walks each item a single time.
      */
-    @Transactional(readOnly = true)
     public List<String> waitingAsins() {
-        java.util.LinkedHashSet<String> asins = new java.util.LinkedHashSet<>();
-        for (Batch batch : batches.findAll()) {
-            if (batch.getMrp() == null
-                    && batch.getQuantityReceived() > 0
-                    && !batch.getProduct().isMrpLookupAttempted()) {
-                marketplaceCodeOf(batch.getProduct().getId()).ifPresent(asins::add);
-            }
-        }
-        return List.copyOf(asins);
+        return applier.waitingUntried();
     }
 
     /**
-     * Looks up one chunk of ASINs and records what is found, each in its own transaction so a long
-     * background fill commits as it goes rather than holding one lock for minutes. Only still-unpriced
-     * held batches are touched, so a chunk is safe to run over items another pass already filled.
-     *
-     * <p>Every product in the chunk is marked as tried, found or not, so no later run scrapes it
-     * again. A chunk is small and the runner stops after a run of empty ones, which bounds how many
-     * items a source that is merely blocked can burn before the fill backs off.
+     * Looks up one chunk and records what is found. The scrape runs here with no transaction open,
+     * so the single database connection stays free for scans and sales while it waits on the
+     * network; only the short write that follows touches the database. Every product in the chunk is
+     * marked as tried, found or not, so no later run scrapes it again.
      */
-    @Transactional
     public int fillChunk(List<String> asins) {
         if (!lookup.isAvailable() || asins.isEmpty()) {
             return 0;
         }
-        Map<String, Money> found = lookup.lookup(asins);
-        java.time.Instant at = java.time.Instant.now();
-        int recorded = 0;
-        for (String asin : asins) {
-            com.bahikhaata.backend.catalog.Product product =
-                    barcodes.findByCode(asin)
-                            .map(com.bahikhaata.backend.catalog.Barcode::getProduct)
-                            .orElse(null);
-            if (product == null) {
-                continue;
-            }
-            // Tried, whether or not a price came back — never ask this one again.
-            product.markMrpLookupAttempted(at);
-            Money price = found.get(asin);
-            if (price == null) {
-                continue;
-            }
-            for (Batch batch : batches.findByProductId(product.getId())) {
-                if (batch.getMrp() == null && batch.getQuantityReceived() > 0) {
-                    try {
-                        batch.recordMrp(price, true);
-                        recorded++;
-                    } catch (RuntimeException e) {
-                        log.info("Refused a looked-up price for {}: {}", asin, e.getMessage());
-                    }
-                }
-            }
-        }
-        return recorded;
+        Map<String, Money> found = lookup.lookup(asins); // slow network, no transaction held
+        return applier.apply(asins, found).recorded();
     }
 
     /**
      * Looks up one line's printed price, for someone to accept or ignore.
      *
-     * <p>Called while the goods are in hand, so it is deliberately not applied: the pack itself
-     * is better evidence than any website, and the person holding it can simply read it. This
-     * exists for the packs where the figure has rubbed off, or was never printed.
+     * <p>Called while the goods are in hand, so it is deliberately not applied: the pack itself is
+     * better evidence than any website, and the person holding it can simply read it. This exists
+     * for the packs where the figure has rubbed off, or was never printed. The scrape runs outside
+     * any transaction, so a suggestion never freezes a scan happening at the same time.
      */
-    @Transactional(readOnly = true)
     public SuggestedMrp suggestFor(UUID productId) {
         if (!lookup.isAvailable()) {
             return SuggestedMrp.none(lookup.unavailableReason());
         }
-        return marketplaceCodeOf(productId)
+        return applier
+                .marketplaceCode(productId)
                 .map(
                         asin -> {
                             Money price = lookup.lookup(List.of(asin)).get(asin);
@@ -221,19 +127,11 @@ public class MrpBackfill {
                         "Nothing to look these up by. Read the price off the pack."));
     }
 
-    /** The supplier's marketplace reference for a product, which is what a lookup takes. */
-    private java.util.Optional<String> marketplaceCodeOf(UUID productId) {
-        return barcodes.findByProductId(productId).stream()
-                .filter(barcode -> barcode.getOrigin() == Origin.MARKETPLACE)
-                .map(Barcode::getCode)
-                .findFirst();
-    }
-
     /**
      * What a run did.
      *
-     * @param refused prices that came back and were rejected as implausible — worth knowing,
-     *     since a source returning nonsense should be noticed rather than absorbed
+     * @param refused prices that came back and were rejected as implausible — worth knowing, since a
+     *     source returning nonsense should be noticed rather than absorbed
      */
     public record Outcome(int attempted, int recorded, int refused, String message) {}
 }
