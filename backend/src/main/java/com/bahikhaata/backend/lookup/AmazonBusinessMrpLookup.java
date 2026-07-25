@@ -68,6 +68,7 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
     private final String refreshToken;
     private final String userEmail;
     private final String baseUrl;
+    private final String productRegion;
     private final String tokenUrl;
     private final HttpClient http =
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -81,7 +82,10 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
             @Value("${bahikhaata.amazonBusiness.clientSecret:}") String clientSecret,
             @Value("${bahikhaata.amazonBusiness.refreshToken:}") String refreshToken,
             @Value("${bahikhaata.amazonBusiness.userEmail:}") String userEmail,
-            @Value("${bahikhaata.amazonBusiness.baseUrl:}") String baseUrl,
+            // India routes through the Europe endpoint, so that is the default host.
+            @Value("${bahikhaata.amazonBusiness.baseUrl:https://eu.business-api.amazon.com}")
+                    String baseUrl,
+            @Value("${bahikhaata.amazonBusiness.productRegion:IN}") String productRegion,
             @Value("${bahikhaata.amazonBusiness.tokenUrl:https://api.amazon.com/auth/o2/token}")
                     String tokenUrl) {
         this.clientId = trim(clientId);
@@ -89,6 +93,7 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
         this.refreshToken = trim(refreshToken);
         this.userEmail = trim(userEmail);
         this.baseUrl = trim(baseUrl).replaceAll("/+$", "");
+        this.productRegion = trim(productRegion);
         this.tokenUrl = trim(tokenUrl);
     }
 
@@ -143,8 +148,13 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
     }
 
     private Map<String, Money> fetch(List<String> asins, String token) throws Exception {
+        // OFFERS must be requested for the price fields to come back; listPrice lives inside it.
         String body =
-                json.writeValueAsString(Map.of("productRegion", "IN", "asins", asins));
+                json.writeValueAsString(
+                        Map.of(
+                                "productIds", asins,
+                                "productRegion", productRegion,
+                                "facets", List.of("OFFERS")));
         HttpRequest request =
                 HttpRequest.newBuilder()
                         .uri(URI.create(baseUrl + "/products/2020-08-26/products/getProductsByAsins"))
@@ -164,9 +174,9 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
     }
 
     /**
-     * Pulls the printed price out of each product. Defensive by design: the response is walked for a
-     * {@code listPrice} amount under the field names Amazon has used ({@code amount}, {@code value}),
-     * so a small shape difference between accounts is a one-line change here, not a broken flow.
+     * Pulls the printed price out of each product: {@code listPrice} inside the first OFFERS entry,
+     * its amount at {@code value.amount}. Defensive over the amount's exact nesting, so a small shape
+     * difference between accounts is a one-line change here rather than a broken flow.
      */
     Map<String, Money> parse(String responseBody) throws Exception {
         Map<String, Money> found = new HashMap<>();
@@ -176,8 +186,8 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
             return found;
         }
         for (JsonNode product : products) {
-            String asin = text(product, "asin", "ASIN", "productId");
-            Money mrp = money(product.get("listPrice"));
+            String asin = text(product, "asin", "productId", "ASIN");
+            Money mrp = listPrice(product);
             if (asin != null && mrp != null) {
                 found.put(asin, mrp);
             }
@@ -185,18 +195,26 @@ public class AmazonBusinessMrpLookup implements MrpLookup {
         return found;
     }
 
-    private Money money(JsonNode price) {
-        if (price == null || price.isNull()) {
+    /** The list price of the first offer that carries one, in paise, or null if none does. */
+    private Money listPrice(JsonNode product) {
+        JsonNode offers = product.path("includedDataTypes").path("OFFERS");
+        if (!offers.isArray()) {
             return null;
         }
-        JsonNode amount = price.get("amount");
-        if (amount == null) amount = price.get("value");
-        if (amount == null && price.isNumber()) amount = price;
-        if (amount == null || !amount.isNumber()) {
-            return null;
+        for (JsonNode offer : offers) {
+            JsonNode listPrice = offer.get("listPrice");
+            if (listPrice == null) {
+                continue;
+            }
+            // Amazon nests the number at value.amount; tolerate a flatter amount for other accounts.
+            JsonNode amount = listPrice.path("value").get("amount");
+            if (amount == null) amount = listPrice.get("amount");
+            if (amount != null && amount.isNumber() && amount.decimalValue().signum() > 0) {
+                BigDecimal rupees = amount.decimalValue();
+                return Money.ofPaise(rupees.movePointRight(2).longValueExact());
+            }
         }
-        BigDecimal rupees = amount.decimalValue();
-        return rupees.signum() > 0 ? Money.ofPaise(rupees.movePointRight(2).longValueExact()) : null;
+        return null;
     }
 
     private String accessToken() throws Exception {

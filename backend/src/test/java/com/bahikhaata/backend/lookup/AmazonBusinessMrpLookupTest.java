@@ -32,17 +32,19 @@ class AmazonBusinessMrpLookupTest {
 
     private final AmazonBusinessMrpLookup lookup =
             new AmazonBusinessMrpLookup(
-                    "id", "secret", "refresh", "buyer@shop.in", "https://base", "https://token");
+                    "id", "secret", "refresh", "buyer@shop.in", "https://base", "IN", "https://token");
 
     @Test
-    @DisplayName("listPrice is read as MRP; a product without one is absent, not an error")
+    @DisplayName("listPrice inside OFFERS is read as MRP; a product without one is absent, not error")
     void parsesListPriceAsMrp() throws Exception {
         String body =
                 """
                 {"products": [
-                  {"asin": "B0AAA", "listPrice": {"amount": 499.00, "currencyCode": "INR"}},
-                  {"asin": "B0BBB", "listPrice": {"value": 1299, "currency": "INR"}},
-                  {"asin": "B0CCC"}
+                  {"asin": "B0AAA", "includedDataTypes": {"OFFERS": [
+                    {"listPrice": {"value": {"amount": 499.00, "currencyCode": "INR"}}}]}},
+                  {"productId": "B0BBB", "includedDataTypes": {"OFFERS": [
+                    {"listPrice": {"value": {"amount": 1299}}}]}},
+                  {"asin": "B0CCC", "includedDataTypes": {"OFFERS": [{}]}}
                 ]}
                 """;
 
@@ -57,7 +59,7 @@ class AmazonBusinessMrpLookupTest {
     @DisplayName("Unconfigured, it declares itself unavailable rather than failing")
     void unconfiguredIsUnavailable() {
         AmazonBusinessMrpLookup bare =
-                new AmazonBusinessMrpLookup("", "", "", "", "", "https://token");
+                new AmazonBusinessMrpLookup("", "", "", "", "", "IN", "https://token");
         assertThat(bare.isAvailable()).isFalse();
         assertThat(bare.unavailableReason()).contains("clientId", "baseUrl");
     }
