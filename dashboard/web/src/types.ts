@@ -171,6 +171,18 @@ export interface CartonProgress {
   finished: boolean
 }
 
+// A box worked recently, for the left rail that offers back the ones in hand.
+export interface RecentBox {
+  boxId: string
+  trackingNumber: string
+  categoryCode: string
+  unitsExpected: number
+  unitsCounted: number
+  unitsUnlisted: number
+  finished: boolean
+  lastActivityAt: string
+}
+
 export interface ExtraRecord {
   productId: string
   productName: string

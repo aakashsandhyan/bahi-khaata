@@ -5,6 +5,7 @@ import type {
   DeliveryProgress,
   IssueTypeOption,
   MrpBackfillStatus,
+  RecentBox,
   UnpackingCarton,
   UnpackingLine,
 } from './types'
@@ -60,7 +61,15 @@ export function Unpacking() {
   // unit it names; sometimes a legitimate re-set after that unit's count was taken back. The person
   // says which, since the count is not tracked per sticker and the system cannot tell them apart.
   const [rescan, setRescan] = useState<{ code: string; line: UnpackingLine } | null>(null)
-  const loadDeliveries = () => unpacking.deliveries().then(setDeliveries).catch(() => {})
+  // The boxes worked most recently — the left rail, so a box in hand is one tap away again.
+  const [recent, setRecent] = useState<RecentBox[]>([])
+  const loadRecent = () => unpacking.recentBoxes(5).then(setRecent).catch(() => {})
+  // Deliveries and the recent rail move together: every count, finish, or take-back that changes
+  // one changes the other, so refreshing here keeps both current without a call at every site.
+  const loadDeliveries = () => {
+    unpacking.deliveries().then(setDeliveries).catch(() => {})
+    loadRecent()
+  }
   useEffect(() => {
     loadDeliveries()
   }, [])
@@ -330,7 +339,9 @@ export function Unpacking() {
   }
 
   return (
-    <div className="unpack">
+    <div className="unpack-shell">
+      <RecentRail boxes={recent} current={carton?.trackingNumber ?? null} onOpen={openBox} />
+      <div className="unpack">
       <div className="unpack-head">
         <h1>
           {carton ? (
@@ -479,8 +490,80 @@ export function Unpacking() {
       {!carton && deliveries && (
         <Overview deliveries={deliveries} onOpenBox={openBox} onRefresh={loadDeliveries} />
       )}
+      </div>
     </div>
   )
+}
+
+/**
+ * The left rail of boxes worked most recently — the ones in hand. Opening a box records nothing, so
+ * this shows the last counted, extra-added, or finished, newest first; a tap reopens one. The box
+ * open right now is marked, even before its first count puts it in the list. Empty until the first
+ * box of a session is worked, so it stays out of the way at the very start.
+ */
+function RecentRail({
+  boxes,
+  current,
+  onOpen,
+}: {
+  boxes: RecentBox[]
+  current: string | null
+  onOpen: (tracking: string) => void
+}) {
+  if (boxes.length === 0 && !current) return null
+  // The box open right now may have no counts yet, so it is not in the list. Lead with it anyway —
+  // it is the most "in hand" of all — unless a count has already put it there.
+  const currentListed = current != null && boxes.some((b) => b.trackingNumber === current)
+  return (
+    <aside className="recent-rail">
+      <div className="rail-head">Recent boxes</div>
+      {current && !currentListed && (
+        <button className="rail-box on" onClick={() => onOpen(current)} title={current}>
+          <span className="rail-num">{current}</span>
+          <span className="rail-meta">
+            <span className="rail-cat">this box</span>
+          </span>
+          <span className="rail-when">open now</span>
+        </button>
+      )}
+      {boxes.map((b) => {
+        const done = b.unitsCounted + b.unitsUnlisted
+        const isCurrent = b.trackingNumber === current
+        return (
+          <button
+            key={b.boxId}
+            className={`rail-box${isCurrent ? ' on' : ''}`}
+            onClick={() => onOpen(b.trackingNumber)}
+            title={`${b.trackingNumber} — ${b.categoryCode}`}
+          >
+            <span className="rail-num">{b.trackingNumber}</span>
+            <span className="rail-meta">
+              <span className="rail-cat">{b.categoryCode}</span>
+              <span className="rail-count">
+                {done}/{b.unitsExpected}
+              </span>
+            </span>
+            <span className="rail-when">
+              {b.finished ? 'done' : isCurrent ? 'open now' : ago(b.lastActivityAt)}
+            </span>
+          </button>
+        )
+      })}
+    </aside>
+  )
+}
+
+/** A short "how long ago" for the rail — minutes, then hours, then days. */
+function ago(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000))
+  if (secs < 60) return 'just now'
+  const mins = Math.round(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.round(hrs / 24)}d ago`
 }
 
 function ScanField({

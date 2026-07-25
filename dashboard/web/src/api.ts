@@ -94,6 +94,7 @@ import type {
   UnpackingCarton as _UnpackingCarton,
   UnpackingLine as _UnpackingLine,
   CartonProgress as _CartonProgress,
+  RecentBox as _RecentBox,
 } from './types'
 
 function countBody(
@@ -121,6 +122,10 @@ export const unpacking = {
 
   // Every carton of a delivery and how far each is counted, for the "what to open next" list.
   boxesOf: (lotId: string) => getList<_CartonProgress>(`/api/unpacking/lots/${lotId}/boxes`),
+
+  // The boxes worked most recently, newest first — for the left rail. A tap reopens one.
+  recentBoxes: (limit = 5) =>
+    getList<_RecentBox>(`/api/unpacking/recent-boxes?limit=${limit}`),
 
   resolve: (boxId: string, code: string) =>
     getList<_UnpackingLine>(`/api/unpacking/boxes/${boxId}/resolve?code=${encodeURIComponent(code)}`),

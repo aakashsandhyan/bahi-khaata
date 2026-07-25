@@ -20,11 +20,19 @@ package com.bahikhaata.backend.inventory;
 import java.util.List;
 import java.util.UUID;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BoxRepository extends JpaRepository<Box, UUID> {
 
     List<Box> findByLotIdOrderByTrackingNumber(UUID lotId);
+
+    /**
+     * The boxes worked most recently, newest first — for the rail that offers back the ones in
+     * hand. A box nobody has touched has no activity time and is left out. Bounded by the caller's
+     * {@link Pageable} so only the few needed are fetched.
+     */
+    List<Box> findByLastActivityAtIsNotNullOrderByLastActivityAtDesc(Pageable pageable);
 
     Optional<Box> findByLotIdAndTrackingNumber(UUID lotId, String trackingNumber);
 

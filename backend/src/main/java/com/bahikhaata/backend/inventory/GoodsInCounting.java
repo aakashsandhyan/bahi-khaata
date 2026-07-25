@@ -29,6 +29,7 @@ import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.UnpackingCarton;
 import com.bahikhaata.contracts.UnpackingLine;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.RecentBox;
 import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
@@ -165,6 +166,7 @@ public class GoodsInCounting {
         // Counted against the expectation either way: a damaged unit still arrived, and a line
         // short by one damaged item is not short at all.
         line.recordCounted(quantity);
+        line.getBox().recordActivity(at); // this box was just worked — float it up the recent rail
         Batch batch =
                 addToBatch(
                         line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
@@ -301,6 +303,7 @@ public class GoodsInCounting {
         Box box = boxes.findById(boxId)
                 .orElseThrow(() -> new IllegalArgumentException("no such box: " + boxId));
         requireOpen(box.getLot());
+        box.recordActivity(at); // an extra is work on this box — float it up the recent rail
 
         Product product = resolveOrCreate(code, name, categoryCode);
 
@@ -472,15 +475,17 @@ public class GoodsInCounting {
                 .orElseThrow(() -> new IllegalArgumentException("no such box: " + boxId));
         requireOpen(box.getLot());
         box.finish(at);
+        box.recordActivity(at);
     }
 
     /** Reopens a carton marked finished by mistake. */
     @Transactional
-    public void reopenBox(UUID boxId) {
+    public void reopenBox(UUID boxId, Instant at) {
         Box box = boxes.findById(boxId)
                 .orElseThrow(() -> new IllegalArgumentException("no such box: " + boxId));
         requireOpen(box.getLot());
         box.reopen();
+        box.recordActivity(at); // reopened to be worked again — bring it back to the top
     }
 
     /**
@@ -669,6 +674,48 @@ public class GoodsInCounting {
                                     counted,
                                     unlisted,
                                     box.isFinished());
+                        })
+                .toList();
+    }
+
+    /**
+     * The boxes worked most recently, newest first — the rail that offers back the ones in hand.
+     *
+     * <p>Recency is the last count, extra, finish, or reopen, not the manifest order: a box nobody
+     * has touched does not appear. Only the few asked for are fetched, and each carries just enough
+     * to read at a glance and to reopen on a tap.
+     */
+    @Transactional(readOnly = true)
+    public List<RecentBox> recentBoxes(int limit) {
+        return boxes
+                .findByLastActivityAtIsNotNullOrderByLastActivityAtDesc(
+                        org.springframework.data.domain.PageRequest.of(0, Math.max(1, limit)))
+                .stream()
+                .map(
+                        box -> {
+                            List<ExpectedLine> lines =
+                                    expectedLines.findByBoxIdOrderByCode(box.getId());
+                            long expected =
+                                    lines.stream().mapToLong(ExpectedLine::getQuantityExpected).sum();
+                            long counted =
+                                    lines.stream().mapToLong(ExpectedLine::getQuantityCounted).sum();
+                            long unlisted =
+                                    unlistedFinds.findByBoxId(box.getId()).stream()
+                                            .mapToLong(UnlistedFind::getQuantity)
+                                            .sum();
+                            String category =
+                                    lines.isEmpty()
+                                            ? ""
+                                            : lines.get(0).getProduct().getCategory().code();
+                            return new RecentBox(
+                                    box.getId(),
+                                    box.getTrackingNumber(),
+                                    category,
+                                    expected,
+                                    counted,
+                                    unlisted,
+                                    box.isFinished(),
+                                    box.getLastActivityAt());
                         })
                 .toList();
     }

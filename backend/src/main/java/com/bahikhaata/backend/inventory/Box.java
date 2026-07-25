@@ -64,6 +64,15 @@ public class Box extends UuidEntity {
     @Column(name = "finished_at", columnDefinition = "text")
     private Instant finishedAt;
 
+    /**
+     * When someone last worked this box — counted a line, added an extra, finished it, or reopened
+     * it — or null if nobody has yet. Opening a box to look records nothing; only work counts. It is
+     * how the screen offers back the boxes in hand, most recent first.
+     */
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "last_activity_at", columnDefinition = "text")
+    private Instant lastActivityAt;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -113,6 +122,15 @@ public class Box extends UuidEntity {
     /** Reopens a box finished by mistake, so counting can continue. */
     public void reopen() {
         this.finishedAt = null;
+    }
+
+    /** Marks that the box was just worked, so it surfaces as recently opened. */
+    public void recordActivity(Instant at) {
+        this.lastActivityAt = Objects.requireNonNull(at, "activity time");
+    }
+
+    public Instant getLastActivityAt() {
+        return lastActivityAt;
     }
 
     public Instant getCreatedAt() {

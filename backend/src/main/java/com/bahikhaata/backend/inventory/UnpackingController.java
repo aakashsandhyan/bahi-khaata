@@ -24,6 +24,7 @@ import com.bahikhaata.contracts.DeliveryProgress;
 import com.bahikhaata.contracts.LearntCode;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.RecentBox;
 import com.bahikhaata.contracts.SuggestedMrp;
 import com.bahikhaata.contracts.StockCondition;
 import com.bahikhaata.contracts.UnpackingCarton;
@@ -66,6 +67,13 @@ class UnpackingController {
     @GetMapping("/lots/{lotId}/boxes")
     List<CartonProgress> boxesOf(@PathVariable UUID lotId) {
         return counting.progressOf(lotId);
+    }
+
+    /** The boxes worked most recently, newest first — the rail that offers back the ones in hand. */
+    @GetMapping("/recent-boxes")
+    List<RecentBox> recentBoxes(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int limit) {
+        return counting.recentBoxes(limit);
     }
 
     /**
@@ -222,7 +230,7 @@ class UnpackingController {
 
     @PostMapping("/boxes/{boxId}/reopen")
     ResponseEntity<Void> reopen(@PathVariable UUID boxId) {
-        counting.reopenBox(boxId);
+        counting.reopenBox(boxId, Instant.now());
         return ResponseEntity.noContent().build();
     }
 
