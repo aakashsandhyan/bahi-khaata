@@ -197,16 +197,17 @@ export function Unpacking() {
   // An extra the sheet did not name — recorded against this box, costed at the lot average.
   const recordExtra = async (name: string, categoryCode: string, mrpPaise: number | null) => {
     if (!carton || !extra) return
+    const code = extra.code
+    setExtra(null) // close before the request, so a repeat cannot record the extra twice
     try {
       await unpacking.unlisted(carton.boxId, {
-        code: extra.code,
+        code,
         name,
         categoryCode,
         quantity: 1,
         mrpPaise,
         mrpIsEstimate: false,
       })
-      setExtra(null)
       await refreshLines(carton.boxId)
       loadDeliveries()
       say('Recorded one extra found here.', 'ok')
@@ -227,13 +228,15 @@ export function Unpacking() {
     mrpIsEstimate: boolean,
   ) => {
     if (!carton) return
+    // Close the pane before the request, not after: while it stayed open a second Enter or a
+    // scanner's repeat could fire another count for the same line before the first returned.
+    setChoosing(null)
+    setCounting(null)
     const outcome = tagCode
       ? await unpacking.tag(
           line.lineId, tagCode, 1, mrpPaise, condition, remark, issueType, mrpIsEstimate,
         )
       : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark, issueType, mrpIsEstimate)
-    setChoosing(null)
-    setCounting(null)
     const fresh = await refreshLines(carton.boxId)
     loadDeliveries()
 
@@ -634,6 +637,11 @@ function CountPane({
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const touched = useRef(false)
   const mrpRef = useRef<HTMLInputElement>(null)
+  // One submit per pane: a scanner's repeat Enter, or a quick second press while the request is in
+  // flight, must not count the same item twice. The ref guards re-entry in the same tick; the state
+  // disables the button.
+  const sent = useRef(false)
+  const [sending, setSending] = useState(false)
   useEffect(() => {
     mrpRef.current?.focus()
   }, [])
@@ -661,6 +669,7 @@ function CountPane({
   const needsWork = condition === 'NEEDS_WORK'
 
   const submit = () => {
+    if (sent.current) return
     if (needsWork && !issue) {
       setError('Pick the kind of work it needs.')
       return
@@ -681,6 +690,8 @@ function CountPane({
         mrpPaise = Math.round(Number(cleaned) * 100)
       }
     }
+    sent.current = true
+    setSending(true)
     onSubmit(
       condition,
       sound ? null : remark.trim() || null,
@@ -782,8 +793,8 @@ function CountPane({
         </>
       )}
 
-      <button className="btn-primary big" onClick={submit}>
-        Submit
+      <button className="btn-primary big" onClick={submit} disabled={sending}>
+        {sending ? 'Saving…' : 'Submit'}
       </button>
     </div>
   )
@@ -875,6 +886,10 @@ function ExtraForm({
   const [category, setCategory] = useState(CATEGORIES[0])
   const [mrp, setMrp] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Same submit-once guard as CountPane: a repeat Enter or a quick second press must not record
+  // the same extra twice.
+  const sent = useRef(false)
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     remediation
@@ -884,6 +899,7 @@ function ExtraForm({
   }, [code])
 
   const submit = () => {
+    if (sent.current) return
     let mrpPaise: number | null = null
     const cleaned = mrp.trim().replace(/,/g, '').replace('₹', '')
     if (cleaned) {
@@ -894,12 +910,16 @@ function ExtraForm({
       mrpPaise = Math.round(Number(cleaned) * 100)
     }
     if (known) {
+      sent.current = true
+      setSending(true)
       onSubmit(known.name, known.categoryCode, mrpPaise)
     } else {
       if (!name.trim()) {
         setError('Give it a name so it can be found and priced.')
         return
       }
+      sent.current = true
+      setSending(true)
       onSubmit(name.trim(), category, mrpPaise)
     }
   }
@@ -960,8 +980,8 @@ function ExtraForm({
       {error && <p className="mrp-hint stop">{error}</p>}
 
       {known !== undefined && (
-        <button className="btn-primary big" onClick={submit}>
-          Record as extra
+        <button className="btn-primary big" onClick={submit} disabled={sending}>
+          {sending ? 'Saving…' : 'Record as extra'}
         </button>
       )}
     </div>
