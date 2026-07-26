@@ -488,6 +488,37 @@ tr.damaged { background: var(--warn-tint); }
 
 .flag.neutral { background: var(--line-soft); color: var(--ink-faint); }
 
+/* ============================================================================
+   Lot Management (create + manage lots)
+   ============================================================================ */
+.lot-management { max-width: 560px; margin: 0 auto; padding: var(--s4); }
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--card);
+  border-radius: var(--r2);
+  padding: var(--s5);
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header { font-size: 18px; font-weight: 600; margin-bottom: var(--s4); }
+.modal-body { margin-bottom: var(--s4); }
+.modal-footer { display: flex; gap: var(--s2); justify-content: flex-end; }
+
 /* On-paper unit count on a catalog row — the gap still to find. */
 .cat-onpaper { color: var(--warn); font-weight: 600; }
 .cat-count { color: var(--ink-soft); }
