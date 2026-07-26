@@ -29,9 +29,9 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 /**
- * Scanning boxes as they arrive. Quick Flow UI: lot selector → carton scan → progress.
+ * Unpacking items from a lot. Quick Flow UI: lot → box → item scan → MRP.
  */
-public class ReceivingScreen {
+public class UnpackingFromLotScreen {
 
   private static final Font HEADING = Font.font("System", FontWeight.BOLD, 26);
   private static final Font LARGE = Font.font("System", 48);
@@ -39,8 +39,9 @@ public class ReceivingScreen {
 
   private final BackendClient backend;
   private UUID currentLotId;
+  private String currentBoxId;
 
-  public ReceivingScreen(BackendClient backend) {
+  public UnpackingFromLotScreen(BackendClient backend) {
     this.backend = backend;
   }
 
@@ -48,86 +49,93 @@ public class ReceivingScreen {
     BorderPane root = new BorderPane();
     root.setStyle("-fx-padding: 20; -fx-font-family: 'System';");
 
-    // Header: lot name
-    Label header = new Label("Receiving");
+    // Header
+    Label header = new Label("Unpacking");
     header.setFont(HEADING);
     header.setStyle("-fx-text-fill: #1f2937;");
     BorderPane.setAlignment(header, Pos.CENTER_LEFT);
     root.setTop(header);
 
-    // Main: carton scan input + progress
+    // Main: lot selector, box selector, item scan
     VBox center = new VBox(20);
     center.setPadding(new Insets(40, 20, 20, 20));
     center.setAlignment(Pos.TOP_CENTER);
 
-    // Progress display
-    Label progressLabel = new Label("0 / 47 boxes");
-    progressLabel.setFont(LARGE);
-    progressLabel.setStyle("-fx-text-fill: #2563eb;");
-
-    Label lotLabel = new Label("LOT-0231 Kitchen Mix");
+    Label lotLabel = new Label("LOT-0231");
     lotLabel.setFont(NORMAL);
     lotLabel.setStyle("-fx-text-fill: #6b7280;");
 
-    // Carton scan input
-    TextField scanInput = new TextField();
-    scanInput.setPromptText("Scan carton ID...");
-    scanInput.setFont(Font.font("Courier", 20));
-    scanInput.setStyle("-fx-padding: 16; -fx-font-size: 20;");
-    scanInput.setPrefWidth(400);
-    scanInput.setOnAction(e -> {
-      String cartonId = scanInput.getText().trim();
-      if (!cartonId.isEmpty() && currentLotId != null) {
-        try {
-          // POST /api/lots/{lotId}/receive-box
-          backend.post("/api/lots/" + currentLotId + "/receive-box",
-              "{\"manifestCartonId\":\"" + cartonId + "\"}",
-              String.class);
-          feedback.setText("✓ " + cartonId + " received");
-          feedback.setStyle("-fx-text-fill: #10b981;");
-        } catch (Exception ex) {
-          feedback.setText("✗ " + ex.getMessage());
-          feedback.setStyle("-fx-text-fill: #ef4444;");
-        }
-        scanInput.clear();
-        scanInput.requestFocus();
-      }
-    });
+    Label boxLabel = new Label("BOX-0231-001");
+    boxLabel.setFont(NORMAL);
+    boxLabel.setStyle("-fx-text-fill: #6b7280;");
 
-    // Feedback label
+    // Item scan input
+    TextField itemInput = new TextField();
+    itemInput.setPromptText("Scan item or barcode...");
+    itemInput.setFont(Font.font("Courier", 20));
+    itemInput.setStyle("-fx-padding: 16; -fx-font-size: 20;");
+    itemInput.setPrefWidth(400);
+
+    // MRP input (appears after item scan)
+    TextField mrpInput = new TextField();
+    mrpInput.setPromptText("Enter MRP...");
+    mrpInput.setFont(Font.font("Courier", 16));
+    mrpInput.setStyle("-fx-padding: 12; -fx-font-size: 16;");
+    mrpInput.setPrefWidth(400);
+    mrpInput.setVisible(false);
+
+    // Feedback
     Label feedback = new Label();
     feedback.setFont(NORMAL);
     feedback.setStyle("-fx-text-fill: #10b981;");
 
-    center.getChildren().addAll(lotLabel, progressLabel, scanInput, feedback);
+    // Item scan handler
+    itemInput.setOnAction(e -> {
+      String itemCode = itemInput.getText().trim();
+      if (!itemCode.isEmpty() && currentLotId != null && currentBoxId != null) {
+        // In real implementation, would:
+        // 1. POST /api/stock-movements or similar
+        // 2. If product unknown, show MRP input
+        // 3. Record item count
+        feedback.setText("✓ Item scanned: " + itemCode);
+        itemInput.clear();
+        itemInput.requestFocus();
+      }
+    });
 
-    // Buttons: Not here / Damaged / Done
+    center.getChildren().addAll(lotLabel, boxLabel, itemInput, mrpInput, feedback);
+
+    // Buttons: Reject box, Next box, Done
     VBox bottom = new VBox(10);
     bottom.setPadding(new Insets(20));
     bottom.setStyle("-fx-alignment: center;");
 
-    Button notHereBtn = new Button("Not received");
-    notHereBtn.setPrefWidth(200);
-    notHereBtn.setStyle("-fx-padding: 10; -fx-font-size: 14;");
+    Button rejectBtn = new Button("Reject box");
+    rejectBtn.setPrefWidth(200);
+    rejectBtn.setStyle("-fx-padding: 10; -fx-font-size: 14;");
 
-    Button damagedBtn = new Button("Damaged");
-    damagedBtn.setPrefWidth(200);
-    damagedBtn.setStyle("-fx-padding: 10; -fx-font-size: 14;");
+    Button nextBtn = new Button("Next box");
+    nextBtn.setPrefWidth(200);
+    nextBtn.setStyle("-fx-padding: 10; -fx-font-size: 14;");
 
     Button doneBtn = new Button("Done");
     doneBtn.setPrefWidth(200);
     doneBtn.setStyle("-fx-padding: 10; -fx-font-size: 14; -fx-text-fill: white; -fx-background-color: #6b7280;");
 
-    bottom.getChildren().addAll(notHereBtn, damagedBtn, doneBtn);
+    bottom.getChildren().addAll(rejectBtn, nextBtn, doneBtn);
 
     root.setCenter(center);
     root.setBottom(bottom);
 
-    scanInput.requestFocus();
+    itemInput.requestFocus();
     return root;
   }
 
   public void setLotId(UUID lotId) {
     this.currentLotId = lotId;
+  }
+
+  public void setBoxId(String boxId) {
+    this.currentBoxId = boxId;
   }
 }
