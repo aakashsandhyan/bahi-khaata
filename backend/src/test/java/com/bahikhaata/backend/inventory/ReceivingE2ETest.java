@@ -19,7 +19,11 @@ package com.bahikhaata.backend.inventory;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.BoxState;
+import com.bahikhaata.contracts.LotState;
+import com.bahikhaata.contracts.Money;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -32,11 +36,15 @@ import org.springframework.transaction.annotation.Transactional;
 class ReceivingE2ETest {
 
   @Autowired private BoxReceiptRepository boxReceiptRepository;
+  @Autowired private LotRepository lotRepository;
   @Autowired private ReceivingService receivingService;
 
   @Test
   void receiveBoxTransitionsFromExpectedToReceived() {
-    UUID lotId = UUID.randomUUID();
+    Lot lot = lotRepository.save(
+        new Lot("Test Supplier", LocalDate.now(), Money.ofRupees(1000), Money.ZERO, AllocationMethod.RELATIVE_MRP));
+    UUID lotId = lot.getId();
+
     BoxReceipt box = new BoxReceipt(lotId, "BOX-001");
     boxReceiptRepository.save(box);
 
@@ -51,7 +59,10 @@ class ReceivingE2ETest {
 
   @Test
   void rejectBoxMarksAsNotReceived() {
-    UUID lotId = UUID.randomUUID();
+    Lot lot = lotRepository.save(
+        new Lot("Test Supplier", LocalDate.now(), Money.ofRupees(1000), Money.ZERO, AllocationMethod.RELATIVE_MRP));
+    UUID lotId = lot.getId();
+
     BoxReceipt box = new BoxReceipt(lotId, "BOX-002");
     boxReceiptRepository.save(box);
 
@@ -63,7 +74,10 @@ class ReceivingE2ETest {
 
   @Test
   void allBoxesTerminalGatesLotClose() {
-    UUID lotId = UUID.randomUUID();
+    Lot lot = lotRepository.save(
+        new Lot("Test Supplier", LocalDate.now(), Money.ofRupees(1000), Money.ZERO, AllocationMethod.RELATIVE_MRP));
+    UUID lotId = lot.getId();
+
     BoxReceipt box1 = new BoxReceipt(lotId, "BOX-001");
     BoxReceipt box2 = new BoxReceipt(lotId, "BOX-002");
     boxReceiptRepository.saveAll(List.of(box1, box2));
@@ -75,6 +89,7 @@ class ReceivingE2ETest {
     // Mark all terminal
     receivingService.markNotReceived(lotId, "BOX-001");
     receivingService.receiveBox(lotId, "BOX-002", java.time.Instant.now());
+    receivingService.markBoxUnpacking(lotId, "BOX-002");
     receivingService.markBoxUnpacked(lotId, "BOX-002");
 
     // Should not throw
