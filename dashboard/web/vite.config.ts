@@ -27,6 +27,10 @@ export default defineConfig({
     port: 5173,
     host: true, // reachable from other devices on the Wi-Fi
     https, // trusted https when the cert is present; plain http otherwise
+    // Allow an ngrok tunnel host through the dev server's host check, for temporary public
+    // access. The tunnel itself is gated by basic auth (ngrok --basic-auth); nothing here is
+    // a substitute for that — the app has no login of its own.
+    allowedHosts: ['.ngrok-free.app', '.ngrok.app'],
     // The API is proxied so the browser stays on one origin — no mixed content, no cross-origin.
     proxy: {
       '/api': {
