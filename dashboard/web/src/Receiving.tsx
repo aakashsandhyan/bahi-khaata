@@ -8,6 +8,7 @@ export function Receiving() {
   const [boxes, setBoxes] = useState<ReceivingBoxes | null>(null)
   const [cartonId, setCartonId] = useState('')
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
+  const [state, setState] = useState<'in-progress' | 'complete'>('in-progress')
 
   useEffect(() => {
     loadLots()
@@ -96,37 +97,79 @@ export function Receiving() {
   }
 
   if (!selectedLot) {
+    const inProgress = lots?.filter((l) => !l.receivingComplete) ?? []
+    const complete = lots?.filter((l) => l.receivingComplete) ?? []
+    const filtered = state === 'in-progress' ? inProgress : complete
+
     return (
       <div className="receiving">
         <h1>Receive Boxes</h1>
         {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
+
         {lots === null ? (
           <p>Loading lots…</p>
         ) : lots.length === 0 ? (
           <p>No open lots to receive.</p>
         ) : (
-          <div className="overview-cards">
-            {lots.map((lot) => {
-              const done = lot.received + lot.unpacked + lot.rejected + lot.notReceived
-              const pct = lot.expected ? Math.round((done / lot.expected) * 100) : 0
-              return (
-                <div key={lot.id} className="ov">
-                  <div className="ov-row" onClick={() => openLot(lot)}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="ov-name">{lot.supplier}</div>
-                      <div className="ov-stat">{lot.receivedOn}</div>
-                      <div className="ov-bar">
-                        <i style={{ width: `${pct}%` }} />
+          <>
+            <div className="tab-group" style={{ display: 'flex', gap: 'var(--s2)', marginBottom: 'var(--s3)', borderBottom: '1px solid var(--line-soft)' }}>
+              <button
+                onClick={() => setState('in-progress')}
+                style={{
+                  padding: '8px 16px',
+                  borderBottom: state === 'in-progress' ? '2px solid var(--brand)' : 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: state === 'in-progress' ? '600' : '400',
+                  color: state === 'in-progress' ? 'var(--brand)' : 'var(--ink-faint)',
+                }}
+              >
+                In Progress ({inProgress.length})
+              </button>
+              <button
+                onClick={() => setState('complete')}
+                style={{
+                  padding: '8px 16px',
+                  borderBottom: state === 'complete' ? '2px solid var(--brand)' : 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: state === 'complete' ? '600' : '400',
+                  color: state === 'complete' ? 'var(--brand)' : 'var(--ink-faint)',
+                }}
+              >
+                Complete ({complete.length})
+              </button>
+            </div>
+
+            {filtered.length === 0 ? (
+              <p style={{ color: 'var(--ink-faint)' }}>No lots in this category.</p>
+            ) : (
+              <div className="overview-cards">
+                {filtered.map((lot) => {
+                  const done = lot.received + lot.unpacked + lot.rejected + lot.notReceived
+                  const pct = lot.expected ? Math.round((done / lot.expected) * 100) : 0
+                  return (
+                    <div key={lot.id} className="ov">
+                      <div className="ov-row" onClick={() => openLot(lot)}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="ov-name">{lot.supplier}</div>
+                          <div className="ov-stat">{lot.receivedOn}</div>
+                          <div className="ov-bar">
+                            <i style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                        <div style={{ marginLeft: 'var(--s3)', textAlign: 'right', fontSize: '13px' }}>
+                          {done}/{lot.expected}
+                        </div>
                       </div>
                     </div>
-                    <div style={{ marginLeft: 'var(--s3)', textAlign: 'right', fontSize: '13px' }}>
-                      {done}/{lot.expected}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
     )
