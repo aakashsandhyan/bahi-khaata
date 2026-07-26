@@ -60,6 +60,7 @@ public class LotClosing {
     private final UnlistedFindRepository unlistedFinds;
     private final BoxRepository boxes;
     private final CostAllocator allocator;
+    private final ReceivingService receivingService;
 
     LotClosing(
             LotRepository lots,
@@ -67,13 +68,15 @@ public class LotClosing {
             ExpectedLineRepository expectedLines,
             UnlistedFindRepository unlistedFinds,
             BoxRepository boxes,
-            CostAllocator allocator) {
+            CostAllocator allocator,
+            ReceivingService receivingService) {
         this.lots = lots;
         this.batches = batches;
         this.expectedLines = expectedLines;
         this.unlistedFinds = unlistedFinds;
         this.boxes = boxes;
         this.allocator = allocator;
+        this.receivingService = receivingService;
     }
 
     /**
@@ -110,6 +113,9 @@ public class LotClosing {
             throw new IllegalStateException(
                     "lot " + lotId + " was already closed at " + lot.getClosedAt());
         }
+
+        // Verify all boxes are in terminal state (UNPACKED, NOT_RECEIVED, or REJECTED)
+        receivingService.validateLotCanClose(lotId);
 
         List<String> unopened = unopenedCartons(lotId);
         if (!unopened.isEmpty() && !confirmUnopenedCartons) {
