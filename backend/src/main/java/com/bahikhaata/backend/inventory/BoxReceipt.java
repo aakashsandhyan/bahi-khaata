@@ -29,13 +29,16 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Objects;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 /** Receipt record for a single carton/box in a lot. */
 @Entity
 @Table(name = "box_receipt")
 public class BoxReceipt extends UuidEntity {
 
+  @JdbcTypeCode(SqlTypes.CHAR)
   @Column(name = "lot_id", nullable = false)
   private java.util.UUID lotId;
 
