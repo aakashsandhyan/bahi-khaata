@@ -273,6 +273,24 @@ export const remediation = {
   }) => post<void>('/api/remediation/change-state', body),
 }
 
+// --- receiving ---
+
+import type {
+  LotSummary as _LotSummary,
+  ReceivingBoxes as _ReceivingBoxes,
+} from './types'
+
+export const receiving = {
+  lots: () => getList<_LotSummary>('/api/lots'),
+  boxes: (lotId: string) => get<_ReceivingBoxes>(`/api/lots/${lotId}/boxes`),
+  receiveBox: (lotId: string, manifestCartonId: string) =>
+    post(`/api/lots/${lotId}/receive-box`, { manifestCartonId }),
+  markNotReceived: (lotId: string, manifestCartonId: string) =>
+    post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
+  rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
+    post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
+}
+
 // --- catalog ---
 // Browsing the product catalogue by name and found status, and opening one product to its detail.
 // Setting a price on a catalogue product reuses api.setPrice — there is no separate endpoint for it.

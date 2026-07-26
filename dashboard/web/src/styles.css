@@ -480,3 +480,10 @@ tr.damaged { background: var(--warn-tint); }
 
 /* Second filter row (departments) sits just under the status tabs. */
 .cat-depts { margin-top: calc(-1 * var(--s2)); }
+
+/* ============================================================================
+   Receiving (warehouse operator)
+   ============================================================================ */
+.receiving { max-width: 560px; margin: 0 auto; padding: var(--s4); }
+
+.flag.neutral { background: var(--line-soft); color: var(--ink-faint); }

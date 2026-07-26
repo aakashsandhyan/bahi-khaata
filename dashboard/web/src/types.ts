@@ -244,3 +244,37 @@ export interface CatalogDetail {
   status: CatalogStatus
   priced: boolean
 }
+
+// --- receiving ---
+
+export interface LotSummary {
+  id: string
+  supplier: string
+  receivedOn: string
+  receivingComplete: boolean
+  expected: number
+  received: number
+  unpacked: number
+  rejected: number
+  notReceived: number
+}
+
+export interface ReceivingBox {
+  manifestCartonId: string
+  state: string
+  receivedAt: string | null
+  rejectedReason: string | null
+}
+
+export interface ReceivingBoxes {
+  boxes: ReceivingBox[]
+  receivingComplete: boolean
+  allTerminal: boolean
+  counts: {
+    expected: number
+    received: number
+    unpacked: number
+    rejected: number
+    notReceived: number
+  }
+}

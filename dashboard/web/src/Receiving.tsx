@@ -1,173 +1,229 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { receiving, BackendError } from './api'
+import type { LotSummary, ReceivingBoxes } from './types'
 
 export function Receiving() {
-  const [lotId, setLotId] = useState('')
+  const [lots, setLots] = useState<LotSummary[] | null>(null)
+  const [selectedLot, setSelectedLot] = useState<LotSummary | null>(null)
+  const [boxes, setBoxes] = useState<ReceivingBoxes | null>(null)
   const [cartonId, setCartonId] = useState('')
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
+
+  useEffect(() => {
+    loadLots()
+  }, [])
+
+  const loadLots = async () => {
+    try {
+      const data = await receiving.lots()
+      setLots(data)
+    } catch (err) {
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Cannot reach the system.',
+        tone: 'stop',
+      })
+    }
+  }
+
+  const openLot = async (lot: LotSummary) => {
+    setSelectedLot(lot)
+    try {
+      const data = await receiving.boxes(lot.id)
+      setBoxes(data)
+      setMessage(null)
+    } catch (err) {
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Cannot load boxes.',
+        tone: 'stop',
+      })
+    }
+  }
 
   const receiveBox = async () => {
-    if (!lotId || !cartonId) {
-      setMessage('Enter lot ID and carton ID')
-      return
-    }
-
+    if (!selectedLot || !cartonId) return
     try {
-      const response = await fetch(`/api/lots/${lotId}/receive-box`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manifestCartonId: cartonId }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setMessage(`✓ ${cartonId} received (${data.lot.receivedCount}/${data.lot.totalExpected})`)
-        setCartonId('')
-      } else {
-        setMessage('✗ Error: ' + (await response.text()))
-      }
+      await receiving.receiveBox(selectedLot.id, cartonId)
+      setMessage({ text: `✓ ${cartonId} received`, tone: 'ok' })
+      setCartonId('')
+      await openLot(selectedLot)
+      await loadLots()
     } catch (err) {
-      setMessage('✗ Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Error receiving box.',
+        tone: 'stop',
+      })
     }
   }
 
   const markNotReceived = async () => {
-    if (!lotId || !cartonId) {
-      setMessage('Enter lot ID and carton ID')
-      return
-    }
-
+    if (!selectedLot || !cartonId) return
     try {
-      const response = await fetch(`/api/lots/${lotId}/reject-box`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manifestCartonId: cartonId, reason: 'NOT_RECEIVED' }),
-      })
-
-      if (response.ok) {
-        setMessage(`✓ ${cartonId} marked not received`)
-        setCartonId('')
-      } else {
-        setMessage('✗ Error')
-      }
+      await receiving.markNotReceived(selectedLot.id, cartonId)
+      setMessage({ text: `✓ ${cartonId} marked not received`, tone: 'warn' })
+      setCartonId('')
+      await openLot(selectedLot)
+      await loadLots()
     } catch (err) {
-      setMessage('✗ Error')
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Error.',
+        tone: 'stop',
+      })
     }
+  }
+
+  const rejectBox = async () => {
+    if (!selectedLot || !cartonId) return
+    try {
+      await receiving.rejectBox(selectedLot.id, cartonId, 'Damaged at dock')
+      setMessage({ text: `✓ ${cartonId} marked damaged`, tone: 'warn' })
+      setCartonId('')
+      await openLot(selectedLot)
+      await loadLots()
+    } catch (err) {
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Error.',
+        tone: 'stop',
+      })
+    }
+  }
+
+  const closeLot = () => {
+    setSelectedLot(null)
+    setBoxes(null)
+    setCartonId('')
+    setMessage(null)
+    loadLots()
+  }
+
+  if (!selectedLot) {
+    return (
+      <div className="receiving">
+        <h1>Receive Boxes</h1>
+        {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
+        {lots === null ? (
+          <p>Loading lots…</p>
+        ) : lots.length === 0 ? (
+          <p>No open lots to receive.</p>
+        ) : (
+          <div className="overview-cards">
+            {lots.map((lot) => {
+              const done = lot.received + lot.unpacked + lot.rejected + lot.notReceived
+              const pct = lot.expected ? Math.round((done / lot.expected) * 100) : 0
+              return (
+                <div key={lot.id} className="ov">
+                  <div className="ov-row" onClick={() => openLot(lot)}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ov-name">{lot.supplier}</div>
+                      <div className="ov-stat">{lot.receivedOn}</div>
+                      <div className="ov-bar">
+                        <i style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                    <div style={{ marginLeft: 'var(--s3)', textAlign: 'right', fontSize: '13px' }}>
+                      {done}/{lot.expected}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
     <div className="receiving">
-      <h2>Receive Boxes</h2>
-
-      <div className="input-group">
-        <label>Lot ID</label>
-        <input
-          type="text"
-          value={lotId}
-          onChange={(e) => setLotId(e.target.value)}
-          placeholder="LOT-0231"
-        />
-      </div>
-
-      <div className="input-group">
-        <label>Carton ID</label>
-        <input
-          type="text"
-          value={cartonId}
-          onChange={(e) => setCartonId(e.target.value)}
-          placeholder="BOX-0231-001"
-          onKeyDown={(e) => e.key === 'Enter' && receiveBox()}
-          autoFocus
-        />
-      </div>
-
-      <div className="button-group">
-        <button onClick={receiveBox} className="primary">
-          📦 Receive
-        </button>
-        <button onClick={markNotReceived} className="secondary">
-          ✗ Not Received
-        </button>
-      </div>
-
-      {message && (
-        <div
-          className={`message ${message.startsWith('✓') ? 'success' : 'error'}`}
-          style={{ marginTop: '20px' }}
+      <h1>
+        {selectedLot.supplier}
+        <button
+          className="back"
+          onClick={closeLot}
+          style={{ marginLeft: 'auto', display: 'inline-block' }}
         >
-          {message}
+          ← Back
+        </button>
+      </h1>
+
+      {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
+
+      {boxes && (
+        <div style={{ fontSize: '15px', marginBottom: 'var(--s3)', color: 'var(--brand)' }}>
+          {boxes.counts.received + boxes.counts.unpacked + boxes.counts.rejected + boxes.counts.notReceived} /{' '}
+          {boxes.counts.expected} boxes
         </div>
       )}
 
-      <style>{`
-        .receiving {
-          max-width: 500px;
-          margin: 0 auto;
-          padding: 20px;
-        }
+      <input
+        className="scan"
+        placeholder="Scan carton ID"
+        value={cartonId}
+        onChange={(e) => setCartonId(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && receiveBox()}
+        autoFocus
+      />
 
-        .receiving h2 {
-          margin-bottom: 20px;
-        }
+      <div className="button-group" style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
+        <button className="btn-primary" onClick={receiveBox} style={{ flex: 1 }}>
+          📦 Receive
+        </button>
+        <button className="btn-warn" onClick={markNotReceived} style={{ flex: 1 }}>
+          ✗ Not Received
+        </button>
+        <button className="btn-warn" onClick={rejectBox} style={{ flex: 1 }}>
+          📦 Damaged
+        </button>
+      </div>
 
-        .input-group {
-          margin-bottom: 15px;
-        }
+      {boxes && (
+        <div className="items" style={{ marginTop: 'var(--s3)' }}>
+          {boxes.boxes.map((box) => (
+            <div key={box.manifestCartonId} className="item">
+              <div className="who">
+                <div>{box.manifestCartonId}</div>
+                {box.receivedAt && <div className="meta">{new Date(box.receivedAt).toLocaleTimeString()}</div>}
+              </div>
+              <div className="countcol">
+                <span
+                  className={`flag ${
+                    box.state === 'EXPECTED' || box.state === 'RECEIVED' || box.state === 'UNPACKING'
+                      ? 'ok'
+                      : 'stop'
+                  }${box.state === 'EXPECTED' ? '.neutral' : ''}`}
+                  style={{
+                    background:
+                      box.state === 'EXPECTED'
+                        ? 'var(--line-soft)'
+                        : box.state === 'RECEIVED' || box.state === 'UNPACKING'
+                          ? 'var(--good-tint)'
+                          : 'var(--stop-tint)',
+                    color:
+                      box.state === 'EXPECTED'
+                        ? 'var(--ink-faint)'
+                        : box.state === 'RECEIVED' || box.state === 'UNPACKING'
+                          ? 'var(--good)'
+                          : 'var(--stop)',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                  }}
+                >
+                  {box.state}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-        .input-group label {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: 500;
-        }
-
-        .input-group input {
-          width: 100%;
-          padding: 10px;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          font-size: 16px;
-        }
-
-        .button-group {
-          display: flex;
-          gap: 10px;
-          margin-top: 20px;
-        }
-
-        .button-group button {
-          flex: 1;
-          padding: 12px;
-          font-size: 14px;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-
-        .button-group button.primary {
-          background: #2563eb;
-          color: white;
-        }
-
-        .button-group button.secondary {
-          background: #e5e7eb;
-          color: #333;
-        }
-
-        .message {
-          padding: 10px;
-          border-radius: 4px;
-          text-align: center;
-        }
-
-        .message.success {
-          background: #d1fae5;
-          color: #065f46;
-        }
-
-        .message.error {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-      `}</style>
+      {boxes && boxes.allTerminal && (
+        <div className="actions" style={{ marginTop: 'var(--s3)' }}>
+          <button className="btn-primary" onClick={closeLot} style={{ flex: 1 }}>
+            Done
+          </button>
+        </div>
+      )}
     </div>
   )
 }
