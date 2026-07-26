@@ -98,7 +98,22 @@ public class TerminalApplication extends Application {
      * later, and there is nothing to check out until this is done.
      */
     private void showUnpacking(javafx.scene.Scene scene) {
-        scene.setRoot(new UnpackingScreen(backend).getRoot());
+        MenuScreen.MenuCallback callback = new MenuScreen.MenuCallback() {
+            @Override
+            public void showReceiving() {
+                ReceivingScreen receiving = new ReceivingScreen(backend);
+                scene.setRoot(receiving.build());
+            }
+
+            @Override
+            public void showUnpacking() {
+                UnpackingFromLotScreen unpacking = new UnpackingFromLotScreen(backend);
+                scene.setRoot(unpacking.build());
+            }
+        };
+
+        MenuScreen menu = new MenuScreen(backend, callback);
+        scene.setRoot(menu.build());
     }
 
     @Override
