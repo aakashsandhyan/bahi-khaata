@@ -181,6 +181,7 @@ export function Unpacking() {
   // Broken goods are never sold, so their MRP is dropped whatever was typed; an empty MRP field
   // means none was printed and the goods are counted unpriced, to be found later in the backlog.
   const submitCount = (
+    quantity: number,
     condition: Condition,
     remark: string | null,
     mrpPaise: number | null,
@@ -189,9 +190,16 @@ export function Unpacking() {
   ) => {
     if (!counting) return
     const mrp = condition === 'UNUSABLE' ? null : mrpPaise
-    record(counting.line, counting.tagCode, condition, remark, mrp, issueType, mrpIsEstimate).catch(
-      fail,
-    )
+    record(
+      counting.line,
+      counting.tagCode,
+      quantity,
+      condition,
+      remark,
+      mrp,
+      issueType,
+      mrpIsEstimate,
+    ).catch(fail)
   }
 
   // An extra the sheet did not name — recorded against this box, costed at the lot average.
@@ -221,6 +229,7 @@ export function Unpacking() {
   const record = async (
     line: UnpackingLine,
     tagCode: string | null,
+    quantity: number,
     condition: Condition,
     remark: string | null,
     mrpPaise: number | null,
@@ -234,9 +243,11 @@ export function Unpacking() {
     setCounting(null)
     const outcome = tagCode
       ? await unpacking.tag(
-          line.lineId, tagCode, 1, mrpPaise, condition, remark, issueType, mrpIsEstimate,
+          line.lineId, tagCode, quantity, mrpPaise, condition, remark, issueType, mrpIsEstimate,
         )
-      : await unpacking.count(line.lineId, 1, mrpPaise, condition, remark, issueType, mrpIsEstimate)
+      : await unpacking.count(
+          line.lineId, quantity, mrpPaise, condition, remark, issueType, mrpIsEstimate,
+        )
     const fresh = await refreshLines(carton.boxId)
     loadDeliveries()
 
@@ -612,6 +623,7 @@ function CountPane({
 }: {
   line: UnpackingLine
   onSubmit: (
+    quantity: number,
     condition: Condition,
     remark: string | null,
     mrpPaise: number | null,
@@ -621,6 +633,9 @@ function CountPane({
   onBack: () => void
 }) {
   const [condition, setCondition] = useState<Condition>('GOOD')
+  const [qty, setQty] = useState(1)
+  // Surplus lines have outstanding 0 — a real extra unit still counts as one.
+  const maxQty = Math.max(1, line.outstanding)
   const [remark, setRemark] = useState('')
   // Prefilled with the price already read off this product earlier in the delivery, so a later
   // unit shows it back rather than asking again; editable in case this pack is printed different.
@@ -668,8 +683,13 @@ function CountPane({
   const broken = condition === 'UNUSABLE'
   const needsWork = condition === 'NEEDS_WORK'
 
-  const submit = () => {
+  const submit = (overrideQty?: number) => {
     if (sent.current) return
+    const q = overrideQty ?? qty
+    if (!Number.isInteger(q) || q < 1 || q > maxQty) {
+      setError(`Count must be between 1 and ${maxQty}.`)
+      return
+    }
     if (needsWork && !issue) {
       setError('Pick the kind of work it needs.')
       return
@@ -693,6 +713,7 @@ function CountPane({
     sent.current = true
     setSending(true)
     onSubmit(
+      q,
       condition,
       sound ? null : remark.trim() || null,
       mrpPaise,
@@ -793,7 +814,30 @@ function CountPane({
         </>
       )}
 
-      <button className="btn-primary big" onClick={submit} disabled={sending}>
+      <div className="count-qty-row">
+        <label>
+          How many?
+          <input
+            className="count-qty-in"
+            type="number"
+            min={1}
+            max={maxQty}
+            value={qty}
+            onChange={(e) => {
+              setQty(Math.min(maxQty, Math.max(1, Math.floor(Number(e.target.value) || 1))))
+              setError(null)
+            }}
+          />
+        </label>
+        <span className="count-qty-left">{line.outstanding} left</span>
+        {maxQty > 1 && (
+          <button type="button" className="count-qty-all" onClick={() => submit(maxQty)}>
+            Count all {maxQty}
+          </button>
+        )}
+      </div>
+
+      <button className="btn-primary big" onClick={() => submit()} disabled={sending}>
         {sending ? 'Saving…' : 'Submit'}
       </button>
     </div>

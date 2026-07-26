@@ -227,6 +227,14 @@ button:disabled { opacity: 0.45; cursor: default; }
 .mrp-hint { font-size: 13px; color: var(--ink-faint); margin: 2px 0 0; }
 .mrp-hint.stop { color: var(--stop); }
 
+/* quantity picker on the count pane — named distinctly from the unrelated .qty-row on Prep's
+   move-form, since both classes live in this same global stylesheet */
+.count-qty-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 2px; }
+.count-qty-row label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.count-qty-in { width: 84px; font-size: 18px; padding: 8px 10px; text-align: center; }
+.count-qty-left { color: var(--ink-faint); font-size: 13px; }
+.count-qty-all { margin-left: auto; }
+
 .back { border: none; background: transparent; color: var(--brand); font-size: 16px; padding: 4px 0; margin-bottom: var(--s2); }
 
 /* ---- delivery overview (idle) --------------------------------------------- */
