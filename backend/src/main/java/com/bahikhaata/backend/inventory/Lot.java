@@ -100,6 +100,9 @@ public class Lot extends UuidEntity {
     @Column(name = "receiving_complete", nullable = false)
     private boolean receivingComplete = false;
 
+    @Column(name = "is_manual", nullable = false)
+    private boolean isManual = false;
+
     /** For Hibernate. */
     protected Lot() {}
 
@@ -109,12 +112,23 @@ public class Lot extends UuidEntity {
             Money amountPaid,
             Money freight,
             AllocationMethod allocationMethod) {
+        this(supplier, receivedOn, amountPaid, freight, allocationMethod, false);
+    }
+
+    public Lot(
+            String supplier,
+            LocalDate receivedOn,
+            Money amountPaid,
+            Money freight,
+            AllocationMethod allocationMethod,
+            boolean isManual) {
         super(newId());
         this.supplier = Objects.requireNonNull(supplier, "supplier");
         this.receivedOn = Objects.requireNonNull(receivedOn, "receivedOn");
         this.amountPaid = Objects.requireNonNull(amountPaid, "amountPaid");
         this.freight = Objects.requireNonNull(freight, "freight");
         this.allocationMethod = Objects.requireNonNull(allocationMethod, "allocationMethod");
+        this.isManual = isManual;
     }
 
     /**
@@ -190,5 +204,13 @@ public class Lot extends UuidEntity {
 
     public void setReceivingComplete(boolean receivingComplete) {
         this.receivingComplete = receivingComplete;
+    }
+
+    public boolean isManual() {
+        return isManual;
+    }
+
+    public void setIsManual(boolean isManual) {
+        this.isManual = isManual;
     }
 }
