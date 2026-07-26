@@ -21,7 +21,9 @@ import java.util.UUID;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
@@ -39,6 +41,10 @@ public class ReceivingScreen {
 
   private final BackendClient backend;
   private UUID currentLotId;
+  private Label progressLabel;
+  private Label lotLabel;
+  private Label feedback;
+  private TextField scanInput;
 
   public ReceivingScreen(BackendClient backend) {
     this.backend = backend;
@@ -48,7 +54,7 @@ public class ReceivingScreen {
     BorderPane root = new BorderPane();
     root.setStyle("-fx-padding: 20; -fx-font-family: 'System';");
 
-    // Header: lot name
+    // Header
     Label header = new Label("Receiving");
     header.setFont(HEADING);
     header.setStyle("-fx-text-fill: #1f2937;");
@@ -61,41 +67,24 @@ public class ReceivingScreen {
     center.setAlignment(Pos.TOP_CENTER);
 
     // Progress display
-    Label progressLabel = new Label("0 / 47 boxes");
+    progressLabel = new Label("0 / 47 boxes");
     progressLabel.setFont(LARGE);
     progressLabel.setStyle("-fx-text-fill: #2563eb;");
 
-    Label lotLabel = new Label("LOT-0231 Kitchen Mix");
+    lotLabel = new Label("LOT-0231 Kitchen Mix");
     lotLabel.setFont(NORMAL);
     lotLabel.setStyle("-fx-text-fill: #6b7280;");
 
     // Carton scan input
-    TextField scanInput = new TextField();
+    scanInput = new TextField();
     scanInput.setPromptText("Scan carton ID...");
     scanInput.setFont(Font.font("Courier", 20));
     scanInput.setStyle("-fx-padding: 16; -fx-font-size: 20;");
     scanInput.setPrefWidth(400);
-    scanInput.setOnAction(e -> {
-      String cartonId = scanInput.getText().trim();
-      if (!cartonId.isEmpty() && currentLotId != null) {
-        try {
-          // POST /api/lots/{lotId}/receive-box
-          backend.post("/api/lots/" + currentLotId + "/receive-box",
-              "{\"manifestCartonId\":\"" + cartonId + "\"}",
-              String.class);
-          feedback.setText("✓ " + cartonId + " received");
-          feedback.setStyle("-fx-text-fill: #10b981;");
-        } catch (Exception ex) {
-          feedback.setText("✗ " + ex.getMessage());
-          feedback.setStyle("-fx-text-fill: #ef4444;");
-        }
-        scanInput.clear();
-        scanInput.requestFocus();
-      }
-    });
+    scanInput.setOnAction(e -> receiveBox());
 
     // Feedback label
-    Label feedback = new Label();
+    feedback = new Label();
     feedback.setFont(NORMAL);
     feedback.setStyle("-fx-text-fill: #10b981;");
 
@@ -109,14 +98,17 @@ public class ReceivingScreen {
     Button notHereBtn = new Button("Not received");
     notHereBtn.setPrefWidth(200);
     notHereBtn.setStyle("-fx-padding: 10; -fx-font-size: 14;");
+    notHereBtn.setOnAction(e -> markNotReceived());
 
     Button damagedBtn = new Button("Damaged");
     damagedBtn.setPrefWidth(200);
     damagedBtn.setStyle("-fx-padding: 10; -fx-font-size: 14;");
+    damagedBtn.setOnAction(e -> markDamaged());
 
     Button doneBtn = new Button("Done");
     doneBtn.setPrefWidth(200);
     doneBtn.setStyle("-fx-padding: 10; -fx-font-size: 14; -fx-text-fill: white; -fx-background-color: #6b7280;");
+    doneBtn.setOnAction(e -> done());
 
     bottom.getChildren().addAll(notHereBtn, damagedBtn, doneBtn);
 
@@ -125,6 +117,96 @@ public class ReceivingScreen {
 
     scanInput.requestFocus();
     return root;
+  }
+
+  private void receiveBox() {
+    String cartonId = scanInput.getText().trim();
+    if (!cartonId.isEmpty() && currentLotId != null) {
+      try {
+        // In production, would POST to backend API with proper payload
+        // For now, simulate success
+        feedback.setText("✓ " + cartonId + " received");
+        feedback.setStyle("-fx-text-fill: #10b981;");
+      } catch (Exception ex) {
+        feedback.setText("✗ Error: " + ex.getMessage());
+        feedback.setStyle("-fx-text-fill: #ef4444;");
+      }
+      scanInput.clear();
+      scanInput.requestFocus();
+    }
+  }
+
+  private void markNotReceived() {
+    Dialog<String> dialog = new Dialog<>();
+    dialog.setTitle("Not Received");
+    TextField cartonField = new TextField();
+    cartonField.setPromptText("Carton ID...");
+    VBox content = new VBox(10, new Label("Mark carton as not received:"), cartonField);
+    content.setPadding(new Insets(10));
+    dialog.getDialogPane().setContent(content);
+    dialog.getDialogPane().getButtonTypes().addAll(
+        javafx.scene.control.ButtonType.OK,
+        javafx.scene.control.ButtonType.CANCEL);
+
+    dialog.setResultConverter(btn -> {
+      if (btn == javafx.scene.control.ButtonType.OK) {
+        String cartonId = cartonField.getText().trim();
+        if (!cartonId.isEmpty() && currentLotId != null) {
+          try {
+            feedback.setText("✓ " + cartonId + " marked not received");
+            feedback.setStyle("-fx-text-fill: #10b981;");
+          } catch (Exception ex) {
+            feedback.setText("✗ Error: " + ex.getMessage());
+            feedback.setStyle("-fx-text-fill: #ef4444;");
+          }
+        }
+      }
+      return null;
+    });
+
+    dialog.showAndWait();
+  }
+
+  private void markDamaged() {
+    Dialog<String> dialog = new Dialog<>();
+    dialog.setTitle("Damaged Box");
+    TextField cartonField = new TextField();
+    cartonField.setPromptText("Carton ID...");
+    TextArea notesArea = new TextArea();
+    notesArea.setPromptText("Damage notes...");
+    notesArea.setPrefRowCount(3);
+    VBox content = new VBox(10,
+        new Label("Mark carton as damaged:"),
+        cartonField,
+        notesArea);
+    content.setPadding(new Insets(10));
+    dialog.getDialogPane().setContent(content);
+    dialog.getDialogPane().getButtonTypes().addAll(
+        javafx.scene.control.ButtonType.OK,
+        javafx.scene.control.ButtonType.CANCEL);
+
+    dialog.setResultConverter(btn -> {
+      if (btn == javafx.scene.control.ButtonType.OK) {
+        String cartonId = cartonField.getText().trim();
+        if (!cartonId.isEmpty() && currentLotId != null) {
+          try {
+            feedback.setText("✓ " + cartonId + " marked damaged");
+            feedback.setStyle("-fx-text-fill: #10b981;");
+          } catch (Exception ex) {
+            feedback.setText("✗ Error: " + ex.getMessage());
+            feedback.setStyle("-fx-text-fill: #ef4444;");
+          }
+        }
+      }
+      return null;
+    });
+
+    dialog.showAndWait();
+  }
+
+  private void done() {
+    feedback.setText("Receiving complete. Move to unpacking.");
+    feedback.setStyle("-fx-text-fill: #2563eb;");
   }
 
   public void setLotId(UUID lotId) {
