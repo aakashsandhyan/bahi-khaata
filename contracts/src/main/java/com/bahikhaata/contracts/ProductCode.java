@@ -1,0 +1,27 @@
+/*
+ * bahi-khaata — point of sale for Bachat Baazar
+ * Copyright (C) 2026 Aakash Sandhyan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+package com.bahikhaata.contracts;
+
+/**
+ * A code mapped onto a product, with where it came from — for a product's catalogue detail.
+ *
+ * <p>A product carries several: its marketplace reference, the maker's barcode, a returns label per
+ * unit, an internal code once labelled. Showing the origin is what tells a marketplace reference (not
+ * scannable) apart from a code a scanner will read.
+ */
+public record ProductCode(String code, Origin origin) {}
