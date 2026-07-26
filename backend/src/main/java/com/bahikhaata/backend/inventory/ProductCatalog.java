@@ -27,6 +27,7 @@ import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.contracts.ProductCode;
 import com.bahikhaata.contracts.ProductStates;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -87,39 +88,63 @@ public class ProductCatalog {
         Pageable pageable = PageRequest.of(Math.max(0, page), clampSize(size));
         String mode = status == null ? "on-paper" : status;
 
-        return switch (mode) {
-            case "found" -> catalog.findFound(needle, cat, Origin.MARKETPLACE, pageable).stream()
-                    .map(p -> entry(p, CatalogStatus.FOUND))
-                    .toList();
-            case "all" -> markMixed(catalog.findByName(needle, cat, pageable));
-            default -> catalog.findOnPaper(needle, cat, Origin.MARKETPLACE, pageable).stream()
-                    .map(p -> entry(p, CatalogStatus.ON_PAPER))
-                    .toList();
+        List<Product> rows = switch (mode) {
+            case "found" -> catalog.findFound(needle, cat, Origin.MARKETPLACE, pageable);
+            case "all" -> catalog.findByName(needle, cat, pageable);
+            default -> catalog.findOnPaper(needle, cat, Origin.MARKETPLACE, pageable);
         };
+        return toEntries(rows, mode);
     }
 
-    /** For an {@code all} page, mark each row found or on-paper with two bulk reads, not one per row. */
-    private List<CatalogEntry> markMixed(List<Product> page) {
-        if (page.isEmpty()) {
+    /** Builds the rows, attaching each product's found/on-paper status and its expected/counted totals. */
+    private List<CatalogEntry> toEntries(List<Product> rows, String mode) {
+        if (rows.isEmpty()) {
             return List.of();
         }
-        List<UUID> ids = page.stream().map(Product::getId).toList();
-        Set<UUID> found = new java.util.HashSet<>(catalog.foundByBatch(ids));
-        found.addAll(catalog.foundByCode(ids, Origin.MARKETPLACE));
-        return page.stream()
-                .map(p -> entry(p, found.contains(p.getId())
-                        ? CatalogStatus.FOUND
-                        : CatalogStatus.ON_PAPER))
+        List<UUID> ids = rows.stream().map(Product::getId).toList();
+        Map<UUID, long[]> totals = totalsFor(ids);
+        // Status is uniform for the found/on-paper filters; only "all" is mixed and needs the reads.
+        Set<UUID> found = "all".equals(mode) ? foundSet(ids) : Set.of();
+        return rows.stream()
+                .map(p -> {
+                    CatalogStatus status = switch (mode) {
+                        case "found" -> CatalogStatus.FOUND;
+                        case "all" -> found.contains(p.getId())
+                                ? CatalogStatus.FOUND
+                                : CatalogStatus.ON_PAPER;
+                        default -> CatalogStatus.ON_PAPER;
+                    };
+                    long[] t = totals.getOrDefault(p.getId(), ZERO);
+                    return new CatalogEntry(
+                            p.getId(), p.getName(), p.getCategory().code(), status,
+                            p.isPriced(), t[0], t[1]);
+                })
                 .toList();
     }
 
-    private CatalogEntry entry(Product p, CatalogStatus status) {
-        return new CatalogEntry(
-                p.getId(), p.getName(), p.getCategory().code(), status, p.isPriced());
+    /** The products, among the given, that have a batch or a physical code — the "all"-page status read. */
+    private Set<UUID> foundSet(List<UUID> ids) {
+        Set<UUID> found = new java.util.HashSet<>(catalog.foundByBatch(ids));
+        found.addAll(catalog.foundByCode(ids, Origin.MARKETPLACE));
+        return found;
     }
 
+    /** Per-product summed expected and counted units, from one bulk read; {expected, counted}. */
+    private Map<UUID, long[]> totalsFor(List<UUID> ids) {
+        Map<UUID, long[]> map = new java.util.HashMap<>();
+        for (Object[] row : catalog.expectedTotals(ids)) {
+            map.put(
+                    (UUID) row[0],
+                    new long[] {((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+        }
+        return map;
+    }
+
+    private static final long[] ZERO = {0L, 0L};
+
     /**
-     * One product opened: its stock states (reused from remediation), its codes, and its standing.
+     * One product opened: its stock states (reused from remediation), its codes, its standing, and
+     * how much of it the manifest expects versus has been counted across every box.
      */
     @Transactional(readOnly = true)
     public CatalogDetail detail(UUID productId) {
@@ -135,11 +160,14 @@ public class ProductCatalog {
         boolean found =
                 !batches.findByProductId(productId).isEmpty()
                         || codes.stream().anyMatch(c -> c.origin() != Origin.MARKETPLACE);
+        long[] t = totalsFor(List.of(productId)).getOrDefault(productId, ZERO);
         return new CatalogDetail(
                 states,
                 codes,
                 found ? CatalogStatus.FOUND : CatalogStatus.ON_PAPER,
-                product.isPriced());
+                product.isPriced(),
+                t[0],
+                t[1]);
     }
 
     private int clampSize(int size) {

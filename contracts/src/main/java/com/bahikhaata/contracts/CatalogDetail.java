@@ -27,4 +27,9 @@ import java.util.List;
  * the found/priced standing are what the catalogue adds on top.
  */
 public record CatalogDetail(
-        ProductStates states, List<ProductCode> codes, CatalogStatus status, boolean priced) {}
+        ProductStates states,
+        List<ProductCode> codes,
+        CatalogStatus status,
+        boolean priced,
+        long unitsExpected,
+        long unitsCounted) {}

@@ -178,6 +178,46 @@ class ProductCatalogTest {
     }
 
     @Test
+    @DisplayName("Rows and detail carry expected and counted units, summed across boxes")
+    void expectedAndCountedCounts() {
+        // Each product was imported expecting 4 units. Nothing counted yet.
+        CatalogEntry alpha =
+                catalog.browse("Alpha", "all", "", 0, 25).stream().findFirst().orElseThrow();
+        assertThat(alpha.unitsExpected()).isEqualTo(4);
+        assertThat(alpha.unitsCounted()).isZero();
+
+        // Count 2 of Alpha; its counted rises, expected holds, so 2 are still on paper.
+        counting.countExpected(lineAt(0).getId(), StockCondition.GOOD, 2, Money.ofPaise(20_000), false, AT);
+        CatalogEntry after =
+                catalog.browse("Alpha", "all", "", 0, 25).stream().findFirst().orElseThrow();
+        assertThat(after.unitsExpected()).isEqualTo(4);
+        assertThat(after.unitsCounted()).isEqualTo(2);
+
+        CatalogDetail d = catalog.detail(lineAt(0).getProduct().getId());
+        assertThat(d.unitsExpected()).isEqualTo(4);
+        assertThat(d.unitsCounted()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Same product across two boxes sums its expected units")
+    void sameProductAcrossBoxesSums() {
+        // A second box's sheet lists the same product again (same code AAA), 4 more expected.
+        importer.importConsignment(
+                new ImportConsignmentRequest(
+                        "Sushil", "2026-07-17",
+                        List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
+                                List.of(new ImportLine("AAA", "Alpha Kettle", 4, 10_000, null,
+                                        "BOX-C", null, null))))));
+
+        CatalogEntry alpha =
+                catalog.browse("Alpha", "all", "", 0, 25).stream()
+                        .filter(e -> e.name().equals("Alpha Kettle"))
+                        .findFirst().orElseThrow();
+        // 4 from the first box + 4 from the second, summed onto the one product.
+        assertThat(alpha.unitsExpected()).isEqualTo(8);
+    }
+
+    @Test
     @DisplayName("Detail returns states, codes, and standing; reuses the states view")
     void detail() {
         Product alpha = lineAt(0).getProduct();

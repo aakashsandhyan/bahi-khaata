@@ -102,4 +102,14 @@ public interface ProductCatalogRepository extends JpaRepository<Product, UUID> {
                     + "WHERE bc.product.id IN :ids AND bc.origin <> :marketplace")
     Set<UUID> foundByCode(
             @Param("ids") Collection<UUID> ids, @Param("marketplace") Origin marketplace);
+
+    /**
+     * For each of the given products, the manifest's total expected and counted units summed across
+     * every expected line — the same product sits on several boxes' sheets. Asked in bulk so a page
+     * costs one query, not one per row. Each row is {@code [productId, sumExpected, sumCounted]}.
+     */
+    @Query(
+            "SELECT el.product.id, SUM(el.quantityExpected), SUM(el.quantityCounted) "
+                    + "FROM ExpectedLine el WHERE el.product.id IN :ids GROUP BY el.product.id")
+    List<Object[]> expectedTotals(@Param("ids") Collection<UUID> ids);
 }

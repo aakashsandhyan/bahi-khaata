@@ -151,7 +151,19 @@ export function Catalog() {
             >
               <span className="cat-row-main">
                 <span className="cat-row-name">{e.name}</span>
-                <span className="cat-row-meta">{e.categoryCode}</span>
+                <span className="cat-row-meta">
+                  {e.categoryCode}
+                  {' · '}
+                  <span className="cat-count" title="counted of expected across all its boxes">
+                    {e.unitsCounted}/{e.unitsExpected} found
+                  </span>
+                  {e.unitsExpected - e.unitsCounted > 0 && (
+                    <span className="cat-onpaper" title="units still on paper">
+                      {' · '}
+                      {e.unitsExpected - e.unitsCounted} on paper
+                    </span>
+                  )}
+                </span>
               </span>
               <span className="cat-row-badges">
                 <span className={`cat-badge ${e.status === 'FOUND' ? 'cat-good' : 'cat-warn'}`}>
@@ -236,6 +248,20 @@ function CatalogDetailPanel({
           {detail.priced ? 'priced' : 'no price'}
         </span>
       </p>
+
+      <h3 className="cat-sub-head">Across its boxes</h3>
+      <div className="cat-state-line">
+        <span>Found</span>
+        <span className="cat-row-meta">
+          {detail.unitsCounted} of {detail.unitsExpected} expected
+        </span>
+      </div>
+      {detail.unitsExpected - detail.unitsCounted > 0 && (
+        <div className="cat-state-line">
+          <span>Still on paper</span>
+          <span className="cat-row-meta">{detail.unitsExpected - detail.unitsCounted} units</span>
+        </div>
+      )}
 
       <h3 className="cat-sub-head">Stock</h3>
       {detail.states.lines.length === 0 && <p className="empty">No stock held for this product.</p>}

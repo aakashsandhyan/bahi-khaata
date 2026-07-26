@@ -20,11 +20,19 @@ package com.bahikhaata.contracts;
 import java.util.UUID;
 
 /**
- * One row of the product catalogue: a product, whether it has been found, and whether it is priced.
+ * One row of the product catalogue: a product, whether it has been found, whether it is priced, and
+ * how much of it the manifest expects versus how much has been counted.
  *
- * <p>Deliberately lean — enough to read the row and decide whether it needs attention. Stock
- * quantities, codes, and states are read only when the product is opened to its detail, so the list
- * itself needs no per-product aggregation.
+ * <p>The same product (marketplace reference) is routinely listed on several boxes' sheets, so
+ * {@code unitsExpected} and {@code unitsCounted} are summed across every expected line for it — the
+ * whole delivery's worth. {@code unitsExpected - unitsCounted} is what is still on paper: units the
+ * manifest owes that nobody has found yet.
  */
 public record CatalogEntry(
-        UUID productId, String name, String categoryCode, CatalogStatus status, boolean priced) {}
+        UUID productId,
+        String name,
+        String categoryCode,
+        CatalogStatus status,
+        boolean priced,
+        long unitsExpected,
+        long unitsCounted) {}

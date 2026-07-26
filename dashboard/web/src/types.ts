@@ -230,6 +230,8 @@ export interface CatalogEntry {
   categoryCode: string
   status: CatalogStatus
   priced: boolean
+  unitsExpected: number
+  unitsCounted: number
 }
 
 export interface ProductCode {
@@ -243,6 +245,8 @@ export interface CatalogDetail {
   codes: ProductCode[]
   status: CatalogStatus
   priced: boolean
+  unitsExpected: number
+  unitsCounted: number
 }
 
 // --- receiving ---
