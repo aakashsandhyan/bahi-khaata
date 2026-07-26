@@ -97,6 +97,9 @@ public class Lot extends UuidEntity {
     @Column(name = "updated_at", nullable = false, columnDefinition = "text")
     private Instant updatedAt;
 
+    @Column(name = "receiving_complete", nullable = false)
+    private boolean receivingComplete = false;
+
     /** For Hibernate. */
     protected Lot() {}
 
@@ -179,5 +182,13 @@ public class Lot extends UuidEntity {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isReceivingComplete() {
+        return receivingComplete;
+    }
+
+    public void setReceivingComplete(boolean receivingComplete) {
+        this.receivingComplete = receivingComplete;
     }
 }
