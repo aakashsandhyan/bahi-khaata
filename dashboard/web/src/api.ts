@@ -280,9 +280,11 @@ export const remediation = {
 import type { CatalogDetail as _CatalogDetail, CatalogEntry as _CatalogEntry } from './types'
 
 export const catalog = {
-  browse: (q: string, status: string, page = 0, size = 25) =>
+  // Name, status, and category narrow together; a blank category spans every department.
+  browse: (q: string, status: string, category = '', page = 0, size = 25) =>
     getList<_CatalogEntry>(
-      `/api/catalog?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}&page=${page}&size=${size}`,
+      `/api/catalog?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}` +
+        `&category=${encodeURIComponent(category)}&page=${page}&size=${size}`,
     ),
 
   detail: (productId: string) => get<_CatalogDetail>(`/api/catalog/products/${productId}`),

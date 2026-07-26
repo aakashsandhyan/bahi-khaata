@@ -73,23 +73,26 @@ public class ProductCatalog {
     }
 
     /**
-     * A page of the catalogue, name-filtered and by status.
+     * A page of the catalogue, narrowed by name, status, and category together — each filter that is
+     * set narrows the list further.
      *
-     * @param q name fragment to match, or null/blank for the whole catalogue
+     * @param q name fragment to match, or null/blank for any name
      * @param status one of {@code on-paper} (the default), {@code found}, or {@code all}
+     * @param category a category code to restrict to, or null/blank for every category
      */
     @Transactional(readOnly = true)
-    public List<CatalogEntry> browse(String q, String status, int page, int size) {
+    public List<CatalogEntry> browse(String q, String status, String category, int page, int size) {
         String needle = q == null ? "" : q;
+        String cat = category == null ? "" : category;
         Pageable pageable = PageRequest.of(Math.max(0, page), clampSize(size));
         String mode = status == null ? "on-paper" : status;
 
         return switch (mode) {
-            case "found" -> catalog.findFound(needle, Origin.MARKETPLACE, pageable).stream()
+            case "found" -> catalog.findFound(needle, cat, Origin.MARKETPLACE, pageable).stream()
                     .map(p -> entry(p, CatalogStatus.FOUND))
                     .toList();
-            case "all" -> markMixed(catalog.findByName(needle, pageable));
-            default -> catalog.findOnPaper(needle, Origin.MARKETPLACE, pageable).stream()
+            case "all" -> markMixed(catalog.findByName(needle, cat, pageable));
+            default -> catalog.findOnPaper(needle, cat, Origin.MARKETPLACE, pageable).stream()
                     .map(p -> entry(p, CatalogStatus.ON_PAPER))
                     .toList();
         };

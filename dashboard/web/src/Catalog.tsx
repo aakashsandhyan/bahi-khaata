@@ -22,6 +22,17 @@ const STATUS_TABS: { value: string; label: string }[] = [
   { value: 'all', label: 'All' },
 ]
 
+// The shop's seven departments; a blank value means every department.
+const CATEGORIES = [
+  'KITCHEN',
+  'WIRELESS',
+  'FASHION',
+  'FOOTWEAR',
+  'HOME_ESSENTIALS',
+  'PERSONAL_CARE',
+  'GARDEN',
+]
+
 const STATE_LABEL: Record<StockCondition, string> = {
   GOOD: 'Ready',
   DAMAGED: 'Seconds',
@@ -32,6 +43,7 @@ const STATE_LABEL: Record<StockCondition, string> = {
 export function Catalog() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('on-paper')
+  const [category, setCategory] = useState('')
   const [entries, setEntries] = useState<CatalogEntry[]>([])
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -45,7 +57,7 @@ export function Catalog() {
   const load = () => {
     setError(null)
     catalog
-      .browse(query.trim(), status, 0, PAGE_SIZE)
+      .browse(query.trim(), status, category, 0, PAGE_SIZE)
       .then((rows) => {
         setEntries(rows)
         setPage(0)
@@ -53,12 +65,12 @@ export function Catalog() {
       })
       .catch(fail)
   }
-  useEffect(load, [query, status])
+  useEffect(load, [query, status, category])
 
   const loadMore = () => {
     const next = page + 1
     catalog
-      .browse(query.trim(), status, next, PAGE_SIZE)
+      .browse(query.trim(), status, category, next, PAGE_SIZE)
       .then((rows) => {
         setEntries((prev) => [...prev, ...rows])
         setPage(next)
@@ -106,6 +118,24 @@ export function Catalog() {
             onClick={() => setStatus(t.value)}
           >
             {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <nav className="categories cat-depts">
+        <button
+          className={category === '' ? 'chip on' : 'chip'}
+          onClick={() => setCategory('')}
+        >
+          All departments
+        </button>
+        {CATEGORIES.map((c) => (
+          <button
+            key={c}
+            className={c === category ? 'chip on' : 'chip'}
+            onClick={() => setCategory(c)}
+          >
+            {c}
           </button>
         ))}
       </nav>

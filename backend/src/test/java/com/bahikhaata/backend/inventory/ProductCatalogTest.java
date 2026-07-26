@@ -86,11 +86,11 @@ class ProductCatalogTest {
     @Test
     @DisplayName("A freshly imported product, never found, is on-paper")
     void importedIsOnPaper() {
-        List<CatalogEntry> onPaper = catalog.browse("", "on-paper", 0, 25);
+        List<CatalogEntry> onPaper = catalog.browse("", "on-paper", "", 0, 25);
         assertThat(names(onPaper))
                 .containsExactlyInAnyOrder("Alpha Kettle", "Beta Cooker", "Gamma Pan");
         assertThat(onPaper).allMatch(e -> e.status() == CatalogStatus.ON_PAPER);
-        assertThat(catalog.browse("", "found", 0, 25)).isEmpty();
+        assertThat(catalog.browse("", "found", "", 0, 25)).isEmpty();
     }
 
     @Test
@@ -98,8 +98,8 @@ class ProductCatalogTest {
     void countedIsFound() {
         counting.countExpected(lineAt(0).getId(), StockCondition.GOOD, 2, Money.ofPaise(20_000), false, AT);
 
-        assertThat(names(catalog.browse("", "found", 0, 25))).containsExactly("Alpha Kettle");
-        assertThat(names(catalog.browse("", "on-paper", 0, 25)))
+        assertThat(names(catalog.browse("", "found", "", 0, 25))).containsExactly("Alpha Kettle");
+        assertThat(names(catalog.browse("", "on-paper", "", 0, 25)))
                 .containsExactlyInAnyOrder("Beta Cooker", "Gamma Pan");
     }
 
@@ -109,21 +109,21 @@ class ProductCatalogTest {
         Product beta = lineAt(1).getProduct();
         barcodes.save(new Barcode(beta, "EAN-BETA", Origin.MANUFACTURER));
 
-        assertThat(names(catalog.browse("", "found", 0, 25))).containsExactly("Beta Cooker");
+        assertThat(names(catalog.browse("", "found", "", 0, 25))).containsExactly("Beta Cooker");
     }
 
     @Test
     @DisplayName("A marketplace reference alone does not count as found")
     void marketplaceCodeIsNotFound() {
         // Every product already carries its import MARKETPLACE code; none should read as found.
-        assertThat(catalog.browse("", "found", 0, 25)).isEmpty();
+        assertThat(catalog.browse("", "found", "", 0, 25)).isEmpty();
     }
 
     @Test
     @DisplayName("Name filter matches a fragment, case-insensitively")
     void nameFilter() {
-        assertThat(names(catalog.browse("kettle", "all", 0, 25))).containsExactly("Alpha Kettle");
-        assertThat(names(catalog.browse("BETA", "all", 0, 25))).containsExactly("Beta Cooker");
+        assertThat(names(catalog.browse("kettle", "all", "", 0, 25))).containsExactly("Alpha Kettle");
+        assertThat(names(catalog.browse("BETA", "all", "", 0, 25))).containsExactly("Beta Cooker");
     }
 
     @Test
@@ -131,7 +131,7 @@ class ProductCatalogTest {
     void allMarksMixed() {
         counting.countExpected(lineAt(0).getId(), StockCondition.GOOD, 2, Money.ofPaise(20_000), false, AT);
 
-        List<CatalogEntry> all = catalog.browse("", "all", 0, 25);
+        List<CatalogEntry> all = catalog.browse("", "all", "", 0, 25);
         assertThat(all).hasSize(3);
         assertThat(all.stream().filter(e -> e.status() == CatalogStatus.FOUND).map(CatalogEntry::name))
                 .containsExactly("Alpha Kettle");
@@ -142,14 +142,39 @@ class ProductCatalogTest {
     @Test
     @DisplayName("Paging returns further products beyond the first page")
     void paging() {
-        List<CatalogEntry> page0 = catalog.browse("", "all", 0, 2);
-        List<CatalogEntry> page1 = catalog.browse("", "all", 1, 2);
+        List<CatalogEntry> page0 = catalog.browse("", "all", "", 0, 2);
+        List<CatalogEntry> page1 = catalog.browse("", "all", "", 1, 2);
         assertThat(page0).hasSize(2);
         assertThat(page1).hasSize(1);
         assertThat(names(page0)).doesNotContainAnyElementsOf(names(page1));
         // Ordered by name across pages: Alpha, Beta, then Gamma.
         assertThat(names(page0)).containsExactly("Alpha Kettle", "Beta Cooker");
         assertThat(names(page1)).containsExactly("Gamma Pan");
+    }
+
+    @Test
+    @DisplayName("Category narrows the list, and combines with status")
+    void categoryFilter() {
+        // A second consignment in another department, so category actually discriminates.
+        importer.importConsignment(
+                new ImportConsignmentRequest(
+                        "Sushil", "2026-07-17",
+                        List.of(new ImportLot("WIRELESS", 100_000, AllocationMethod.RELATIVE_MRP,
+                                List.of(new ImportLine("WWW", "Delta Cable", 4, 10_000, null,
+                                        "BOX-B", null, null))))));
+
+        // Category alone, over all statuses.
+        assertThat(names(catalog.browse("", "all", "KITCHEN", 0, 25)))
+                .containsExactlyInAnyOrder("Alpha Kettle", "Beta Cooker", "Gamma Pan");
+        assertThat(names(catalog.browse("", "all", "WIRELESS", 0, 25)))
+                .containsExactly("Delta Cable");
+        // Blank category spans every department.
+        assertThat(catalog.browse("", "all", "", 0, 25)).hasSize(4);
+
+        // Category AND status together: WIRELESS is all on-paper, so found in WIRELESS is empty.
+        assertThat(catalog.browse("", "found", "WIRELESS", 0, 25)).isEmpty();
+        assertThat(names(catalog.browse("", "on-paper", "WIRELESS", 0, 25)))
+                .containsExactly("Delta Cable");
     }
 
     @Test

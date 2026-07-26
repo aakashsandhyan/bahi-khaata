@@ -60,6 +60,24 @@ SHALL be able to choose between on-paper only, found only, and all products.
 - **WHEN** the caller asks for all products
 - **THEN** both found and on-paper products are listed, ordered by name
 
+### Requirement: Filtering by department
+
+The catalogue SHALL let a person restrict the list to one department (category), and this filter
+SHALL combine with the name filter and the found/on-paper filter — each filter that is set narrows
+the list further. Choosing every department SHALL impose no category restriction.
+
+#### Scenario: One department
+- **WHEN** a department is chosen
+- **THEN** only products in that department are listed
+
+#### Scenario: Department combines with status
+- **WHEN** a department is chosen together with the found or on-paper filter
+- **THEN** only products in that department with that status are listed
+
+#### Scenario: Every department
+- **WHEN** no department is chosen
+- **THEN** products across all departments are listed, subject to the other filters
+
 ### Requirement: Opening a product to its detail
 
 Selecting a product from the catalogue SHALL open a detail showing the product's name and category,

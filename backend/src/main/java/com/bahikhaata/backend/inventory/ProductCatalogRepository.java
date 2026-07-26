@@ -51,12 +51,16 @@ public interface ProductCatalogRepository extends JpaRepository<Product, UUID> {
     @Query(
             "SELECT p FROM Product p "
                     + "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) "
+                    + "AND (:category = '' OR p.categoryCode = :category) "
                     + "AND NOT EXISTS (SELECT 1 FROM Batch b WHERE b.product = p) "
                     + "AND NOT EXISTS (SELECT 1 FROM Barcode bc WHERE bc.product = p "
                     + "AND bc.origin <> :marketplace) "
                     + "ORDER BY p.name")
     List<Product> findOnPaper(
-            @Param("q") String q, @Param("marketplace") Origin marketplace, Pageable pageable);
+            @Param("q") String q,
+            @Param("category") String category,
+            @Param("marketplace") Origin marketplace,
+            Pageable pageable);
 
     /**
      * Found products whose name matches: at least one counted batch, or at least one physical code
@@ -65,19 +69,25 @@ public interface ProductCatalogRepository extends JpaRepository<Product, UUID> {
     @Query(
             "SELECT p FROM Product p "
                     + "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) "
+                    + "AND (:category = '' OR p.categoryCode = :category) "
                     + "AND (EXISTS (SELECT 1 FROM Batch b WHERE b.product = p) "
                     + "OR EXISTS (SELECT 1 FROM Barcode bc WHERE bc.product = p "
                     + "AND bc.origin <> :marketplace)) "
                     + "ORDER BY p.name")
     List<Product> findFound(
-            @Param("q") String q, @Param("marketplace") Origin marketplace, Pageable pageable);
+            @Param("q") String q,
+            @Param("category") String category,
+            @Param("marketplace") Origin marketplace,
+            Pageable pageable);
 
-    /** Every product whose name matches, found or not, ordered by name. */
+    /** Every product whose name matches and is in the category, found or not, ordered by name. */
     @Query(
             "SELECT p FROM Product p "
                     + "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) "
+                    + "AND (:category = '' OR p.categoryCode = :category) "
                     + "ORDER BY p.name")
-    List<Product> findByName(@Param("q") String q, Pageable pageable);
+    List<Product> findByName(
+            @Param("q") String q, @Param("category") String category, Pageable pageable);
 
     /**
      * Which of the given products have a counted batch — half of "found", asked in bulk so a mixed

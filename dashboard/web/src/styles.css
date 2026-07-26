@@ -477,3 +477,6 @@ tr.damaged { background: var(--warn-tint); }
 .btn-extra.armed { background: var(--brand); border-style: solid; color: #fff; }
 .scan.estimated { border-color: var(--warn); background: var(--warn-tint); }
 .mrp-hint.warn { color: var(--warn); }
+
+/* Second filter row (departments) sits just under the status tabs. */
+.cat-depts { margin-top: calc(-1 * var(--s2)); }

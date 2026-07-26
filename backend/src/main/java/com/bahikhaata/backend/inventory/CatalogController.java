@@ -48,14 +48,16 @@ class CatalogController {
      *
      * @param q name fragment, or blank for the whole catalogue
      * @param status {@code on-paper} (default — the goods still unfound), {@code found}, or {@code all}
+     * @param category a category code to restrict to, or blank for every category
      */
     @GetMapping
     List<CatalogEntry> browse(
             @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "on-paper") String status,
+            @RequestParam(defaultValue = "") String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return catalog.browse(q, status, page, size);
+        return catalog.browse(q, status, category, page, size);
     }
 
     /** One product opened: its stock states, its codes, and whether it is found and priced. */
