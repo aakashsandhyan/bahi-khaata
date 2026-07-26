@@ -80,31 +80,50 @@ public class ProductCatalog {
      * @param q name fragment to match, or null/blank for any name
      * @param status one of {@code on-paper} (the default), {@code found}, or {@code all}
      * @param category a category code to restrict to, or null/blank for every category
+     * @param lot a lot (delivery) to scope to, or null/blank for every delivery. When set, the list is
+     *     restricted to products expected in that lot, and units and found/on-paper are that lot's.
      */
     @Transactional(readOnly = true)
-    public List<CatalogEntry> browse(String q, String status, String category, int page, int size) {
+    public List<CatalogEntry> browse(
+            String q, String status, String category, String lot, int page, int size) {
         String needle = q == null ? "" : q;
         String cat = category == null ? "" : category;
+        UUID lotId = (lot == null || lot.isBlank()) ? null : UUID.fromString(lot);
         Pageable pageable = PageRequest.of(Math.max(0, page), clampSize(size));
         String mode = status == null ? "on-paper" : status;
 
-        List<Product> rows = switch (mode) {
-            case "found" -> catalog.findFound(needle, cat, Origin.MARKETPLACE, pageable);
-            case "all" -> catalog.findByName(needle, cat, pageable);
-            default -> catalog.findOnPaper(needle, cat, Origin.MARKETPLACE, pageable);
-        };
-        return toEntries(rows, mode);
+        List<Product> rows;
+        if (lotId == null) {
+            rows = switch (mode) {
+                case "found" -> catalog.findFound(needle, cat, Origin.MARKETPLACE, pageable);
+                case "all" -> catalog.findByName(needle, cat, pageable);
+                default -> catalog.findOnPaper(needle, cat, Origin.MARKETPLACE, pageable);
+            };
+        } else {
+            rows = switch (mode) {
+                case "found" -> catalog.findFoundInLot(needle, cat, lotId, pageable);
+                case "all" -> catalog.findByNameInLot(needle, cat, lotId, pageable);
+                default -> catalog.findOnPaperInLot(needle, cat, lotId, pageable);
+            };
+        }
+        return toEntries(rows, mode, lotId);
     }
 
-    /** Builds the rows, attaching each product's found/on-paper status and its expected/counted totals. */
-    private List<CatalogEntry> toEntries(List<Product> rows, String mode) {
+    /**
+     * Builds the rows, attaching each product's found/on-paper status and its expected/counted totals.
+     * When a lot is given, both the status and the totals are scoped to that lot.
+     */
+    private List<CatalogEntry> toEntries(List<Product> rows, String mode, UUID lotId) {
         if (rows.isEmpty()) {
             return List.of();
         }
         List<UUID> ids = rows.stream().map(Product::getId).toList();
-        Map<UUID, long[]> totals = totalsFor(ids);
+        Map<UUID, long[]> totals = lotId == null ? totalsFor(ids) : totalsForLot(ids, lotId);
         // Status is uniform for the found/on-paper filters; only "all" is mixed and needs the reads.
-        Set<UUID> found = "all".equals(mode) ? foundSet(ids) : Set.of();
+        Set<UUID> found =
+                "all".equals(mode)
+                        ? (lotId == null ? foundSet(ids) : foundSetInLot(ids, lotId))
+                        : Set.of();
         return rows.stream()
                 .map(p -> {
                     CatalogStatus status = switch (mode) {
@@ -129,10 +148,24 @@ public class ProductCatalog {
         return found;
     }
 
+    /** The lot-scoped "all"-page status read: found means a batch counted in this lot. */
+    private Set<UUID> foundSetInLot(List<UUID> ids, UUID lotId) {
+        return catalog.foundByBatchInLot(ids, lotId);
+    }
+
     /** Per-product summed expected and counted units, from one bulk read; {expected, counted}. */
     private Map<UUID, long[]> totalsFor(List<UUID> ids) {
+        return toTotalsMap(catalog.expectedTotals(ids));
+    }
+
+    /** The same, summed over one lot only. */
+    private Map<UUID, long[]> totalsForLot(List<UUID> ids, UUID lotId) {
+        return toTotalsMap(catalog.expectedTotalsInLot(ids, lotId));
+    }
+
+    private Map<UUID, long[]> toTotalsMap(List<Object[]> rows) {
         Map<UUID, long[]> map = new java.util.HashMap<>();
-        for (Object[] row : catalog.expectedTotals(ids)) {
+        for (Object[] row : rows) {
             map.put(
                     (UUID) row[0],
                     new long[] {((Number) row[1]).longValue(), ((Number) row[2]).longValue()});

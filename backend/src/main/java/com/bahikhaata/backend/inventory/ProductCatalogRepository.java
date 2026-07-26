@@ -89,6 +89,56 @@ public interface ProductCatalogRepository extends JpaRepository<Product, UUID> {
     List<Product> findByName(
             @Param("q") String q, @Param("category") String category, Pageable pageable);
 
+    // --- lot-scoped variants: when a delivery is chosen, the list and its status are that lot's ---
+    // Found here means a unit counted in this lot (a batch in it); codes are not per-delivery so they
+    // do not count. Every variant is restricted to products expected in the lot.
+
+    /** On-paper in the lot: expected in it, but nothing counted in it. */
+    @Query(
+            "SELECT p FROM Product p "
+                    + "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) "
+                    + "AND (:category = '' OR p.categoryCode = :category) "
+                    + "AND EXISTS (SELECT 1 FROM ExpectedLine el WHERE el.product = p AND el.lot.id = :lot) "
+                    + "AND NOT EXISTS (SELECT 1 FROM Batch b WHERE b.product = p AND b.lot.id = :lot) "
+                    + "ORDER BY p.name")
+    List<Product> findOnPaperInLot(
+            @Param("q") String q, @Param("category") String category,
+            @Param("lot") UUID lot, Pageable pageable);
+
+    /** Found in the lot: expected in it and at least one batch counted in it. */
+    @Query(
+            "SELECT p FROM Product p "
+                    + "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) "
+                    + "AND (:category = '' OR p.categoryCode = :category) "
+                    + "AND EXISTS (SELECT 1 FROM ExpectedLine el WHERE el.product = p AND el.lot.id = :lot) "
+                    + "AND EXISTS (SELECT 1 FROM Batch b WHERE b.product = p AND b.lot.id = :lot) "
+                    + "ORDER BY p.name")
+    List<Product> findFoundInLot(
+            @Param("q") String q, @Param("category") String category,
+            @Param("lot") UUID lot, Pageable pageable);
+
+    /** Every product expected in the lot whose name matches, found or not, ordered by name. */
+    @Query(
+            "SELECT p FROM Product p "
+                    + "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) "
+                    + "AND (:category = '' OR p.categoryCode = :category) "
+                    + "AND EXISTS (SELECT 1 FROM ExpectedLine el WHERE el.product = p AND el.lot.id = :lot) "
+                    + "ORDER BY p.name")
+    List<Product> findByNameInLot(
+            @Param("q") String q, @Param("category") String category,
+            @Param("lot") UUID lot, Pageable pageable);
+
+    /** Which of the given products have a batch in the lot — the lot-scoped "found" bulk mark. */
+    @Query("SELECT DISTINCT b.product.id FROM Batch b WHERE b.product.id IN :ids AND b.lot.id = :lot")
+    Set<UUID> foundByBatchInLot(@Param("ids") Collection<UUID> ids, @Param("lot") UUID lot);
+
+    /** Per-product expected/counted units summed over one lot only. {@code [productId, exp, counted]}. */
+    @Query(
+            "SELECT el.product.id, SUM(el.quantityExpected), SUM(el.quantityCounted) "
+                    + "FROM ExpectedLine el WHERE el.product.id IN :ids AND el.lot.id = :lot "
+                    + "GROUP BY el.product.id")
+    List<Object[]> expectedTotalsInLot(@Param("ids") Collection<UUID> ids, @Param("lot") UUID lot);
+
     /**
      * Which of the given products have a counted batch — half of "found", asked in bulk so a mixed
      * (all) page can be marked without a query per row.

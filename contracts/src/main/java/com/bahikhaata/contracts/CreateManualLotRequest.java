@@ -1,0 +1,40 @@
+/*
+ * bahi-khaata — point of sale for Bachat Baazar
+ * Copyright (C) 2026 Aakash Sandhyan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+package com.bahikhaata.contracts;
+
+public record CreateManualLotRequest(
+        String supplier,
+        String receivedOn,
+        long amountPaidPaise,
+        AllocationMethod allocationMethod) {
+
+    public CreateManualLotRequest {
+        if (supplier == null || supplier.isBlank()) {
+            throw new IllegalArgumentException("supplier required");
+        }
+        if (receivedOn == null || receivedOn.isBlank()) {
+            throw new IllegalArgumentException("receivedOn required");
+        }
+        if (amountPaidPaise <= 0) {
+            throw new IllegalArgumentException("amountPaidPaise must be greater than 0");
+        }
+        if (allocationMethod == null) {
+            throw new IllegalArgumentException("allocationMethod required");
+        }
+    }
+}

@@ -15,23 +15,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.inventory;
-
+package com.bahikhaata.contracts;
 import java.util.List;
 import java.util.UUID;
-import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ExpectedLineRepository extends JpaRepository<ExpectedLine, UUID> {
-
-    List<ExpectedLine> findByLotIdOrderByCode(UUID lotId);
-
-    List<ExpectedLine> findByBoxIdOrderByCode(UUID boxId);
-
-    Optional<ExpectedLine> findByBoxIdAndProductId(UUID boxId, UUID productId);
-
-    Optional<ExpectedLine> findByLotIdAndCode(UUID lotId, String code);
-
-    /** Every line for a product within one delivery, across its boxes — the product-centric grid. */
-    List<ExpectedLine> findByLotIdAndProductIdOrderByCode(UUID lotId, UUID productId);
-}
+/**
+ * A whole product-centric count: one condition and one MRP for every box entry. A null MRP means none
+ * was printed; the goods are counted unpriced.
+ */
+public record ProductCountRequest(
+        UUID productId,
+        UUID lotId,
+        StockCondition condition,
+        Long mrpPaise,
+        boolean mrpIsEstimate,
+        List<BoxCountEntry> entries) {}

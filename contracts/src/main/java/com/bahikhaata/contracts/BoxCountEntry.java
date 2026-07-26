@@ -15,23 +15,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.inventory;
-
-import java.util.List;
+package com.bahikhaata.contracts;
 import java.util.UUID;
-import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ExpectedLineRepository extends JpaRepository<ExpectedLine, UUID> {
-
-    List<ExpectedLine> findByLotIdOrderByCode(UUID lotId);
-
-    List<ExpectedLine> findByBoxIdOrderByCode(UUID boxId);
-
-    Optional<ExpectedLine> findByBoxIdAndProductId(UUID boxId, UUID productId);
-
-    Optional<ExpectedLine> findByLotIdAndCode(UUID lotId, String code);
-
-    /** Every line for a product within one delivery, across its boxes — the product-centric grid. */
-    List<ExpectedLine> findByLotIdAndProductIdOrderByCode(UUID lotId, UUID productId);
-}
+/**
+ * One box's entry in a product-centric count: how many were found in it, and the outstanding the
+ * operator saw when the grid loaded — carried so the backend can refuse an entry another station
+ * has moved since.
+ */
+public record BoxCountEntry(UUID lineId, long quantity, long outstandingSeen) {}

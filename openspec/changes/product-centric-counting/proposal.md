@@ -18,9 +18,13 @@ identified — without touching the box-by-box path the unidentifiable goods dep
 
 ## What Changes
 
-- A new **product-centric counting** view. The operator finds a product **once** — by scanning any
-  code that resolves to it, or by search — and sees **every box in the open delivery that lists that
-  product**, each with the quantity still expected and a field to enter what was found.
+- A **lot filter on the catalogue**. Counting is per-lot — a lot is one delivery — so the catalogue
+  gains a lot filter beside name, status, and department. Choosing the lot being counted scopes the
+  list to that delivery's products and scopes each row's expected/counted units to that lot. This is
+  a change to the shipped catalogue, not a new screen.
+- A new **product-centric counting** view. With a lot chosen, the operator selects a product — by
+  scanning any code that resolves to it, or by search — and sees **every box in that delivery that
+  lists that product**, each with the quantity still expected and a field to enter what was found.
 - Counts are entered **per box, on one screen**: the operator types the amount found against each
   box (`box A: 2, box C: 3`) and submits in one action. There is no single find-and-count per box,
   and no automatic guess of which box a unit came from — the per-box figure stays what the operator
@@ -47,8 +51,9 @@ are identified; no auto-distribution of a bulk count across boxes; no new stock 
   can be identified, writing the same expected-lines and stock ledger.
 
 ### Modified Capabilities
-<!-- No existing spec changes. The box-by-box counting behaviour is unspecced today and is left
-     untouched; this change adds a parallel capability rather than modifying an existing one. -->
+- `product-catalog`: the catalogue gains a lot filter — choosing a lot restricts the list to that
+  delivery's products and scopes each row's expected/counted units to that lot; found/on-paper then
+  reflects that lot. With no lot chosen the catalogue is unchanged.
 
 ## Impact
 

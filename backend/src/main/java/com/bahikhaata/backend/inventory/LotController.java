@@ -17,14 +17,22 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.backend.catalog.Product;
+import com.bahikhaata.backend.catalog.ProductRepository;
+import com.bahikhaata.contracts.AddProductRequest;
+import com.bahikhaata.contracts.AllocationMethod;
+import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.CreateManualLotRequest;
 import com.bahikhaata.contracts.LotLineResponse;
 import com.bahikhaata.contracts.LotResponse;
+import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.ReceiveLotRequest;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -47,11 +55,23 @@ class LotController {
     private final GoodsInService goodsIn;
     private final LotRepository lotRepository;
     private final BoxReceiptRepository boxReceiptRepository;
+    private final ExpectedLineRepository expectedLineRepository;
+    private final ProductRepository productRepository;
+    private final BoxRepository boxRepository;
 
-    LotController(GoodsInService goodsIn, LotRepository lotRepository, BoxReceiptRepository boxReceiptRepository) {
+    LotController(
+            GoodsInService goodsIn,
+            LotRepository lotRepository,
+            BoxReceiptRepository boxReceiptRepository,
+            ExpectedLineRepository expectedLineRepository,
+            ProductRepository productRepository,
+            BoxRepository boxRepository) {
         this.goodsIn = goodsIn;
         this.lotRepository = lotRepository;
         this.boxReceiptRepository = boxReceiptRepository;
+        this.expectedLineRepository = expectedLineRepository;
+        this.productRepository = productRepository;
+        this.boxRepository = boxRepository;
     }
 
     @GetMapping
@@ -66,7 +86,7 @@ class LotController {
                 long rejected = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.REJECTED);
                 long notReceived = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.NOT_RECEIVED);
                 return new LotSummaryDto(lot.getId(), lot.getSupplier(), lot.getReceivedOn(), lot.isReceivingComplete(),
-                    expected, received, unpacked, rejected, notReceived);
+                    lot.isManual(), expected, received, unpacked, rejected, notReceived);
             })
             .sorted(Comparator
                 .comparing((LotSummaryDto l) -> l.receivingComplete())
@@ -106,6 +126,65 @@ class LotController {
                                 lines));
     }
 
+    @PostMapping("/manual")
+    ResponseEntity<LotSummaryDto> createManualLot(@RequestBody CreateManualLotRequest request) {
+        LocalDate receivedOn = LocalDate.parse(request.receivedOn());
+        Lot lot = new Lot(
+                request.supplier(),
+                receivedOn,
+                com.bahikhaata.contracts.Money.ofPaise(request.amountPaidPaise()),
+                com.bahikhaata.contracts.Money.ZERO,
+                request.allocationMethod(),
+                true);
+        lot = lotRepository.save(lot);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new LotSummaryDto(lot.getId(), lot.getSupplier(), lot.getReceivedOn(),
+                        lot.isReceivingComplete(), lot.isManual(), 0, 0, 0, 0, 0));
+    }
+
+    @PostMapping("/{lotId}/add-product")
+    ResponseEntity<?> addProductToLot(
+            @PathVariable UUID lotId,
+            @RequestBody AddProductRequest request) {
+        Lot lot = lotRepository.findById(lotId)
+                .orElseThrow(() -> new IllegalArgumentException("lot not found"));
+
+        if (!lot.isManual()) {
+            throw new IllegalArgumentException("lot is not manual");
+        }
+
+        // Create new product for manual entry
+        Product product = new Product(
+                request.name(),
+                Category.of(request.categoryCode()),
+                java.util.Map.of("manualEntry", "true"));
+        product = productRepository.save(product);
+
+        // Create synthetic box for this manual product
+        String boxTracking = "MANUAL-" + lot.getId() + "-" + (System.nanoTime() % 10000);
+        Box box = new Box(lot, boxTracking);
+        box = boxRepository.save(box);
+
+        // Create expected line
+        ExpectedLine line = new ExpectedLine(
+                lot,
+                box,
+                product,
+                request.code() != null && !request.code().isBlank() ? request.code() : product.getId().toString(),
+                request.quantity(),
+                request.estimatedCostPaise() != null ? Money.ofPaise(request.estimatedCostPaise()) : null);
+        expectedLineRepository.save(line);
+
+        // Calculate totals
+        List<ExpectedLine> allLines = expectedLineRepository.findByLotIdOrderByCode(lot.getId());
+        long totalQuantity = allLines.stream().mapToLong(ExpectedLine::getQuantityExpected).sum();
+        long allocationPerUnit = totalQuantity > 0 ? lot.getAmountPaid().paise() / totalQuantity : 0;
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new AddProductResponse(true, allLines.size(), totalQuantity, allocationPerUnit));
+    }
+
     /**
      * A delivery that cannot be allocated is the operator's to fix — an unknown product, a
      * pinned total that overshoots. The message says which, because "could not receive" leaves
@@ -122,8 +201,15 @@ record LotSummaryDto(
     String supplier,
     LocalDate receivedOn,
     boolean receivingComplete,
+    boolean isManual,
     long expected,
     long received,
     long unpacked,
     long rejected,
     long notReceived) {}
+
+record AddProductResponse(
+    boolean success,
+    long totalProducts,
+    long totalQuantity,
+    long allocationPerUnit) {}
