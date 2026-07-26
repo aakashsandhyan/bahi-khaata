@@ -256,6 +256,7 @@ export interface LotSummary {
   supplier: string
   receivedOn: string
   receivingComplete: boolean
+  isManual: boolean
   expected: number
   received: number
   unpacked: number
@@ -281,4 +282,26 @@ export interface ReceivingBoxes {
     rejected: number
     notReceived: number
   }
+}
+
+export interface CreateManualLotRequest {
+  supplier: string
+  receivedOn: string
+  amountPaidPaise: number
+  allocationMethod: string
+}
+
+export interface AddProductRequest {
+  code: string | null
+  name: string
+  quantity: number
+  categoryCode: string
+  estimatedCostPaise: number | null
+}
+
+export interface AddProductResponse {
+  success: boolean
+  totalProducts: number
+  totalQuantity: number
+  allocationPerUnit: number
 }

@@ -278,6 +278,9 @@ export const remediation = {
 import type {
   LotSummary as _LotSummary,
   ReceivingBoxes as _ReceivingBoxes,
+  CreateManualLotRequest as _CreateManualLotRequest,
+  AddProductRequest as _AddProductRequest,
+  AddProductResponse as _AddProductResponse,
 } from './types'
 
 export const receiving = {
@@ -289,6 +292,28 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
+  createManualLot: (supplier: string, receivedOn: string, amountPaidPaise: number) =>
+    post<_LotSummary>('/api/lots/manual', {
+      supplier,
+      receivedOn,
+      amountPaidPaise,
+      allocationMethod: 'RELATIVE_MRP',
+    }),
+  addProduct: (
+    lotId: string,
+    code: string | null,
+    name: string,
+    quantity: number,
+    categoryCode: string,
+    estimatedCostPaise: number | null,
+  ) =>
+    post<_AddProductResponse>(`/api/lots/${lotId}/add-product`, {
+      code,
+      name,
+      quantity,
+      categoryCode,
+      estimatedCostPaise,
+    }),
 }
 
 // --- catalog ---
