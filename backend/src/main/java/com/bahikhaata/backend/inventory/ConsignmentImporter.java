@@ -71,6 +71,7 @@ public class ConsignmentImporter {
     private final BarcodeRepository barcodes;
     private final LotRepository lots;
     private final BoxRepository boxes;
+    private final BoxReceiptRepository boxReceipts;
     private final ExpectedLineRepository expectedLines;
     private final JdbcTemplate jdbc;
 
@@ -79,12 +80,14 @@ public class ConsignmentImporter {
             BarcodeRepository barcodes,
             LotRepository lots,
             BoxRepository boxes,
+            BoxReceiptRepository boxReceipts,
             ExpectedLineRepository expectedLines,
             JdbcTemplate jdbc) {
         this.products = products;
         this.barcodes = barcodes;
         this.lots = lots;
         this.boxes = boxes;
+        this.boxReceipts = boxReceipts;
         this.expectedLines = expectedLines;
         this.jdbc = jdbc;
     }
@@ -130,7 +133,11 @@ public class ConsignmentImporter {
 
                 Box box =
                         boxesByTracking.computeIfAbsent(
-                                key.trackingNumber, tracking -> boxes.save(new Box(lot, tracking)));
+                                key.trackingNumber, tracking -> {
+                                    Box b = boxes.save(new Box(lot, tracking));
+                                    boxReceipts.save(new BoxReceipt(lot.getId(), tracking));
+                                    return b;
+                                });
 
                 Product product = existingProduct(line.code);
                 if (product == null) {

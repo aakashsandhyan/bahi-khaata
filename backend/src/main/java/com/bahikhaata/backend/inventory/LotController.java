@@ -20,11 +20,15 @@ package com.bahikhaata.backend.inventory;
 import com.bahikhaata.contracts.LotLineResponse;
 import com.bahikhaata.contracts.LotResponse;
 import com.bahikhaata.contracts.ReceiveLotRequest;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,9 +45,34 @@ import org.springframework.web.bind.annotation.RestController;
 class LotController {
 
     private final GoodsInService goodsIn;
+    private final LotRepository lotRepository;
+    private final BoxReceiptRepository boxReceiptRepository;
 
-    LotController(GoodsInService goodsIn) {
+    LotController(GoodsInService goodsIn, LotRepository lotRepository, BoxReceiptRepository boxReceiptRepository) {
         this.goodsIn = goodsIn;
+        this.lotRepository = lotRepository;
+        this.boxReceiptRepository = boxReceiptRepository;
+    }
+
+    @GetMapping
+    ResponseEntity<List<LotSummaryDto>> listLots() {
+        List<LotSummaryDto> results = lotRepository.findAll().stream()
+            .filter(Lot::isOpen)
+            .map(lot -> {
+                List<BoxReceipt> boxes = boxReceiptRepository.findByLotId(lot.getId());
+                long expected = boxes.size();
+                long received = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.RECEIVED);
+                long unpacked = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.UNPACKED);
+                long rejected = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.REJECTED);
+                long notReceived = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.NOT_RECEIVED);
+                return new LotSummaryDto(lot.getId(), lot.getSupplier(), lot.getReceivedOn(), lot.isReceivingComplete(),
+                    expected, received, unpacked, rejected, notReceived);
+            })
+            .sorted(Comparator
+                .comparing((LotSummaryDto l) -> l.receivingComplete())
+                .thenComparing(Comparator.comparing((LotSummaryDto l) -> l.id()).reversed()))
+            .toList();
+        return ResponseEntity.ok(results);
     }
 
     @PostMapping
@@ -87,3 +116,14 @@ class LotController {
         return ResponseEntity.badRequest().body(e.getMessage());
     }
 }
+
+record LotSummaryDto(
+    UUID id,
+    String supplier,
+    LocalDate receivedOn,
+    boolean receivingComplete,
+    long expected,
+    long received,
+    long unpacked,
+    long rejected,
+    long notReceived) {}

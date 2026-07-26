@@ -93,6 +93,25 @@ public class ReceivingController {
     }
   }
 
+  @PostMapping("/mark-not-received")
+  public ResponseEntity<?> markNotReceived(
+      @PathVariable UUID lotId,
+      @RequestBody MarkNotReceivedRequest request) {
+    try {
+      BoxReceipt box = receivingService.markNotReceived(lotId, request.manifestCartonId());
+      return ResponseEntity.ok(new RejectBoxResponse(box));
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+          .body(new ErrorResponse("BOX_NOT_IN_MANIFEST", e.getMessage()));
+    } catch (NoSuchElementException e) {
+      return ResponseEntity.status(HttpStatus.NOT_FOUND)
+          .body(new ErrorResponse("LOT_NOT_FOUND", e.getMessage()));
+    } catch (IllegalStateException e) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+          .body(new ErrorResponse("INVALID_STATE", e.getMessage()));
+    }
+  }
+
   @GetMapping("/boxes")
   public ResponseEntity<?> getBoxesForLot(@PathVariable UUID lotId) {
     try {
@@ -175,6 +194,8 @@ public class ReceivingController {
       boolean receivingComplete) {}
 
   public record RejectBoxRequest(String manifestCartonId, String reason) {}
+
+  public record MarkNotReceivedRequest(String manifestCartonId) {}
 
   public record RejectBoxResponse(
       String state,
