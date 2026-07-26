@@ -92,20 +92,21 @@ reuse the existing product-states view rather than compute a new one.
 - **WHEN** an on-paper product is selected
 - **THEN** its name and category are shown, with no stock and only its marketplace reference
 
-### Requirement: Acting on a product from the catalogue
+### Requirement: Setting a price from the catalogue
 
-From a product's detail the catalogue SHALL offer the actions that do not require a box context — 
-setting a selling price and mapping a code onto the product — reusing the existing operations for
-each, subject to their existing rules.
+From a product's detail the catalogue SHALL offer to set a selling price, reusing the existing
+set-price operation and subject to its existing rules. Mapping a code onto a product from the
+catalogue is intended but deferred: the only code-mapping today is bound to an unpacking line, and a
+standalone operation is a later change.
 
 #### Scenario: Setting a price
 - **WHEN** a price is set on a product from its detail
 - **THEN** the existing set-price operation runs, with its existing rules (a real positive amount,
   within the recorded MRP), and the product's priced status updates
 
-#### Scenario: Mapping a code
-- **WHEN** a code is mapped onto a product from its detail
-- **THEN** the existing code-mapping operation runs, and the product becomes found if it was on-paper
+#### Scenario: Mapping a code is not yet offered
+- **WHEN** a product is opened in the catalogue
+- **THEN** no code-mapping action is offered, pending a standalone operation in a later change
 
 ### Requirement: Counting is a hand-off, not performed in the catalogue
 
