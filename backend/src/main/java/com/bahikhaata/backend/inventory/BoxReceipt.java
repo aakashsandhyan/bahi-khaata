@@ -36,8 +36,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Table(name = "box_receipt")
 public class BoxReceipt extends UuidEntity {
 
-  @Column(name = "lot_id", nullable = false, columnDefinition = "text")
-  private String lotId;
+  @Column(name = "lot_id", nullable = false)
+  private java.util.UUID lotId;
 
   @Column(name = "manifest_carton_id", nullable = false, columnDefinition = "text")
   private String manifestCartonId;
@@ -65,7 +65,7 @@ public class BoxReceipt extends UuidEntity {
 
   protected BoxReceipt() {}
 
-  public BoxReceipt(String lotId, String manifestCartonId) {
+  public BoxReceipt(java.util.UUID lotId, String manifestCartonId) {
     super(newId());
     this.lotId = Objects.requireNonNull(lotId, "lotId");
     this.manifestCartonId = Objects.requireNonNull(manifestCartonId, "manifestCartonId");
@@ -114,7 +114,7 @@ public class BoxReceipt extends UuidEntity {
     this.state = BoxState.NOT_RECEIVED;
   }
 
-  public String getLotId() {
+  public java.util.UUID getLotId() {
     return lotId;
   }
 

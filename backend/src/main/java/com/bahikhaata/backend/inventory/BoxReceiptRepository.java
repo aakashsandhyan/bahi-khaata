@@ -20,15 +20,16 @@ package com.bahikhaata.backend.inventory;
 import com.bahikhaata.contracts.BoxState;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BoxReceiptRepository extends JpaRepository<BoxReceipt, String> {
 
-  Optional<BoxReceipt> findByLotIdAndManifestCartonId(String lotId, String manifestCartonId);
+  Optional<BoxReceipt> findByLotIdAndManifestCartonId(UUID lotId, String manifestCartonId);
 
-  List<BoxReceipt> findByLotId(String lotId);
+  List<BoxReceipt> findByLotId(UUID lotId);
 
-  long countByLotIdAndState(String lotId, BoxState state);
+  long countByLotIdAndState(UUID lotId, BoxState state);
 
-  List<BoxReceipt> findByLotIdAndStateIn(String lotId, List<BoxState> states);
+  List<BoxReceipt> findByLotIdAndStateIn(UUID lotId, List<BoxState> states);
 }
