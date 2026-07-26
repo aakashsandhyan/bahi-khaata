@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Checkout } from './Checkout'
+import { LotManagement } from './LotManagement'
 import { Receiving } from './Receiving'
 import { Unpacking } from './Unpacking'
 import { Pricing } from './Pricing'
@@ -18,7 +19,7 @@ export function App() {
   // Phones are operators' devices and their nav is hidden, so they must land on unpacking, not
   // the till they cannot navigate away from. Wider screens — a counter tablet or a desk — are
   // where the till belongs, so they open on it.
-  const [view, setView] = useState<'checkout' | 'receiving' | 'unpacking' | 'prep' | 'pricing' | 'catalog'>(
+  const [view, setView] = useState<'checkout' | 'lots' | 'receiving' | 'unpacking' | 'prep' | 'pricing' | 'catalog'>(
     typeof window !== 'undefined' && window.innerWidth <= 760 ? 'unpacking' : 'checkout',
   )
   return (
@@ -27,6 +28,9 @@ export function App() {
         <span className="brand">Bachat Baazar</span>
         <button className={view === 'checkout' ? 'on' : ''} onClick={() => setView('checkout')}>
           Till
+        </button>
+        <button className={view === 'lots' ? 'on' : ''} onClick={() => setView('lots')}>
+          Lots
         </button>
         <button className={view === 'receiving' ? 'on' : ''} onClick={() => setView('receiving')}>
           Receiving
@@ -47,6 +51,8 @@ export function App() {
       <main>
         {view === 'checkout' ? (
           <Checkout />
+        ) : view === 'lots' ? (
+          <LotManagement />
         ) : view === 'receiving' ? (
           <Receiving />
         ) : view === 'unpacking' ? (

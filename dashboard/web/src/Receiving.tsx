@@ -9,6 +9,7 @@ export function Receiving() {
   const [cartonId, setCartonId] = useState('')
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
   const [state, setState] = useState<'in-progress' | 'complete'>('in-progress')
+  const [productForm, setProductForm] = useState({ code: '', name: '', quantity: 1, categoryCode: 'KITCHEN', estimatedCost: '' })
 
   useEffect(() => {
     loadLots()
@@ -88,10 +89,38 @@ export function Receiving() {
     }
   }
 
+  const addProductToManualLot = async () => {
+    if (!selectedLot || !productForm.name || productForm.quantity <= 0) {
+      setMessage({ text: 'Fill required fields', tone: 'stop' })
+      return
+    }
+
+    try {
+      await receiving.addProduct(
+        selectedLot.id,
+        productForm.code || null,
+        productForm.name,
+        productForm.quantity,
+        productForm.categoryCode,
+        productForm.estimatedCost ? Math.round(parseFloat(productForm.estimatedCost) * 100) : null
+      )
+      setMessage({ text: `✓ ${productForm.name} added`, tone: 'ok' })
+      setProductForm({ code: '', name: '', quantity: 1, categoryCode: 'KITCHEN', estimatedCost: '' })
+      await openLot(selectedLot)
+      await loadLots()
+    } catch (err) {
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Error adding product.',
+        tone: 'stop',
+      })
+    }
+  }
+
   const closeLot = () => {
     setSelectedLot(null)
     setBoxes(null)
     setCartonId('')
+    setProductForm({ code: '', name: '', quantity: 1, categoryCode: 'KITCHEN', estimatedCost: '' })
     setMessage(null)
     loadLots()
   }
@@ -154,14 +183,17 @@ export function Receiving() {
                     <div key={lot.id} className="ov">
                       <div className="ov-row" onClick={() => openLot(lot)}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="ov-name">{lot.supplier}</div>
+                          <div className="ov-name">
+                            {lot.supplier}
+                            {lot.isManual && <span style={{ marginLeft: 'var(--s2)', fontSize: '12px', color: 'var(--ink-faint)' }}>(M)</span>}
+                          </div>
                           <div className="ov-stat">{lot.receivedOn}</div>
                           <div className="ov-bar">
                             <i style={{ width: `${pct}%` }} />
                           </div>
                         </div>
                         <div style={{ marginLeft: 'var(--s3)', textAlign: 'right', fontSize: '13px' }}>
-                          {done}/{lot.expected}
+                          {lot.isManual ? `${done} products` : `${done}/${lot.expected}`}
                         </div>
                       </div>
                     </div>
@@ -179,6 +211,7 @@ export function Receiving() {
     <div className="receiving">
       <h1>
         {selectedLot.supplier}
+        {selectedLot.isManual && <span style={{ marginLeft: 'var(--s2)', fontSize: '14px', color: 'var(--ink-faint)' }}>(Manual)</span>}
         <button
           className="back"
           onClick={closeLot}
@@ -190,33 +223,139 @@ export function Receiving() {
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 
-      {boxes && (
-        <div style={{ fontSize: '15px', marginBottom: 'var(--s3)', color: 'var(--brand)' }}>
-          {boxes.counts.received + boxes.counts.unpacked + boxes.counts.rejected + boxes.counts.notReceived} /{' '}
-          {boxes.counts.expected} boxes
-        </div>
+      {selectedLot.isManual ? (
+        <>
+          {boxes && (
+            <div style={{ fontSize: '15px', marginBottom: 'var(--s3)', color: 'var(--brand)' }}>
+              {boxes.counts.received} products, {boxes.counts.received * productForm.quantity || 0} units
+            </div>
+          )}
+
+          <div style={{ marginBottom: 'var(--s3)', padding: 'var(--s3)', background: 'var(--line-soft)', borderRadius: 'var(--r1)' }}>
+            <div style={{ marginBottom: 'var(--s2)' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Product Name *</label>
+              <input
+                type="text"
+                placeholder="e.g., Face Cream"
+                value={productForm.name}
+                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid var(--line)',
+                  borderRadius: 'var(--r1)',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 'var(--s2)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s2)' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Category *</label>
+                <select
+                  value={productForm.categoryCode}
+                  onChange={(e) => setProductForm({ ...productForm, categoryCode: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid var(--line)',
+                    borderRadius: 'var(--r1)',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <option value="KITCHEN">Kitchen</option>
+                  <option value="PERSONAL_CARE">Personal Care</option>
+                  <option value="HOME_ESSENTIALS">Home</option>
+                  <option value="WIRELESS">Electronics</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Qty *</label>
+                <input
+                  type="number"
+                  placeholder="1"
+                  value={productForm.quantity}
+                  onChange={(e) => setProductForm({ ...productForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid var(--line)',
+                    borderRadius: 'var(--r1)',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 'var(--s2)' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Est. Cost (₹)</label>
+              <input
+                type="number"
+                placeholder="Optional"
+                value={productForm.estimatedCost}
+                onChange={(e) => setProductForm({ ...productForm, estimatedCost: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid var(--line)',
+                  borderRadius: 'var(--r1)',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            <button
+              onClick={addProductToManualLot}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: 'var(--brand)',
+                color: 'white',
+                border: 'none',
+                borderRadius: 'var(--r1)',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Add Product
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {boxes && (
+            <div style={{ fontSize: '15px', marginBottom: 'var(--s3)', color: 'var(--brand)' }}>
+              {boxes.counts.received + boxes.counts.unpacked + boxes.counts.rejected + boxes.counts.notReceived} /{' '}
+              {boxes.counts.expected} boxes
+            </div>
+          )}
+
+          <input
+            className="scan"
+            placeholder="Scan carton ID"
+            value={cartonId}
+            onChange={(e) => setCartonId(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && receiveBox()}
+            autoFocus
+          />
+
+          <div className="button-group" style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
+            <button className="btn-primary" onClick={receiveBox} style={{ flex: 1 }}>
+              📦 Receive
+            </button>
+            <button className="btn-warn" onClick={markNotReceived} style={{ flex: 1 }}>
+              ✗ Not Received
+            </button>
+            <button className="btn-warn" onClick={rejectBox} style={{ flex: 1 }}>
+              📦 Damaged
+            </button>
+          </div>
+        </>
       )}
-
-      <input
-        className="scan"
-        placeholder="Scan carton ID"
-        value={cartonId}
-        onChange={(e) => setCartonId(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && receiveBox()}
-        autoFocus
-      />
-
-      <div className="button-group" style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
-        <button className="btn-primary" onClick={receiveBox} style={{ flex: 1 }}>
-          📦 Receive
-        </button>
-        <button className="btn-warn" onClick={markNotReceived} style={{ flex: 1 }}>
-          ✗ Not Received
-        </button>
-        <button className="btn-warn" onClick={rejectBox} style={{ flex: 1 }}>
-          📦 Damaged
-        </button>
-      </div>
 
       {boxes && (
         <div className="items" style={{ marginTop: 'var(--s3)' }}>
