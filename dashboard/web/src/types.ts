@@ -218,3 +218,29 @@ export interface MrpBackfillStatus {
   recorded: number
   message: string
 }
+
+// --- catalog ---
+// Browsing the product catalogue by name and found status, and opening one product to its detail.
+
+export type CatalogStatus = 'FOUND' | 'ON_PAPER'
+
+export interface CatalogEntry {
+  productId: string
+  name: string
+  categoryCode: string
+  status: CatalogStatus
+  priced: boolean
+}
+
+export interface ProductCode {
+  code: string
+  origin: 'MANUFACTURER' | 'INTERNAL' | 'MARKETPLACE' | 'UNIT_LABEL'
+}
+
+// Reuses ProductStates verbatim — the catalogue detail and the remediation view stay one shape.
+export interface CatalogDetail {
+  states: ProductStates
+  codes: ProductCode[]
+  status: CatalogStatus
+  priced: boolean
+}

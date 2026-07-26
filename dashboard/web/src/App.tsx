@@ -3,6 +3,7 @@ import { Checkout } from './Checkout'
 import { Unpacking } from './Unpacking'
 import { Pricing } from './Pricing'
 import { Prep } from './Prep'
+import { Catalog } from './Catalog'
 
 /**
  * The admin dashboard shell.
@@ -16,7 +17,7 @@ export function App() {
   // Phones are operators' devices and their nav is hidden, so they must land on unpacking, not
   // the till they cannot navigate away from. Wider screens — a counter tablet or a desk — are
   // where the till belongs, so they open on it.
-  const [view, setView] = useState<'checkout' | 'unpacking' | 'prep' | 'pricing'>(
+  const [view, setView] = useState<'checkout' | 'unpacking' | 'prep' | 'pricing' | 'catalog'>(
     typeof window !== 'undefined' && window.innerWidth <= 760 ? 'unpacking' : 'checkout',
   )
   return (
@@ -35,6 +36,9 @@ export function App() {
         <button className={view === 'pricing' ? 'on' : ''} onClick={() => setView('pricing')}>
           Pricing
         </button>
+        <button className={view === 'catalog' ? 'on' : ''} onClick={() => setView('catalog')}>
+          Catalog
+        </button>
       </nav>
       <main>
         {view === 'checkout' ? (
@@ -43,8 +47,10 @@ export function App() {
           <Unpacking />
         ) : view === 'prep' ? (
           <Prep />
-        ) : (
+        ) : view === 'pricing' ? (
           <Pricing />
+        ) : (
+          <Catalog />
         )}
       </main>
     </>

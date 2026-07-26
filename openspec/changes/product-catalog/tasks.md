@@ -27,18 +27,18 @@
 - [x] 4.6 Run the `architecture` module (ArchUnit) — confirm the new service respects `inventory → catalog` and no reverse dependency was introduced.
 
 ## 5. Frontend — types + api (`dashboard/web`)
-- [ ] 5.1 Add `CatalogStatus`, `CatalogEntry`, `ProductCode` to `types.ts` (reuse `ProductStates` for the detail states).
-- [ ] 5.2 Add `catalog.browse(q, status, page)` and `catalog.detail(productId)` to `api.ts`; the detail states half may reuse `remediation.states`.
+- [x] 5.1 Add `CatalogStatus`, `CatalogEntry`, `ProductCode` to `types.ts` (reuse `ProductStates` for the detail states).
+- [x] 5.2 Add `catalog.browse(q, status, page)` and `catalog.detail(productId)` to `api.ts`; the detail states half may reuse `remediation.states`.
 
 ## 6. Frontend — Catalog tab
-- [ ] 6.1 Widen `App.tsx` `view` union with `'catalog'`, add the nav button and the render branch.
-- [ ] 6.2 Build a `Catalog` component: name search box, status tabs (**On paper** default / Found / All), a scannable/typeable filter, rows showing name · category · found-or-on-paper badge · priced status.
-- [ ] 6.3 Row select opens a detail panel reusing the states view and the product's codes; wire the existing **set price** and **map a code** actions.
-- [ ] 6.4 Add a **Count** affordance that selects the product and signals counting intent (hand-off stub — records nothing; the product-centric-counting change attaches here).
-- [ ] 6.5 Add CSS for the catalogue list/detail, matching the existing design-system tokens; avoid class-name collisions (check existing `.qty-row`-style clashes).
+- [x] 6.1 Widen `App.tsx` `view` union with `'catalog'`, add the nav button and the render branch.
+- [x] 6.2 Build a `Catalog` component: name search box, status tabs (**On paper** default / Found / All), a scannable/typeable filter, rows showing name · category · found-or-on-paper badge · priced status.
+- [x] 6.3 Row select opens a detail panel reusing the states view and the product's codes; wire the existing **set price** and **map a code** actions.
+- [x] 6.4 Add a **Count** affordance that selects the product and signals counting intent (hand-off stub — records nothing; the product-centric-counting change attaches here).
+- [x] 6.5 Add CSS for the catalogue list/detail, matching the existing design-system tokens; avoid class-name collisions (check existing `.qty-row`-style clashes).
 
 ## 7. Verify
-- [ ] 7.1 `./gradlew :contracts:build :backend:test :architecture:test` green.
-- [ ] 7.2 `npx tsc --noEmit` and `npx vite build` clean.
+- [x] 7.1 `./gradlew :contracts:build :backend:test :architecture:test` green.
+- [x] 7.2 `npx tsc --noEmit` and `npx vite build` clean.
 - [ ] 7.3 Manual: open Catalog → default shows on-paper products; search by name; switch to Found; open a product → detail shows states + codes; set a price and confirm the row's priced status updates; confirm Count only hands off (records nothing).
-- [ ] 7.4 `openspec validate product-catalog` still passes; ready to `openspec archive` after implementation.
+- [x] 7.4 `openspec validate product-catalog` still passes; ready to `openspec archive` after implementation.

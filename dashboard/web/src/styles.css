@@ -413,6 +413,61 @@ tr.damaged { background: var(--warn-tint); }
 .pile-toggle:hover { color: var(--brand-dark); }
 .till-line-asin { font-size: 11px; color: var(--ink-faint); font-family: ui-monospace, monospace; margin: 1px 0 3px; }
 
+/* ============================================================================
+   Catalog (desktop admin) — browse by name/status, open one to its detail.
+   Prefixed cat- throughout: the page reuses .page/.sub/.categories/.chip/.banner/.price-in
+   from Pricing, but its list rows and badges are new shapes, so they get their own names.
+   ============================================================================ */
+.cat-search { width: 100%; margin: 0 0 var(--s3); }
+.cat-shell { display: flex; align-items: flex-start; gap: var(--s4); }
+.cat-list { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.cat-more { align-self: flex-start; }
+
+.cat-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  width: 100%; text-align: left; padding: 14px 16px;
+  border-radius: var(--r2); border: 1px solid var(--line); background: var(--card);
+  box-shadow: var(--shadow);
+}
+.cat-row.sel { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.cat-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cat-row-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-row-meta { font-size: 12px; color: var(--ink-faint); font-weight: 400; }
+.cat-row-badges { display: flex; gap: 6px; flex: 0 0 auto; }
+
+.cat-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; white-space: nowrap; }
+.cat-badge.cat-good { background: var(--good-tint); color: var(--good); }
+.cat-badge.cat-warn { background: var(--warn-tint); color: var(--warn); }
+.cat-badge.cat-neutral { background: var(--line-soft); color: var(--ink-faint); }
+
+/* side panel opened by tapping a row */
+.cat-detail {
+  flex: 0 0 400px; width: 400px; position: sticky; top: var(--s4);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r3);
+  box-shadow: var(--shadow-lg); padding: var(--s5);
+}
+.cat-detail.cat-loading { color: var(--ink-faint); text-align: center; }
+.cat-detail h2 { font-size: 19px; margin: var(--s2) 0 var(--s1); }
+.cat-detail-meta { display: flex; align-items: center; gap: var(--s2); color: var(--ink-soft); font-size: 13px; margin: 0 0 var(--s3); }
+.cat-sub-head { font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-faint); margin: var(--s4) 0 var(--s2); }
+
+.cat-state-line, .cat-code-line {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--s2);
+  padding: 8px 10px; border-radius: var(--r1); background: var(--line-soft); margin: 0 0 var(--s1);
+  font-size: 14px;
+}
+.cat-code { font-family: ui-monospace, monospace; font-weight: 600; }
+
+.cat-price-rule { display: flex; gap: var(--s2); }
+.cat-price-rule .price-in { flex: 1; width: auto; }
+
+.cat-count-note { font-size: 13px; color: var(--ink-soft); background: var(--brand-tint); padding: 10px 12px; border-radius: var(--r2); margin-top: var(--s2); }
+
+@media (max-width: 900px) {
+  .cat-shell { flex-direction: column; }
+  .cat-detail { position: static; width: 100%; flex: 1 1 auto; }
+}
+
 /* add-an-extra button on the box screen */
 .btn-extra {
   display: block; width: 100%; margin: var(--s3) 0 0; padding: 12px; font-size: 15px;

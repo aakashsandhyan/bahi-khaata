@@ -272,3 +272,18 @@ export const remediation = {
     quantity: number
   }) => post<void>('/api/remediation/change-state', body),
 }
+
+// --- catalog ---
+// Browsing the product catalogue by name and found status, and opening one product to its detail.
+// Setting a price on a catalogue product reuses api.setPrice — there is no separate endpoint for it.
+
+import type { CatalogDetail as _CatalogDetail, CatalogEntry as _CatalogEntry } from './types'
+
+export const catalog = {
+  browse: (q: string, status: string, page = 0, size = 25) =>
+    getList<_CatalogEntry>(
+      `/api/catalog?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}&page=${page}&size=${size}`,
+    ),
+
+  detail: (productId: string) => get<_CatalogDetail>(`/api/catalog/products/${productId}`),
+}
