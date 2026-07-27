@@ -6,6 +6,7 @@ import { Unpacking } from './Unpacking'
 import { Pricing } from './Pricing'
 import { Prep } from './Prep'
 import { Catalog } from './Catalog'
+import { PrinterConfig } from './admin/PrinterConfig'
 
 /**
  * The admin dashboard shell.
@@ -19,7 +20,7 @@ export function App() {
   // Phones are operators' devices and their nav is hidden, so they must land on unpacking, not
   // the till they cannot navigate away from. Wider screens — a counter tablet or a desk — are
   // where the till belongs, so they open on it.
-  const [view, setView] = useState<'checkout' | 'lots' | 'receiving' | 'unpacking' | 'prep' | 'pricing' | 'catalog'>(
+  const [view, setView] = useState<'checkout' | 'lots' | 'receiving' | 'unpacking' | 'prep' | 'pricing' | 'catalog' | 'printer-config'>(
     typeof window !== 'undefined' && window.innerWidth <= 760 ? 'unpacking' : 'checkout',
   )
   return (
@@ -47,6 +48,9 @@ export function App() {
         <button className={view === 'catalog' ? 'on' : ''} onClick={() => setView('catalog')}>
           Catalog
         </button>
+        <button className={view === 'printer-config' ? 'on' : ''} onClick={() => setView('printer-config')}>
+          Printer
+        </button>
       </nav>
       <main>
         {view === 'checkout' ? (
@@ -61,8 +65,10 @@ export function App() {
           <Prep />
         ) : view === 'pricing' ? (
           <Pricing />
-        ) : (
+        ) : view === 'catalog' ? (
           <Catalog />
+        ) : (
+          <PrinterConfig />
         )}
       </main>
     </>
