@@ -1,0 +1,198 @@
+import { useEffect, useState } from 'react'
+import { printer, BackendError } from './api'
+import type { PrintJob } from './types'
+
+interface PrintModalProps {
+  itemType: 'box' | 'batch' | 'product'
+  itemId: string
+  itemName: string
+  defaultCopies?: number
+  onClose: () => void
+  onSuccess?: () => void
+}
+
+export function PrintModal({ itemType, itemId, itemName, defaultCopies = 1, onClose, onSuccess }: PrintModalProps) {
+  const [copies, setCopies] = useState(defaultCopies)
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [status, setStatus] = useState<'idle' | 'printing' | 'done' | 'failed'>('idle')
+  const [message, setMessage] = useState('')
+  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (!jobId) return
+
+    const interval = setInterval(async () => {
+      try {
+        const job = await printer.getJobStatus(jobId)
+        setStatus(job.status as 'printing' | 'done' | 'failed')
+
+        if (job.status === 'done') {
+          clearInterval(interval)
+          setPollInterval(null)
+          setMessage('✓ Labels printed successfully')
+          setTimeout(() => {
+            onSuccess?.()
+            onClose()
+          }, 1500)
+        } else if (job.status === 'failed') {
+          clearInterval(interval)
+          setPollInterval(null)
+          setMessage(`✗ Print failed: ${job.error}`)
+        }
+      } catch (err) {
+        setMessage(`Error checking status: ${err instanceof BackendError ? err.message : 'Network error'}`)
+      }
+    }, 500)
+
+    setPollInterval(interval)
+    return () => clearInterval(interval)
+  }, [jobId, onClose, onSuccess])
+
+  const handlePrint = async () => {
+    setStatus('printing')
+    setMessage('Printing...')
+
+    try {
+      const job = await printer.queueJob(itemType, itemId, copies)
+      setJobId(job.jobId)
+    } catch (err) {
+      setStatus('failed')
+      setMessage(err instanceof BackendError ? err.message : 'Failed to queue print job')
+    }
+  }
+
+  const handleRetry = () => {
+    setJobId(null)
+    setStatus('idle')
+    setMessage('')
+  }
+
+  return (
+    <div
+      className="modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && status !== 'printing') {
+          onClose()
+        }
+      }}
+    >
+      <div className="modal-content" style={{ maxWidth: '420px' }}>
+        <div className="modal-header">
+          <h2>Print Label</h2>
+          {status !== 'printing' && (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontSize: '18px',
+                cursor: 'pointer',
+                color: 'var(--ink-faint)',
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div className="modal-body">
+          <div style={{ marginBottom: 'var(--s3)' }}>
+            <div style={{ fontSize: '13px', color: 'var(--ink-faint)', marginBottom: 'var(--s1)' }}>
+              {itemType.charAt(0).toUpperCase() + itemType.slice(1)}
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: '600' }}>{itemName}</div>
+          </div>
+
+          {status === 'idle' && (
+            <>
+              <div style={{ marginBottom: 'var(--s3)' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--s1)' }}>
+                  Number of Copies
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={copies}
+                  onChange={(e) => setCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid var(--line)',
+                    borderRadius: 'var(--r1)',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          {(status === 'printing' || status === 'done' || status === 'failed') && (
+            <div
+              style={{
+                padding: 'var(--s3)',
+                background: status === 'done' ? 'var(--good-tint)' : status === 'failed' ? 'var(--stop-tint)' : 'var(--line-soft)',
+                borderRadius: 'var(--r1)',
+                textAlign: 'center',
+                marginBottom: 'var(--s3)',
+                color: status === 'done' ? 'var(--good)' : status === 'failed' ? 'var(--stop)' : 'var(--ink-soft)',
+              }}
+            >
+              {status === 'printing' && (
+                <div>
+                  <div style={{ fontSize: '18px', marginBottom: 'var(--s1)' }}>⟳</div>
+                  <div>{message}</div>
+                </div>
+              )}
+              {status === 'done' && (
+                <div>
+                  <div style={{ fontSize: '18px', marginBottom: 'var(--s1)' }}>✓</div>
+                  <div>{message}</div>
+                </div>
+              )}
+              {status === 'failed' && (
+                <div>
+                  <div style={{ fontSize: '14px' }}>{message}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ display: 'flex', gap: 'var(--s2)' }}>
+          {status === 'idle' && (
+            <>
+              <button onClick={handlePrint} className="btn-primary" style={{ flex: 1 }}>
+                Print
+              </button>
+              <button onClick={onClose} style={{ flex: 1 }}>
+                Cancel
+              </button>
+            </>
+          )}
+          {status === 'failed' && (
+            <>
+              <button onClick={handleRetry} className="btn-primary" style={{ flex: 1 }}>
+                Retry
+              </button>
+              <button onClick={onClose} style={{ flex: 1 }}>
+                Close
+              </button>
+            </>
+          )}
+          {status === 'done' && (
+            <button onClick={onClose} className="btn-primary" style={{ flex: 1 }}>
+              Close
+            </button>
+          )}
+          {status === 'printing' && (
+            <button disabled style={{ flex: 1, opacity: 0.5, cursor: 'default' }}>
+              Printing...
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

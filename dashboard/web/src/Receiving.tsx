@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { receiving, BackendError } from './api'
 import type { LotSummary, ReceivingBoxes } from './types'
+import { PrintModal } from './PrintModal'
 
 export function Receiving() {
   const [lots, setLots] = useState<LotSummary[] | null>(null)
@@ -10,6 +11,7 @@ export function Receiving() {
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
   const [state, setState] = useState<'in-progress' | 'complete'>('in-progress')
   const [productForm, setProductForm] = useState({ code: '', name: '', quantity: 1, categoryCode: 'KITCHEN', estimatedCost: '' })
+  const [printModal, setPrintModal] = useState<{ boxId: string; boxName: string } | null>(null)
 
   useEffect(() => {
     loadLots()
@@ -360,40 +362,61 @@ export function Receiving() {
       {boxes && (
         <div className="items" style={{ marginTop: 'var(--s3)' }}>
           {boxes.boxes.map((box) => (
-            <div key={box.manifestCartonId} className="item">
-              <div className="who">
-                <div>{box.manifestCartonId}</div>
-                {box.receivedAt && <div className="meta">{new Date(box.receivedAt).toLocaleTimeString()}</div>}
+            <div key={box.manifestCartonId}>
+              <div className="item">
+                <div className="who">
+                  <div>{box.manifestCartonId}</div>
+                  {box.receivedAt && <div className="meta">{new Date(box.receivedAt).toLocaleTimeString()}</div>}
+                </div>
+                <div className="countcol">
+                  <span
+                    className={`flag ${
+                      box.state === 'EXPECTED' || box.state === 'RECEIVED' || box.state === 'UNPACKING'
+                        ? 'ok'
+                        : 'stop'
+                    }${box.state === 'EXPECTED' ? '.neutral' : ''}`}
+                    style={{
+                      background:
+                        box.state === 'EXPECTED'
+                          ? 'var(--line-soft)'
+                          : box.state === 'RECEIVED' || box.state === 'UNPACKING'
+                            ? 'var(--good-tint)'
+                            : 'var(--stop-tint)',
+                      color:
+                        box.state === 'EXPECTED'
+                          ? 'var(--ink-faint)'
+                          : box.state === 'RECEIVED' || box.state === 'UNPACKING'
+                            ? 'var(--good)'
+                            : 'var(--stop)',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                    }}
+                  >
+                    {box.state}
+                  </span>
+                </div>
               </div>
-              <div className="countcol">
-                <span
-                  className={`flag ${
-                    box.state === 'EXPECTED' || box.state === 'RECEIVED' || box.state === 'UNPACKING'
-                      ? 'ok'
-                      : 'stop'
-                  }${box.state === 'EXPECTED' ? '.neutral' : ''}`}
+              {box.state === 'RECEIVED' && (
+                <button
+                  onClick={() => setPrintModal({ boxId: box.manifestCartonId, boxName: box.manifestCartonId })}
                   style={{
-                    background:
-                      box.state === 'EXPECTED'
-                        ? 'var(--line-soft)'
-                        : box.state === 'RECEIVED' || box.state === 'UNPACKING'
-                          ? 'var(--good-tint)'
-                          : 'var(--stop-tint)',
-                    color:
-                      box.state === 'EXPECTED'
-                        ? 'var(--ink-faint)'
-                        : box.state === 'RECEIVED' || box.state === 'UNPACKING'
-                          ? 'var(--good)'
-                          : 'var(--stop)',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    fontSize: '11px',
-                    fontWeight: '600',
+                    fontSize: '12px',
+                    padding: '6px 10px',
+                    marginTop: '6px',
+                    background: 'transparent',
+                    border: '1px solid var(--brand)',
+                    color: 'var(--brand)',
+                    borderRadius: 'var(--r1)',
+                    cursor: 'pointer',
+                    width: '100%',
+                    fontWeight: '500',
                   }}
                 >
-                  {box.state}
-                </span>
-              </div>
+                  🖨 Print Label
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -405,6 +428,19 @@ export function Receiving() {
             Done
           </button>
         </div>
+      )}
+
+      {printModal && (
+        <PrintModal
+          itemType="box"
+          itemId={printModal.boxId}
+          itemName={printModal.boxName}
+          onClose={() => setPrintModal(null)}
+          onSuccess={() => {
+            setPrintModal(null)
+            selectedLot && openLot(selectedLot)
+          }}
+        />
       )}
     </div>
   )
