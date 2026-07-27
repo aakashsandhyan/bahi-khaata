@@ -17,14 +17,18 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.backend.persistence.InstantIso8601Converter;
 import com.bahikhaata.backend.persistence.UuidEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 /**
  * A queued print job for barcode label output on TSC TE-244 thermal printer.
@@ -40,6 +44,7 @@ public class PrintJob extends UuidEntity {
     @Column(name = "item_type", nullable = false, columnDefinition = "text")
     private String itemType; // "box", "batch", "product"
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "item_id", nullable = false)
     private UUID itemId;
 
@@ -56,11 +61,13 @@ public class PrintJob extends UuidEntity {
     private int retryCount = 0;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false)
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
     private Instant createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "text")
     private Instant updatedAt;
 
     protected PrintJob() {}

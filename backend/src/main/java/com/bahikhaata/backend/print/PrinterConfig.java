@@ -17,8 +17,10 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.backend.persistence.InstantIso8601Converter;
 import com.bahikhaata.backend.persistence.UuidEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -60,15 +62,18 @@ public class PrinterConfig extends UuidEntity {
     @Column(name = "test_error", columnDefinition = "text")
     private String testError;
 
-    @Column(name = "last_tested_at")
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "last_tested_at", columnDefinition = "text")
     private Instant lastTestedAt;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false)
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
     private Instant createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "updated_at", nullable = false, columnDefinition = "text")
     private Instant updatedAt;
 
     protected PrinterConfig() {}
