@@ -20,7 +20,6 @@ package com.bahikhaata.backend.print;
 import com.bahikhaata.contracts.QueuePrintJobRequest;
 import com.bahikhaata.contracts.QueuePrintJobResponse;
 import com.bahikhaata.contracts.PrintJobStatusResponse;
-import jakarta.validation.Valid;
 import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -48,7 +47,7 @@ public class PrintController {
     }
 
     @PostMapping
-    public ResponseEntity<QueuePrintJobResponse> queuePrintJob(@Valid @RequestBody QueuePrintJobRequest req) {
+    public ResponseEntity<QueuePrintJobResponse> queuePrintJob(@RequestBody QueuePrintJobRequest req) {
         String itemType = req.itemType().toLowerCase();
         if (!Arrays.asList("box", "batch", "product").contains(itemType)) {
             return ResponseEntity.badRequest().build();

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { printer, BackendError } from './api'
-import type { PrintJob } from './types'
 
 interface PrintModalProps {
   itemType: 'box' | 'batch' | 'product'
@@ -16,7 +15,6 @@ export function PrintModal({ itemType, itemId, itemName, defaultCopies = 1, onCl
   const [jobId, setJobId] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'printing' | 'done' | 'failed'>('idle')
   const [message, setMessage] = useState('')
-  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!jobId) return
@@ -24,11 +22,11 @@ export function PrintModal({ itemType, itemId, itemName, defaultCopies = 1, onCl
     const interval = setInterval(async () => {
       try {
         const job = await printer.getJobStatus(jobId)
+        if (!job) return
         setStatus(job.status as 'printing' | 'done' | 'failed')
 
         if (job.status === 'done') {
           clearInterval(interval)
-          setPollInterval(null)
           setMessage('✓ Labels printed successfully')
           setTimeout(() => {
             onSuccess?.()
@@ -36,15 +34,13 @@ export function PrintModal({ itemType, itemId, itemName, defaultCopies = 1, onCl
           }, 1500)
         } else if (job.status === 'failed') {
           clearInterval(interval)
-          setPollInterval(null)
-          setMessage(`✗ Print failed: ${job.error}`)
+          setMessage(`✗ Print failed: ${job.error || 'Unknown error'}`)
         }
       } catch (err) {
         setMessage(`Error checking status: ${err instanceof BackendError ? err.message : 'Network error'}`)
       }
     }, 500)
 
-    setPollInterval(interval)
     return () => clearInterval(interval)
   }, [jobId, onClose, onSuccess])
 
@@ -54,7 +50,9 @@ export function PrintModal({ itemType, itemId, itemName, defaultCopies = 1, onCl
 
     try {
       const job = await printer.queueJob(itemType, itemId, copies)
-      setJobId(job.jobId)
+      if (job) {
+        setJobId(job.jobId)
+      }
     } catch (err) {
       setStatus('failed')
       setMessage(err instanceof BackendError ? err.message : 'Failed to queue print job')

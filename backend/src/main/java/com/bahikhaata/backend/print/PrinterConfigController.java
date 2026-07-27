@@ -20,10 +20,8 @@ package com.bahikhaata.backend.print;
 import com.bahikhaata.contracts.PrinterConfigRequest;
 import com.bahikhaata.contracts.PrinterConfigResponse;
 import com.bahikhaata.contracts.PrinterTestResponse;
-import jakarta.validation.Valid;
 import java.time.Instant;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -40,7 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/admin/printer-config")
-@PreAuthorize("hasRole('ADMIN')")
 public class PrinterConfigController {
     private final PrinterConfigRepository configRepo;
     private final PrinterConnectionTester tester;
@@ -59,7 +56,7 @@ public class PrinterConfigController {
     }
 
     @PutMapping
-    public ResponseEntity<PrinterConfigResponse> saveConfig(@Valid @RequestBody PrinterConfigRequest req) {
+    public ResponseEntity<PrinterConfigResponse> saveConfig(@RequestBody PrinterConfigRequest req) {
         PrinterConfig config = configRepo.getSingleton()
             .orElseGet(PrinterConfig::createDefault);
 

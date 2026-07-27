@@ -17,12 +17,9 @@
  */
 package com.bahikhaata.contracts;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import java.util.UUID;
 
 public record QueuePrintJobRequest(
-    @NotBlank(message = "itemType required") String itemType,
-    @NotNull(message = "itemId required") UUID itemId,
-    @Positive(message = "copies must be > 0") int copies) {}
+    String itemType,
+    UUID itemId,
+    int copies) {}

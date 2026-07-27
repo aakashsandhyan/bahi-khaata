@@ -42,11 +42,13 @@ export function PrinterConfig() {
     setTestLoading(true)
     try {
       const result = await printer.testPrinter()
-      setConfig((prev) => (prev ? { ...prev, testStatus: result.testStatus as any, lastTestedAt: result.testedAt } : null))
-      setMessage({
-        text: result.message,
-        tone: result.testStatus === 'OK' ? 'ok' : 'stop',
-      })
+      if (result) {
+        setConfig((prev) => (prev ? { ...prev, testStatus: result.testStatus as any, lastTestedAt: result.testedAt } : null))
+        setMessage({
+          text: result.message,
+          tone: result.testStatus === 'OK' ? 'ok' : 'stop',
+        })
+      }
     } catch (err) {
       setMessage({
         text: err instanceof BackendError ? err.message : 'Test failed',

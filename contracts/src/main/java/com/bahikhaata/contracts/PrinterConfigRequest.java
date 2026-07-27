@@ -17,14 +17,9 @@
  */
 package com.bahikhaata.contracts;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
-
 public record PrinterConfigRequest(
-    @NotBlank(message = "address required") String address,
-    @Positive(message = "portSpeed must be > 0") @Min(value = 1, message = "portSpeed >= 1")
-        int portSpeed,
-    @NotBlank(message = "paperSize required") String paperSize,
-    @Positive(message = "copiesDefault must be > 0") int copiesDefault,
+    String address,
+    int portSpeed,
+    String paperSize,
+    int copiesDefault,
     boolean enabled) {}
