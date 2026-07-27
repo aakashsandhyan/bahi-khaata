@@ -86,11 +86,11 @@ class ProductCatalogTest {
     @Test
     @DisplayName("A freshly imported product, never found, is on-paper")
     void importedIsOnPaper() {
-        List<CatalogEntry> onPaper = catalog.browse("", "on-paper", "", 0, 25);
+        List<CatalogEntry> onPaper = catalog.browse("", "on-paper", "", "", 0, 25);
         assertThat(names(onPaper))
                 .containsExactlyInAnyOrder("Alpha Kettle", "Beta Cooker", "Gamma Pan");
         assertThat(onPaper).allMatch(e -> e.status() == CatalogStatus.ON_PAPER);
-        assertThat(catalog.browse("", "found", "", 0, 25)).isEmpty();
+        assertThat(catalog.browse("", "found", "", "", 0, 25)).isEmpty();
     }
 
     @Test
@@ -98,8 +98,8 @@ class ProductCatalogTest {
     void countedIsFound() {
         counting.countExpected(lineAt(0).getId(), StockCondition.GOOD, 2, Money.ofPaise(20_000), false, AT);
 
-        assertThat(names(catalog.browse("", "found", "", 0, 25))).containsExactly("Alpha Kettle");
-        assertThat(names(catalog.browse("", "on-paper", "", 0, 25)))
+        assertThat(names(catalog.browse("", "found", "", "", 0, 25))).containsExactly("Alpha Kettle");
+        assertThat(names(catalog.browse("", "on-paper", "", "", 0, 25)))
                 .containsExactlyInAnyOrder("Beta Cooker", "Gamma Pan");
     }
 
@@ -109,21 +109,21 @@ class ProductCatalogTest {
         Product beta = lineAt(1).getProduct();
         barcodes.save(new Barcode(beta, "EAN-BETA", Origin.MANUFACTURER));
 
-        assertThat(names(catalog.browse("", "found", "", 0, 25))).containsExactly("Beta Cooker");
+        assertThat(names(catalog.browse("", "found", "", "", 0, 25))).containsExactly("Beta Cooker");
     }
 
     @Test
     @DisplayName("A marketplace reference alone does not count as found")
     void marketplaceCodeIsNotFound() {
         // Every product already carries its import MARKETPLACE code; none should read as found.
-        assertThat(catalog.browse("", "found", "", 0, 25)).isEmpty();
+        assertThat(catalog.browse("", "found", "", "", 0, 25)).isEmpty();
     }
 
     @Test
     @DisplayName("Name filter matches a fragment, case-insensitively")
     void nameFilter() {
-        assertThat(names(catalog.browse("kettle", "all", "", 0, 25))).containsExactly("Alpha Kettle");
-        assertThat(names(catalog.browse("BETA", "all", "", 0, 25))).containsExactly("Beta Cooker");
+        assertThat(names(catalog.browse("kettle", "all", "", "", 0, 25))).containsExactly("Alpha Kettle");
+        assertThat(names(catalog.browse("BETA", "all", "", "", 0, 25))).containsExactly("Beta Cooker");
     }
 
     @Test
@@ -131,7 +131,7 @@ class ProductCatalogTest {
     void allMarksMixed() {
         counting.countExpected(lineAt(0).getId(), StockCondition.GOOD, 2, Money.ofPaise(20_000), false, AT);
 
-        List<CatalogEntry> all = catalog.browse("", "all", "", 0, 25);
+        List<CatalogEntry> all = catalog.browse("", "all", "", "", 0, 25);
         assertThat(all).hasSize(3);
         assertThat(all.stream().filter(e -> e.status() == CatalogStatus.FOUND).map(CatalogEntry::name))
                 .containsExactly("Alpha Kettle");
@@ -142,8 +142,8 @@ class ProductCatalogTest {
     @Test
     @DisplayName("Paging returns further products beyond the first page")
     void paging() {
-        List<CatalogEntry> page0 = catalog.browse("", "all", "", 0, 2);
-        List<CatalogEntry> page1 = catalog.browse("", "all", "", 1, 2);
+        List<CatalogEntry> page0 = catalog.browse("", "all", "", "", 0, 2);
+        List<CatalogEntry> page1 = catalog.browse("", "all", "", "", 1, 2);
         assertThat(page0).hasSize(2);
         assertThat(page1).hasSize(1);
         assertThat(names(page0)).doesNotContainAnyElementsOf(names(page1));
@@ -164,16 +164,16 @@ class ProductCatalogTest {
                                         "BOX-B", null, null))))));
 
         // Category alone, over all statuses.
-        assertThat(names(catalog.browse("", "all", "KITCHEN", 0, 25)))
+        assertThat(names(catalog.browse("", "all", "KITCHEN", "", 0, 25)))
                 .containsExactlyInAnyOrder("Alpha Kettle", "Beta Cooker", "Gamma Pan");
-        assertThat(names(catalog.browse("", "all", "WIRELESS", 0, 25)))
+        assertThat(names(catalog.browse("", "all", "WIRELESS", "", 0, 25)))
                 .containsExactly("Delta Cable");
         // Blank category spans every department.
-        assertThat(catalog.browse("", "all", "", 0, 25)).hasSize(4);
+        assertThat(catalog.browse("", "all", "", "", 0, 25)).hasSize(4);
 
         // Category AND status together: WIRELESS is all on-paper, so found in WIRELESS is empty.
-        assertThat(catalog.browse("", "found", "WIRELESS", 0, 25)).isEmpty();
-        assertThat(names(catalog.browse("", "on-paper", "WIRELESS", 0, 25)))
+        assertThat(catalog.browse("", "found", "WIRELESS", "", 0, 25)).isEmpty();
+        assertThat(names(catalog.browse("", "on-paper", "WIRELESS", "", 0, 25)))
                 .containsExactly("Delta Cable");
     }
 
@@ -182,14 +182,14 @@ class ProductCatalogTest {
     void expectedAndCountedCounts() {
         // Each product was imported expecting 4 units. Nothing counted yet.
         CatalogEntry alpha =
-                catalog.browse("Alpha", "all", "", 0, 25).stream().findFirst().orElseThrow();
+                catalog.browse("Alpha", "all", "", "", 0, 25).stream().findFirst().orElseThrow();
         assertThat(alpha.unitsExpected()).isEqualTo(4);
         assertThat(alpha.unitsCounted()).isZero();
 
         // Count 2 of Alpha; its counted rises, expected holds, so 2 are still on paper.
         counting.countExpected(lineAt(0).getId(), StockCondition.GOOD, 2, Money.ofPaise(20_000), false, AT);
         CatalogEntry after =
-                catalog.browse("Alpha", "all", "", 0, 25).stream().findFirst().orElseThrow();
+                catalog.browse("Alpha", "all", "", "", 0, 25).stream().findFirst().orElseThrow();
         assertThat(after.unitsExpected()).isEqualTo(4);
         assertThat(after.unitsCounted()).isEqualTo(2);
 
@@ -210,11 +210,40 @@ class ProductCatalogTest {
                                         "BOX-C", null, null))))));
 
         CatalogEntry alpha =
-                catalog.browse("Alpha", "all", "", 0, 25).stream()
+                catalog.browse("Alpha", "all", "", "", 0, 25).stream()
                         .filter(e -> e.name().equals("Alpha Kettle"))
                         .findFirst().orElseThrow();
         // 4 from the first box + 4 from the second, summed onto the one product.
         assertThat(alpha.unitsExpected()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("Lot filter scopes the list and the counts to one delivery")
+    void lotFilter() {
+        UUID lotOne = lotId;
+        // The same product (AAA) arrives again on a second delivery, 6 more expected.
+        importer.importConsignment(
+                new ImportConsignmentRequest(
+                        "Other", "2026-07-20",
+                        List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
+                                List.of(new ImportLine("AAA", "Alpha Kettle", 6, 10_000, null, "BOX-Z", null, null))))));
+        UUID lotTwo = lots.findAll().stream().filter(Lot::isOpen)
+                .reduce((a, b) -> b).orElseThrow().getId();
+
+        // Scoped to lot one: Alpha shows lot one's 4 expected, and lot two's product (only Alpha) too.
+        CatalogEntry inOne = catalog.browse("Alpha", "all", "", lotOne.toString(), 0, 25).stream()
+                .filter(e -> e.name().equals("Alpha Kettle")).findFirst().orElseThrow();
+        assertThat(inOne.unitsExpected()).isEqualTo(4);
+
+        // Scoped to lot two: Alpha shows only lot two's 6.
+        List<CatalogEntry> two = catalog.browse("", "all", "", lotTwo.toString(), 0, 25);
+        assertThat(names(two)).containsExactly("Alpha Kettle");
+        assertThat(two.get(0).unitsExpected()).isEqualTo(6);
+
+        // No lot: Alpha's expected is the sum across both, 10.
+        CatalogEntry global = catalog.browse("Alpha", "all", "", "", 0, 25).stream()
+                .filter(e -> e.name().equals("Alpha Kettle")).findFirst().orElseThrow();
+        assertThat(global.unitsExpected()).isEqualTo(10);
     }
 
     @Test
