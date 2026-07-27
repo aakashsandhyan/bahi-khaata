@@ -48,6 +48,17 @@ async function post<T>(path: string, body?: unknown): Promise<T | null> {
   return text ? (JSON.parse(text) as T) : null
 }
 
+async function put<T>(path: string, body?: unknown): Promise<T | null> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!response.ok) throw new BackendError(await message(response))
+  const text = await response.text()
+  return text ? (JSON.parse(text) as T) : null
+}
+
 async function message(response: Response): Promise<string> {
   const text = await response.text()
   return text || `The backend answered ${response.status}.`
@@ -323,12 +334,52 @@ export const receiving = {
 import type { CatalogDetail as _CatalogDetail, CatalogEntry as _CatalogEntry } from './types'
 
 export const catalog = {
-  // Name, status, and category narrow together; a blank category spans every department.
-  browse: (q: string, status: string, category = '', page = 0, size = 25) =>
+  // Name, status, category, and lot narrow together; a blank lot spans every delivery.
+  browse: (q: string, status: string, category = '', page = 0, size = 25, lot = '') =>
     getList<_CatalogEntry>(
       `/api/catalog?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}` +
-        `&category=${encodeURIComponent(category)}&page=${page}&size=${size}`,
+        `&category=${encodeURIComponent(category)}&page=${page}&size=${size}` +
+        `&lot=${encodeURIComponent(lot)}`,
     ),
 
   detail: (productId: string) => get<_CatalogDetail>(`/api/catalog/products/${productId}`),
+}
+
+// --- product-centric counting ---
+// Counting one product across every box of a single, chosen delivery — the boxes that still
+// owe it units, in one grid, rather than opening each box in turn.
+
+import type { ProductCountRequest as _ProductCountRequest, ProductCountResult as _ProductCountResult, ProductLotLines as _ProductLotLines } from './types'
+
+export const productCounting = {
+  lines: (lotId: string, productId: string) =>
+    get<_ProductLotLines>(`/api/product-counting/lots/${lotId}/products/${productId}/lines`),
+
+  count: (body: _ProductCountRequest) =>
+    post<_ProductCountResult>('/api/product-counting/count', body) as Promise<_ProductCountResult>,
+}
+
+// --- printer (barcode labels) -----------------------------------------------------------------------
+
+import type {
+  PrintJob as _PrintJob,
+  PrinterConfig as _PrinterConfig,
+  PrinterTestResult as _PrinterTestResult,
+} from './types'
+
+export const printer = {
+  queueJob: (itemType: string, itemId: string, copies: number) =>
+    post<_PrintJob>('/api/print-jobs', { itemType, itemId, copies }),
+
+  getJobStatus: (jobId: string) =>
+    get<_PrintJob>(`/api/print-jobs/${jobId}`),
+
+  getConfig: () =>
+    get<_PrinterConfig>('/api/admin/printer-config'),
+
+  saveConfig: (config: Partial<_PrinterConfig>) =>
+    put<_PrinterConfig>('/api/admin/printer-config', config),
+
+  testPrinter: () =>
+    post<_PrinterTestResult>('/api/admin/printer-config/test'),
 }

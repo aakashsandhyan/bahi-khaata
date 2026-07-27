@@ -239,6 +239,49 @@ export interface ProductCode {
   origin: 'MANUFACTURER' | 'INTERNAL' | 'MARKETPLACE' | 'UNIT_LABEL'
 }
 
+// --- product-centric counting ---
+// Counting a product across every box of one delivery at once, instead of box by box.
+
+export interface ProductBoxLine {
+  lineId: string
+  boxTracking: string
+  outstanding: number
+}
+
+export interface ProductLotLines {
+  productId: string
+  productName: string
+  lotId: string
+  lines: ProductBoxLine[]
+}
+
+export interface BoxCountEntry {
+  lineId: string
+  quantity: number
+  outstandingSeen: number
+}
+
+export interface ProductCountRequest {
+  productId: string
+  lotId: string
+  condition: string
+  mrpPaise: number | null
+  mrpIsEstimate: boolean
+  entries: BoxCountEntry[]
+}
+
+export interface RejectedEntry {
+  lineId: string
+  boxTracking: string
+  nowOutstanding: number
+}
+
+export interface ProductCountResult {
+  linesCounted: number
+  unitsCounted: number
+  rejected: RejectedEntry[]
+}
+
 // Reuses ProductStates verbatim — the catalogue detail and the remediation view stay one shape.
 export interface CatalogDetail {
   states: ProductStates
@@ -304,4 +347,35 @@ export interface AddProductResponse {
   totalProducts: number
   totalQuantity: number
   allocationPerUnit: number
+}
+
+// --- printer (barcode labels) ---------------------------------------------------------------
+
+export interface PrintJob {
+  jobId: string
+  status: 'queued' | 'printing' | 'done' | 'failed'
+  itemType: 'box' | 'batch' | 'product'
+  itemId: string
+  copies: number
+  error: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface PrinterConfig {
+  id: string
+  address: string
+  portSpeed: number
+  paperSize: string
+  copiesDefault: number
+  enabled: boolean
+  testStatus: 'OK' | 'UNREACHABLE' | 'ERROR' | null
+  lastTestedAt: string | null
+  testError: string | null
+}
+
+export interface PrinterTestResult {
+  testStatus: 'OK' | 'UNREACHABLE' | 'ERROR'
+  message: string
+  testedAt: string
 }
