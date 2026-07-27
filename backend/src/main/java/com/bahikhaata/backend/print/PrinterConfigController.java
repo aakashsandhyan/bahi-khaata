@@ -49,10 +49,11 @@ public class PrinterConfigController {
 
     @GetMapping
     public ResponseEntity<PrinterConfigResponse> getConfig() {
-        return configRepo.getSingleton()
-            .map(this::toResponse)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        // Before anyone has saved one, hand back the defaults rather than a 404, so the config
+        // screen opens on a filled form to edit instead of an error. The same default is what
+        // saving and testing already fall back to.
+        return ResponseEntity.ok(
+                toResponse(configRepo.getSingleton().orElseGet(PrinterConfig::createDefault)));
     }
 
     @PutMapping
