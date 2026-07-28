@@ -6,6 +6,11 @@ interface PrintModalProps {
   itemId: string
   itemName: string
   defaultCopies?: number
+  productName?: string
+  category?: string
+  costPerUnit?: string
+  mrp?: string
+  lotId?: string
   onClose: () => void
   onSuccess?: () => void
 }
@@ -94,15 +99,23 @@ export function PrintModal({ itemType, itemId, itemName, defaultCopies = 1, onCl
         </div>
 
         <div className="modal-body">
-          <div style={{ marginBottom: 'var(--s3)' }}>
-            <div style={{ fontSize: '13px', color: 'var(--ink-faint)', marginBottom: 'var(--s1)' }}>
-              {itemType.charAt(0).toUpperCase() + itemType.slice(1)}
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: '600' }}>{itemName}</div>
-          </div>
-
           {status === 'idle' && (
             <>
+              <div style={{ marginBottom: 'var(--s3)', padding: 'var(--s3)', background: 'var(--line-soft)', borderRadius: 'var(--r1)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-faint)', textTransform: 'uppercase', marginBottom: 'var(--s2)' }}>
+                  Label Preview
+                </div>
+                <div style={{ fontSize: '13px', lineHeight: 1.6, fontFamily: 'monospace' }}>
+                  <div style={{ fontWeight: '600', marginBottom: 'var(--s1)' }}>┌─ BARCODE ─┐</div>
+                  {productName && <div>{productName}</div>}
+                  {category && <div style={{ fontSize: '11px', color: 'var(--ink-faint)' }}>{category}</div>}
+                  {costPerUnit && <div>Cost: ₹{costPerUnit}</div>}
+                  {mrp && <div>MRP: ₹{mrp}</div>}
+                  {lotId && <div style={{ fontSize: '11px' }}>Lot: {lotId}</div>}
+                  <div style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: 'var(--s1)' }}>4x6 thermal label</div>
+                </div>
+              </div>
+
               <div style={{ marginBottom: 'var(--s3)' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--s1)' }}>
                   Number of Copies
