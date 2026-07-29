@@ -17,10 +17,12 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.contracts.PrintLabelRequest;
 import com.bahikhaata.contracts.PrinterConfigRequest;
 import com.bahikhaata.contracts.PrinterConfigResponse;
 import com.bahikhaata.contracts.PrinterTestResponse;
 import java.time.Instant;
+import java.time.LocalDate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,10 +43,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class PrinterConfigController {
     private final PrinterConfigRepository configRepo;
     private final PrinterConnectionTester tester;
+    private final LabelTemplateService labelService;
+    private final PrinterDriver printerDriver;
 
-    public PrinterConfigController(PrinterConfigRepository configRepo, PrinterConnectionTester tester) {
+    public PrinterConfigController(
+            PrinterConfigRepository configRepo,
+            PrinterConnectionTester tester,
+            LabelTemplateService labelService,
+            PrinterDriver printerDriver) {
         this.configRepo = configRepo;
         this.tester = tester;
+        this.labelService = labelService;
+        this.printerDriver = printerDriver;
     }
 
     @GetMapping
@@ -86,6 +96,36 @@ public class PrinterConfigController {
 
         PrinterTestResponse resp = new PrinterTestResponse(result.status(), result.message(), Instant.now());
         return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * Renders a fixed sample label and sends it straight to the configured printer, synchronously —
+     * a real physical print, unlike {@code /test} which only checks the printer is reachable. This
+     * is what a "print test page" button means on any OS printer settings screen: something the
+     * connection check cannot prove, because the queue can report ready while the printer itself is
+     * out of paper, off, or (for a print-service address) fed bytes it cannot actually parse.
+     */
+    @PostMapping("/test-print")
+    public ResponseEntity<PrinterTestResponse> testPrint() {
+        PrinterConfig config = configRepo.getSingleton().orElseGet(PrinterConfig::createDefault);
+        PrintLabelRequest sample = new PrintLabelRequest(
+                "TEST-0001",
+                "Test Print — Bachat Baazar",
+                "SETUP",
+                "0",
+                "0",
+                "TEST",
+                null,
+                LocalDate.now().toString());
+        try {
+            String zpl = labelService.renderLabel(sample);
+            printerDriver.sendLabel(zpl, 1);
+            return ResponseEntity.ok(
+                    new PrinterTestResponse("OK", "Test label sent to " + config.getAddress() + ".", Instant.now()));
+        } catch (PrinterDriver.PrinterException e) {
+            return ResponseEntity.ok(
+                    new PrinterTestResponse("ERROR", e.getMessage(), Instant.now()));
+        }
     }
 
     private PrinterConfigResponse toResponse(PrinterConfig config) {
