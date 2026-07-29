@@ -108,9 +108,10 @@ public class PrinterConfigController {
     @PostMapping("/test-print")
     public ResponseEntity<PrinterTestResponse> testPrint() {
         PrinterConfig config = configRepo.getSingleton().orElseGet(PrinterConfig::createDefault);
+        // ASCII only — the driver sends US-ASCII, and an em-dash here once printed as "?".
         PrintLabelRequest sample = new PrintLabelRequest(
                 "TEST-0001",
-                "Test Print — Bachat Baazar",
+                "Test Print - Bachat Baazar",
                 "SETUP",
                 "0",
                 "0",
@@ -119,7 +120,7 @@ public class PrinterConfigController {
                 LocalDate.now().toString());
         try {
             String zpl = labelService.renderLabel(sample);
-            printerDriver.sendLabel(zpl, 1);
+            printerDriver.sendLabel(zpl, LabelTemplateService.rowsFor(1));
             return ResponseEntity.ok(
                     new PrinterTestResponse("OK", "Test label sent to " + config.getAddress() + ".", Instant.now()));
         } catch (PrinterDriver.PrinterException e) {

@@ -41,7 +41,8 @@ class LabelTemplateServiceTest {
 
         String tspl = service.renderLabel(req);
 
-        assertTrue(tspl.contains("SIZE 38mm,25mm"), "must declare the physical label size up front");
+        assertTrue(tspl.contains("SIZE 80mm,25mm"),
+            "must declare the full 2-up web, not one label — the printer centres the declared area");
         assertTrue(tspl.contains("CLS"), "must clear the image buffer before drawing");
         assertTrue(tspl.contains("PRINT 1,1"), "must end by firing the print");
         assertTrue(tspl.contains("PROD-001"), "Barcode value must be in output");
@@ -92,6 +93,39 @@ class LabelTemplateServiceTest {
         assertTrue(tspl.contains("BARCODE"), "A barcode command must be present");
         assertTrue(tspl.contains("\"128\""), "Must be a Code 128 barcode");
         assertTrue(tspl.contains("CODE-12345"), "Barcode value must be in output");
+    }
+
+    @Test
+    void drawsTheLabelInBothColumnsSoNoStickerFeedsOutBlank() throws PrinterDriver.PrinterException {
+        PrintLabelRequest req = new PrintLabelRequest(
+            "PROD-005", "Kettle", "Kitchen", "100", "20000", "LOT-3", null, "2026-07-27");
+
+        String tspl = service.renderLabel(req);
+
+        // One document is one row of the 2-up stock: the same barcode drawn twice, once per column.
+        int first = tspl.indexOf("BARCODE");
+        int second = tspl.indexOf("BARCODE", first + 1);
+        assertTrue(first >= 0 && second > first, "expected the barcode in both columns");
+        assertEquals(2, countOf(tspl, "PROD-005"), "the code appears once per column");
+    }
+
+    @Test
+    void rowsForRoundsUpSoAnOddAskOverDeliversRatherThanFeedingABlank() {
+        assertEquals(1, LabelTemplateService.rowsFor(1));
+        assertEquals(1, LabelTemplateService.rowsFor(2));
+        assertEquals(2, LabelTemplateService.rowsFor(3));
+        assertEquals(3, LabelTemplateService.rowsFor(6));
+        assertEquals(1, LabelTemplateService.rowsFor(0), "a degenerate ask still prints one row");
+    }
+
+    private static int countOf(String haystack, String needle) {
+        int count = 0;
+        int from = 0;
+        while ((from = haystack.indexOf(needle, from)) != -1) {
+            count++;
+            from += needle.length();
+        }
+        return count;
     }
 
     @Test
