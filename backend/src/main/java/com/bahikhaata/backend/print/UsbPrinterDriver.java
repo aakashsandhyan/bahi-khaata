@@ -21,21 +21,41 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Optional;
+import javax.print.Doc;
+import javax.print.DocFlavor;
+import javax.print.DocPrintJob;
+import javax.print.PrintException;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.SimpleDoc;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
+import javax.print.attribute.standard.PrinterIsAcceptingJobs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Printer driver for TSC TE-244 via USB (serial) or network.
+ * Printer driver for a TSC label printer, reached one of three ways depending on how the address is
+ * written: a network address ({@code host:port}), a Linux serial device ({@code /dev/ttyUSB0} — not
+ * yet implemented, needs a serial library), or — the common case, including a USB-connected printer
+ * on Windows — the name the operating system gave the printer when it was installed, e.g.
+ * {@code "TSC TE244"}.
  *
- * <p>Supports both serial port (/dev/ttyUSB0) and TCP network (IP:port).
- * Sends ZPL commands to the printer. On error, throws PrinterException for retry logic.
+ * <p>A USB label printer is not a raw port Java can open directly: Windows installs it as a named
+ * print queue (as does CUPS on macOS/Linux), and only the OS talks to the USB device. Reaching it
+ * means going through the OS print system ({@code javax.print}), built into the JDK — no serial
+ * library, no native dependency. The label is sent as a raw byte stream, not a document, which is
+ * what keeps the spooler from trying to typeset the ZPL as text instead of passing it straight to
+ * the printer, where a printer language needs it to land unchanged.
  */
 @Component
 public class UsbPrinterDriver implements PrinterDriver {
     private static final Logger log = LoggerFactory.getLogger(UsbPrinterDriver.class);
     private static final int NETWORK_TIMEOUT_MS = 5000;
-    private static final int PRINT_DELAY_MS = 100;
 
     private final PrinterConfigRepository configRepo;
 
@@ -52,15 +72,22 @@ public class UsbPrinterDriver implements PrinterDriver {
             throw new PrinterException("Printer is disabled");
         }
 
+        // Each rendered label is already a complete ^XA...^XZ document, so N copies means N whole
+        // documents, not N bare ^XZ commands appended after one — a ^XZ with no matching ^XA does
+        // not print anything, it only sits there.
+        String job = zpl.repeat(Math.max(1, copies));
+
         String address = config.getAddress();
         if (address.startsWith("/dev/")) {
             sendViaSerial(address, zpl, copies, config.getPortSpeed());
+        } else if (address.contains(":")) {
+            sendViaNetwork(address, job);
         } else {
-            sendViaNetwork(address, zpl, copies);
+            sendViaPrintService(address, job);
         }
     }
 
-    private void sendViaNetwork(String address, String zpl, int copies) throws PrinterException {
+    private void sendViaNetwork(String address, String job) throws PrinterException {
         String[] parts = address.split(":");
         String host = parts[0];
         int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 9100;
@@ -68,22 +95,43 @@ public class UsbPrinterDriver implements PrinterDriver {
         try {
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(host, port), NETWORK_TIMEOUT_MS);
-
-            String fullZpl = zpl + "\n^XZ\n".repeat(copies);
-            socket.getOutputStream().write(fullZpl.getBytes());
+            socket.getOutputStream().write(job.getBytes(StandardCharsets.US_ASCII));
             socket.getOutputStream().flush();
-
-            Thread.sleep(PRINT_DELAY_MS * copies);
             socket.close();
-
-            log.info("Printed {} label(s) to {}:{}", copies, host, port);
+            log.info("Printed to {}:{}", host, port);
         } catch (SocketTimeoutException e) {
             throw new PrinterException("Printer timeout: " + host + ":" + port, e);
         } catch (IOException e) {
             throw new PrinterException("Printer unreachable: " + address, e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new PrinterException("Print interrupted", e);
+        } catch (IllegalArgumentException e) {
+            // InetSocketAddress rejects a port outside 0-65535.
+            throw new PrinterException("Invalid port number: " + address, e);
+        }
+    }
+
+    /**
+     * Sends the label to an OS-registered print queue — a Windows printer name such as
+     * {@code "TSC TE244"}, or the local name CUPS gives a USB printer on macOS/Linux. The raw
+     * byte-array flavour ({@link DocFlavor.BYTE_ARRAY#AUTOSENSE}) is what keeps the spooler from
+     * reformatting the bytes as a text document; on Windows this is the documented way to get
+     * {@code javax.print} to hand the job to WinSpool with a raw datatype, so the ZPL reaches the
+     * printer exactly as generated.
+     */
+    private void sendViaPrintService(String printerName, String job) throws PrinterException {
+        PrintService service = findPrintService(printerName)
+            .orElseThrow(() -> new PrinterException(
+                "Printer not found: \"" + printerName + "\" is not an installed printer"));
+
+        Doc doc = new SimpleDoc(job.getBytes(StandardCharsets.US_ASCII), DocFlavor.BYTE_ARRAY.AUTOSENSE, null);
+        DocPrintJob printJob = service.createPrintJob();
+        PrintRequestAttributeSet attrs = new HashPrintRequestAttributeSet();
+
+        try {
+            printJob.print(doc, attrs);
+            log.info("Printed to \"{}\"", printerName);
+        } catch (PrintException e) {
+            throw new PrinterException(
+                "Printer unreachable: \"" + printerName + "\" (" + e.getMessage() + ")", e);
         }
     }
 
@@ -107,8 +155,10 @@ public class UsbPrinterDriver implements PrinterDriver {
         String address = config.getAddress();
         if (address.startsWith("/dev/")) {
             return getSerialStatus(address);
-        } else {
+        } else if (address.contains(":")) {
             return getNetworkStatus(address);
+        } else {
+            return getPrintServiceStatus(address);
         }
     }
 
@@ -126,11 +176,33 @@ public class UsbPrinterDriver implements PrinterDriver {
             return new PrinterStatus(false, "Timeout: " + host + ":" + port);
         } catch (IOException e) {
             return new PrinterStatus(false, "Unreachable: " + host + ":" + port);
+        } catch (IllegalArgumentException e) {
+            return new PrinterStatus(false, "Invalid port number: " + address);
         }
+    }
+
+    private PrinterStatus getPrintServiceStatus(String printerName) {
+        return findPrintService(printerName)
+            .map(service -> {
+                Object accepting = service.getAttribute(PrinterIsAcceptingJobs.class);
+                String note = PrinterIsAcceptingJobs.NOT_ACCEPTING_JOBS.equals(accepting)
+                    ? " (not accepting jobs — check it is powered on and online)"
+                    : "";
+                return new PrinterStatus(true, "Installed as \"" + service.getName() + "\"" + note);
+            })
+            .orElseGet(() -> new PrinterStatus(
+                false, "No installed printer named \"" + printerName + "\""));
     }
 
     private PrinterStatus getSerialStatus(String portName) {
         log.warn("Serial port {} status check not implemented yet (jssc dependency needed)", portName);
         return new PrinterStatus(false, "Serial support not yet implemented");
+    }
+
+    /** The OS-registered print queue matching this name, case-insensitively, if one is installed. */
+    private static Optional<PrintService> findPrintService(String printerName) {
+        return Arrays.stream(PrintServiceLookup.lookupPrintServices(null, null))
+            .filter(s -> s.getName().equalsIgnoreCase(printerName))
+            .findFirst();
     }
 }

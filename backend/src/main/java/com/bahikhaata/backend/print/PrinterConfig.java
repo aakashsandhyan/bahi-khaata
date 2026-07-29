@@ -31,9 +31,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 /**
  * Singleton printer configuration.
  *
- * <p>Admin configures printer address (IP:port for network, /dev/ttyUSB0 for USB),
- * port speed, default copies, and paper size. A test endpoint checks connectivity
- * and stores the result (OK, UNREACHABLE, ERROR). Only one row exists per installation.
+ * <p>Admin configures the printer address, port speed, default copies, and paper size. The address
+ * is read as one of three shapes: {@code host:port} for a network printer, {@code /dev/ttyUSB0} for
+ * a Linux serial device (not yet implemented), or — the usual case for a USB printer on Windows —
+ * the name the printer was given when it was installed, e.g. {@code "TSC TE244"}, found in Windows'
+ * printer settings. A test endpoint checks connectivity and stores the result (OK, UNREACHABLE,
+ * ERROR). Only one row exists per installation.
  */
 @Entity
 @Table(name = "printer_config")
@@ -42,7 +45,7 @@ public class PrinterConfig extends UuidEntity {
     public static final UUID SINGLETON_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     @Column(name = "address", nullable = false, length = 255)
-    private String address; // "192.168.1.100:9100" or "/dev/ttyUSB0"
+    private String address; // "192.168.1.100:9100", "/dev/ttyUSB0", or a Windows printer name like "TSC TE244"
 
     @Column(name = "port_speed", nullable = false)
     private int portSpeed; // e.g., 9600
