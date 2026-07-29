@@ -72,8 +72,9 @@ public class LabelTemplateService {
     private final BufferedImage wordmark;
     private final Font nameFont;
     private final Font priceFont;
+    private final Font mrpLabelFont;
     private final Font mrpFont;
-    private final Font offFont;
+    private final Font badgeFont;
     private final String rupee;
 
     public LabelTemplateService() {
@@ -87,8 +88,9 @@ public class LabelTemplateService {
         }
         this.nameFont = new Font(Font.SANS_SERIF, Font.BOLD, 22);
         this.priceFont = new Font(Font.SANS_SERIF, Font.BOLD, 34);
-        this.mrpFont = new Font(Font.SANS_SERIF, Font.BOLD, 20);
-        this.offFont = new Font(Font.SANS_SERIF, Font.BOLD, 22);
+        this.mrpLabelFont = new Font(Font.SANS_SERIF, Font.BOLD, 14);
+        this.mrpFont = new Font(Font.SANS_SERIF, Font.BOLD, 21);
+        this.badgeFont = new Font(Font.SANS_SERIF, Font.BOLD, 18);
         // A real rupee sign where the JVM's font carries the glyph; "Rs." where it does not.
         this.rupee = priceFont.canDisplay('₹') ? "₹" : "Rs.";
     }
@@ -153,29 +155,40 @@ public class LabelTemplateService {
 
         if (req.mrpPaise() != null && req.mrpPaise() > req.pricePaise()) {
             int clusterLeft = MARGIN + pm.stringWidth(price) + 10;
-            // A fuller 2mm breathing space on the right for the deal cluster — the 1mm the name
-            // uses read as touching the sticker's edge on the printed row.
+            // 2mm breathing space on the right — 1mm read as touching the sticker's edge.
             int right = 300 - 16;
 
-            // Struck MRP, right-aligned in the space left of the price.
+            // The reference format: a small "MRP" prefix (not struck), then the amount larger with
+            // Indian digit grouping, the strike through the amount alone.
+            g.setFont(mrpLabelFont);
+            FontMetrics lm = g.getFontMetrics();
             g.setFont(mrpFont);
             FontMetrics mm = g.getFontMetrics();
-            String mrp = "MRP " + rupee + rupees(req.mrpPaise());
-            int mrpW = Math.min(mm.stringWidth(mrp), right - clusterLeft);
-            int mrpX = right - mm.stringWidth(mrp);
-            if (mrpX < clusterLeft) {
-                mrpX = clusterLeft; // never collide with the price; clip at the edge instead
-            }
-            g.drawString(mrp, mrpX, 168);
-            g.setStroke(new BasicStroke(3));
-            g.drawLine(mrpX - 2, 161, mrpX + mrpW + 2, 161);
+            String amount = rupee + rupees(req.mrpPaise());
+            int prefixW = lm.stringWidth("MRP") + 5;
+            int lineW = prefixW + mm.stringWidth(amount);
+            int lineX = Math.max(clusterLeft, right - lineW);
+            g.setFont(mrpLabelFont);
+            g.drawString("MRP", lineX, 164);
+            g.setFont(mrpFont);
+            g.drawString(amount, lineX + prefixW, 165);
+            g.setStroke(new BasicStroke(2));
+            g.drawLine(lineX + prefixW - 2, 158, lineX + prefixW + mm.stringWidth(amount) + 2, 158);
 
-            // The saving, right-aligned beneath the struck MRP.
+            // "SAVE 70%" as a reversed badge — white on a solid black block, right-aligned below.
             long percent = (req.mrpPaise() - req.pricePaise()) * 100 / req.mrpPaise();
-            g.setFont(offFont);
-            FontMetrics om = g.getFontMetrics();
-            String off = percent + "% OFF";
-            g.drawString(off, right - om.stringWidth(off), 188);
+            String save = "SAVE " + percent + "%";
+            g.setFont(badgeFont);
+            FontMetrics bm = g.getFontMetrics();
+            int padX = 7;
+            int badgeW = bm.stringWidth(save) + 2 * padX;
+            int badgeH = 22;
+            int badgeX = Math.max(clusterLeft, right - badgeW);
+            int badgeY = 168;
+            g.fillRect(badgeX, badgeY, badgeW, badgeH);
+            g.setColor(Color.WHITE);
+            g.drawString(save, badgeX + padX, badgeY + 17);
+            g.setColor(Color.BLACK);
         }
 
         g.dispose();
@@ -215,11 +228,25 @@ public class LabelTemplateService {
         t.append("\r\n");
     }
 
-    /** Whole rupees where the paise are zero, two decimals otherwise. */
+    /** Whole rupees where the paise are zero, two decimals otherwise — Indian digit grouping. */
     private static String rupees(long paise) {
-        return paise % 100 == 0
-                ? String.valueOf(paise / 100)
-                : String.format("%d.%02d", paise / 100, paise % 100);
+        String whole = group(paise / 100);
+        return paise % 100 == 0 ? whole : whole + String.format(".%02d", paise % 100);
+    }
+
+    /** Indian grouping: the last three digits, then pairs — 1,499 / 14,999 / 1,04,999. */
+    private static String group(long value) {
+        String s = String.valueOf(value);
+        if (s.length() <= 3) {
+            return s;
+        }
+        StringBuilder out = new StringBuilder(s.substring(s.length() - 3));
+        String head = s.substring(0, s.length() - 3);
+        while (head.length() > 2) {
+            out.insert(0, head.substring(head.length() - 2) + ",");
+            head = head.substring(0, head.length() - 2);
+        }
+        return head + "," + out;
     }
 
     /** A barcode value rides inside the BARCODE command's quotes — keep it to safe characters. */
