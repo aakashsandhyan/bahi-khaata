@@ -76,7 +76,7 @@ public class LabelTemplateService {
     private String buildTspl(PrintLabelRequest req) {
         StringBuilder t = new StringBuilder();
         t.append("SIZE ").append(WEB_WIDTH_MM).append("mm,").append(LABEL_HEIGHT_MM).append("mm\r\n");
-        t.append("GAP 2mm,0mm\r\n");
+        t.append("GAP 3mm,0mm\r\n");
         t.append("DIRECTION 1\r\n");
         t.append("CLS\r\n");
         column(t, req, LEFT_X);
@@ -86,33 +86,34 @@ public class LabelTemplateService {
     }
 
     /**
-     * One label's content, drawn at a column's x-origin. The vertical budget is 200 dots (25mm):
-     * barcode 4–68, its human-readable line to ~92 (which is why the name starts at 96 — the first
-     * live print had them overlapping), name to 116, then three small lines ending at 164.
+     * One label's content, drawn at a column's x-origin, spread over the whole 200-dot (25mm)
+     * height — the first live prints crowded everything into the top and clipped the barcode's
+     * first row of dots against the label's sensed edge. Now: 12 dots of headroom (registration is
+     * never exact to half a millimetre), a 84-dot barcode (10.5mm — taller scans better), its
+     * human-readable line to ~118, the name to ~142, and the three small lines walking down to 186,
+     * leaving a symmetric margin at the foot.
      */
     private void column(StringBuilder t, PrintLabelRequest req, int x) {
-        // The one thing that must scan, and the minimum 8mm tall the label spec calls for;
-        // trailing "1" prints the human-readable code beneath the bars.
-        t.append("BARCODE ").append(x).append(",4,\"128\",64,1,0,2,2,\"")
+        // The one thing that must scan; trailing "1" prints the readable code beneath the bars.
+        t.append("BARCODE ").append(x).append(",12,\"128\",84,1,0,2,2,\"")
                 .append(sanitize(req.barcode())).append("\"\r\n");
 
-        // Font "2" is 12 dots wide: 23 chars = 276 dots, inside the 284 usable dots. The first live
-        // print used a wider font whose line overran the label's edge.
-        t.append("TEXT ").append(x).append(",96,\"2\",0,1,1,\"")
+        // Font "2" is 12 dots wide: 23 chars = 276 dots, inside the 284 usable dots.
+        t.append("TEXT ").append(x).append(",122,\"2\",0,1,1,\"")
                 .append(truncate(sanitize(req.productName()), 23)).append("\"\r\n");
 
         String line2 = truncate(sanitize(req.category()) + "  MRP Rs." + sanitize(req.mrpPaise()), 35);
-        t.append("TEXT ").append(x).append(",120,\"1\",0,1,1,\"").append(line2).append("\"\r\n");
+        t.append("TEXT ").append(x).append(",146,\"1\",0,1,1,\"").append(line2).append("\"\r\n");
 
         String line3 =
                 truncate("Cost Rs." + sanitize(req.costPerUnit()) + "  Lot " + sanitize(req.lotId()), 35);
-        t.append("TEXT ").append(x).append(",136,\"1\",0,1,1,\"").append(line3).append("\"\r\n");
+        t.append("TEXT ").append(x).append(",160,\"1\",0,1,1,\"").append(line3).append("\"\r\n");
 
         String line4 = "Rec " + sanitize(req.receivedDate());
         if (req.expiryDate() != null && !req.expiryDate().isEmpty()) {
             line4 += "  Exp " + sanitize(req.expiryDate());
         }
-        t.append("TEXT ").append(x).append(",152,\"1\",0,1,1,\"").append(truncate(line4, 35)).append("\"\r\n");
+        t.append("TEXT ").append(x).append(",174,\"1\",0,1,1,\"").append(truncate(line4, 35)).append("\"\r\n");
     }
 
     /**
