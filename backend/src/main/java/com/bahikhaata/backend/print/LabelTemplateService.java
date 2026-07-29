@@ -21,35 +21,80 @@ import com.bahikhaata.contracts.PrintLabelRequest;
 import org.springframework.stereotype.Service;
 
 /**
- * Renders ZPL label templates for barcode printing.
+ * Renders TSPL label templates for barcode printing.
  *
- * <p>Substitutes product data into a ZPL template,
- * producing printer-ready commands for TSC TE-244.
+ * <p>The TSC TE-244 speaks TSPL natively, not ZPL — sending it ZPL produces no error, but no
+ * printed content either; the printer simply does not recognise the command stream and feeds a
+ * blank label. TSPL is also a different shape of language: {@code SIZE}/{@code GAP} must state the
+ * physical label up front (fixed here at 38 x 25&nbsp;mm, the stock loaded in the shop's printer),
+ * and one call renders one self-contained document — {@code CLS} through {@code PRINT 1,1} — so
+ * printing N copies is still just repeating this whole string N times, exactly as the driver
+ * already does; nothing about how a job is sent had to change.
+ *
+ * <p>At 38 x 25&nbsp;mm the canvas is small (304 x 200 dots at 203&nbsp;dpi), so every field from the
+ * request is kept but laid out compactly rather than at the old ZPL layout's size — that layout was
+ * drawn for a much larger label and its positions would have fallen off this one regardless of
+ * language. The rupee sign is written as "Rs." rather than "₹": the driver sends bytes as US-ASCII,
+ * which silently turns any non-ASCII character into "?", and a printer's built-in bitmap fonts are
+ * unlikely to carry the glyph either.
  */
 @Service
 public class LabelTemplateService {
 
+    /** 203 dpi, the TE-244's native resolution — 8 dots per millimetre. */
+    private static final int DOTS_PER_MM = 8;
+    private static final int LABEL_WIDTH_MM = 38;
+    private static final int LABEL_HEIGHT_MM = 25;
+
     public String renderLabel(PrintLabelRequest request) throws PrinterDriver.PrinterException {
-        return buildZpl(request);
+        return buildTspl(request);
     }
 
-    private String buildZpl(PrintLabelRequest req) {
-        StringBuilder zpl = new StringBuilder();
-        zpl.append("^XA\n");
-        zpl.append("^FO50,50^BY2,3.0^BC^FD").append(req.barcode()).append("^FS\n");
-        zpl.append("^FO50,150^A0N,28,28^FD").append(req.productName()).append("^FS\n");
-        zpl.append("^FO50,190^A0N,14,14^FD").append(req.category()).append("^FS\n");
-        zpl.append("^FO50,280^A0N,18,18^FDCost: ₹").append(req.costPerUnit()).append("/u^FS\n");
-        zpl.append("^FO50,310^A0N,18,18^FDMRP: ₹").append(req.mrpPaise()).append("^FS\n");
-        zpl.append("^FO500,280^A0N,12,12^FDLot: ").append(req.lotId()).append("^FS\n");
+    private String buildTspl(PrintLabelRequest req) {
+        StringBuilder t = new StringBuilder();
+        t.append("SIZE ").append(LABEL_WIDTH_MM).append("mm,").append(LABEL_HEIGHT_MM).append("mm\r\n");
+        t.append("GAP 2mm,0mm\r\n");
+        t.append("DIRECTION 1\r\n");
+        t.append("CLS\r\n");
 
+        // Barcode first and largest — the one thing that must scan. Height 64 dots = 8mm, the
+        // minimum this shop's label spec calls for; "1" prints the human-readable code beneath it.
+        t.append("BARCODE 8,4,\"128\",64,1,0,2,2,\"").append(sanitize(req.barcode())).append("\"\r\n");
+
+        t.append("TEXT 8,84,\"3\",0,1,1,\"").append(truncate(sanitize(req.productName()), 22)).append("\"\r\n");
+
+        String line2 = truncate(sanitize(req.category()) + "  MRP Rs." + sanitize(req.mrpPaise()), 34);
+        t.append("TEXT 8,108,\"1\",0,1,1,\"").append(line2).append("\"\r\n");
+
+        String line3 =
+                truncate("Cost Rs." + sanitize(req.costPerUnit()) + "  Lot " + sanitize(req.lotId()), 34);
+        t.append("TEXT 8,122,\"1\",0,1,1,\"").append(line3).append("\"\r\n");
+
+        String line4 = "Rec " + sanitize(req.receivedDate());
         if (req.expiryDate() != null && !req.expiryDate().isEmpty()) {
-            zpl.append("^FO500,310^A0N,12,12^FDExp: ").append(req.expiryDate()).append("^FS\n");
+            line4 += "  Exp " + sanitize(req.expiryDate());
         }
+        t.append("TEXT 8,136,\"1\",0,1,1,\"").append(truncate(line4, 34)).append("\"\r\n");
 
-        zpl.append("^FO50,400^A0N,12,12^FDRec: ").append(req.receivedDate()).append("^FS\n");
-        zpl.append("^XZ\n");
+        t.append("PRINT 1,1\r\n");
+        return t.toString();
+    }
 
-        return zpl.toString();
+    /**
+     * Strips characters that would break the command's own quoting (a literal {@code "}) or inject
+     * another line into the stream (a newline) — this is a raw device-control protocol, not
+     * something with its own escaping, so an untrusted field must not be handed through unfiltered.
+     */
+    private static String sanitize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\"", "'").replace("\r", " ").replace("\n", " ");
+    }
+
+    private static String truncate(String value, int maxChars) {
+        // ".." not the Unicode ellipsis: the driver sends bytes as US-ASCII, which would silently
+        // turn a non-ASCII character into "?" — the same trap the rupee sign was swapped out of.
+        return value.length() <= maxChars ? value : value.substring(0, maxChars - 2) + "..";
     }
 }
