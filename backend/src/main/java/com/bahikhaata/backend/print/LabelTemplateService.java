@@ -25,11 +25,11 @@ import org.springframework.stereotype.Service;
  *
  * <p>TSPL, not ZPL: the TE-244 speaks TSPL natively — handed ZPL it raises no error and feeds a
  * blank label, which is exactly what the first live test printed. And the real stock is
- * <strong>2-up</strong>: an 80&nbsp;mm web carrying two 38 x 25&nbsp;mm labels side by side per row.
- * That shape drives two decisions here:
+ * <strong>2-up</strong>: an 82&nbsp;mm web carrying two 37.5 x 25&nbsp;mm labels side by side per
+ * row. That shape drives two decisions here:
  *
  * <ul>
- *   <li>{@code SIZE} declares the full 80&nbsp;mm web, not one label. TSC printers centre the
+ *   <li>{@code SIZE} declares the full 82&nbsp;mm web, not one label. TSC printers centre the
  *       declared print area on the head, so declaring a single label's width landed the print
  *       straddling the middle of the web — half on each sticker. Declaring the whole web makes
  *       x&nbsp;=&nbsp;0 the web's left edge, and each column is then addressed by its offset.</li>
@@ -48,13 +48,18 @@ public class LabelTemplateService {
     /** 203 dpi, the TE-244's native resolution — 8 dots per millimetre. */
     private static final int DOTS_PER_MM = 8;
 
-    /** The full web: two 38mm labels, a 2mm gap between them, 1mm edges — 80mm across. */
-    private static final int WEB_WIDTH_MM = 80;
+    /** The full web as measured with a ruler on the actual roll: 2mm edge + 37.5mm label + 3mm
+     * middle gap + 37.5mm label + 2mm edge — 82mm across. Declared exactly, because the printer
+     * centres the declared area on the head: declaring the wrong width shifts every column
+     * sideways by half the error, which is precisely what the first 2-up print showed. */
+    private static final int WEB_WIDTH_MM = 82;
     private static final int LABEL_HEIGHT_MM = 25;
 
-    /** Where each column's content begins: 1mm edge + 1mm inner margin, and the same past 41mm. */
-    private static final int LEFT_X = 2 * DOTS_PER_MM;
-    private static final int RIGHT_X = 42 * DOTS_PER_MM;
+    /** Where each column's content begins: the label's measured start plus a 1mm inner margin.
+     * Left label spans 2..39.5mm, the right one 42.5..80mm. Dots, not mm, because the right
+     * label's edge (42.5mm) is not a whole millimetre. */
+    private static final int LEFT_X = 24;   // (2mm edge + 1mm margin) * 8 dots
+    private static final int RIGHT_X = 348; // (42.5mm start + 1mm margin) * 8 dots
 
     /** How many physical stickers one rendered document produces. */
     public static final int LABELS_PER_ROW = 2;
@@ -91,10 +96,10 @@ public class LabelTemplateService {
         t.append("BARCODE ").append(x).append(",4,\"128\",64,1,0,2,2,\"")
                 .append(sanitize(req.barcode())).append("\"\r\n");
 
-        // Font "2" is 12 dots wide: 24 chars = 288 dots, inside the 304-dot label. The first live
+        // Font "2" is 12 dots wide: 23 chars = 276 dots, inside the 284 usable dots. The first live
         // print used a wider font whose line overran the label's edge.
         t.append("TEXT ").append(x).append(",96,\"2\",0,1,1,\"")
-                .append(truncate(sanitize(req.productName()), 24)).append("\"\r\n");
+                .append(truncate(sanitize(req.productName()), 23)).append("\"\r\n");
 
         String line2 = truncate(sanitize(req.category()) + "  MRP Rs." + sanitize(req.mrpPaise()), 35);
         t.append("TEXT ").append(x).append(",120,\"1\",0,1,1,\"").append(line2).append("\"\r\n");
