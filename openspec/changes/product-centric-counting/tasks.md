@@ -35,19 +35,19 @@
 - [x] 4.8 ArchUnit: new code respects `inventory → catalog`, no reverse dependency.
 
 ## 5. Frontend — types + api
-- [ ] 5.1 Add the new contract types to `types.ts`; add `lot` to the catalog `CatalogEntry` usage (units are already there — now lot-scoped when filtered).
-- [ ] 5.2 `api.catalog.browse` gains an optional `lot` argument, threaded into the query string.
-- [ ] 5.3 `productCounting.lines(lotId, productId)` and `productCounting.count(body)` clients.
+- [x] 5.1 Add the new contract types to `types.ts`; add `lot` to the catalog `CatalogEntry` usage (units are already there — now lot-scoped when filtered).
+- [x] 5.2 `api.catalog.browse` gains an optional `lot` argument, threaded into the query string.
+- [x] 5.3 `productCounting.lines(lotId, productId)` and `productCounting.count(body)` clients.
 
 ## 6. Frontend — lot filter + counting grid
-- [ ] 6.1 Add a **lot** filter to `Catalog.tsx`: options from the existing deliveries read (`unpacking.deliveries()`), shown as supplier · category · date so same-category lots are distinct; selecting one scopes the list and its counts.
-- [ ] 6.2 Wire the catalogue's **Count** action (currently a stub): enabled only when a lot is chosen; opens the product-centric grid for `(lot, product)`.
-- [ ] 6.3 Build the grid: one row per box (tracking + outstanding + a quantity field, capped at outstanding), a single condition picker and MRP field, one submit. Reuse the submit-once guard and the quantity input from unpacking.
-- [ ] 6.4 On submit, send each box's `(lineId, quantity, outstandingSeen)`; on result, show any **rejected** entries with their new outstanding for re-entry (a normal path, not an error), and confirm the accepted count.
-- [ ] 6.5 CSS for the grid, reusing design tokens; `pcc-`/`grid-` prefixed classes, no collisions.
+- [x] 6.1 Add a **lot** filter to `Catalog.tsx`: options from the existing deliveries read (`unpacking.deliveries()`), shown as supplier · category · date so same-category lots are distinct; selecting one scopes the list and its counts.
+- [x] 6.2 Wire the catalogue's **Count** action (currently a stub): enabled only when a lot is chosen; opens the product-centric grid for `(lot, product)`.
+- [x] 6.3 Build the grid: one row per box (tracking + outstanding + a quantity field, capped at outstanding), a single condition picker and MRP field, one submit. Reuse the submit-once guard and the quantity input from unpacking.
+- [x] 6.4 On submit, send each box's `(lineId, quantity, outstandingSeen)`; on result, show any **rejected** entries with their new outstanding for re-entry (a normal path, not an error), and confirm the accepted count.
+- [x] 6.5 CSS for the grid, reusing design tokens; `pcc-`/`grid-` prefixed classes, no collisions.
 
 ## 7. Verify
-- [ ] 7.1 `./gradlew :contracts:build :backend:test :architecture:test` — new tests green (note: the wider suite is red from the in-progress receiving rewrite; confirm this change's tests and ArchUnit pass).
-- [ ] 7.2 `npx tsc --noEmit` and `npx vite build` clean.
+- [x] 7.1 `./gradlew :contracts:build :backend:test :architecture:test` — new tests green (note: the wider suite is red from the in-progress receiving rewrite; confirm this change's tests and ArchUnit pass).
+- [x] 7.2 `npx tsc --noEmit` and `npx vite build` clean.
 - [ ] 7.3 Manual: pick a lot in the catalogue → counts scope to it → select a product → Count opens the grid → enter per-box quantities → submit → accepted counts land, a stale line comes back for re-entry; confirm box-centric counting still works and receiving state is unchanged.
-- [ ] 7.4 `openspec validate product-centric-counting` passes; ready to sync + archive after implementation.
+- [x] 7.4 `openspec validate product-centric-counting` passes; ready to sync + archive after implementation.

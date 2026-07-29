@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { api, catalog, BackendError } from './api'
-import type { CatalogDetail, CatalogEntry, StockCondition } from './types'
+import { api, catalog, unpacking, BackendError } from './api'
+import type { CatalogDetail, CatalogEntry, DeliveryProgress, StockCondition } from './types'
+import { ProductCountPane } from './ProductCountPane'
 
 /**
  * Browsing the product catalogue: every product the shop knows of, whether it has been laid
@@ -9,10 +10,13 @@ import type { CatalogDetail, CatalogEntry, StockCondition } from './types'
  * "On paper" is the gap this screen exists to close — a marketplace reference with nothing
  * counted or scanned onto it, so nobody could sell it if it walked in the door today. Opening a
  * product shows the stock it is actually held in and the codes that resolve to it, and lets a
- * price be set the same way Pricing does. Counting stock and mapping a new code onto a product
- * are both product-centric moves this screen wants to offer eventually, but each already has a
- * home — Unpacking counts, and code-mapping has no endpoint yet — so for now they are a stub and
- * an omission, not a half-built feature.
+ * price be set the same way Pricing does.
+ *
+ * A delivery filter narrows the whole screen to one open lot at a time. With one chosen, Count
+ * opens a grid of that product's boxes in that lot — every box still owing it units, counted
+ * together in one submit, rather than opening each box in Unpacking to find it there. Without a
+ * lot chosen there is nothing to scope the count to, so Count stays a pointer back to picking one.
+ * Mapping a new code onto a product is still an omission — it has no endpoint yet.
  */
 const PAGE_SIZE = 25
 
@@ -44,20 +48,34 @@ export function Catalog() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('on-paper')
   const [category, setCategory] = useState('')
+  const [lot, setLot] = useState('')
+  const [deliveries, setDeliveries] = useState<DeliveryProgress[]>([])
   const [entries, setEntries] = useState<CatalogEntry[]>([])
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // A confirmation from product-centric counting — not an error, so it gets its own banner
+  // rather than sharing the "stop" one.
+  const [note, setNote] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [detail, setDetail] = useState<CatalogDetail | null>(null)
 
   const fail = (e: unknown) =>
     setError(e instanceof BackendError ? e.message : 'Cannot reach the backend.')
 
+  // Open deliveries only — a closed one has nothing left to count, so it does not belong in a
+  // filter meant for narrowing what to look at while counting.
+  useEffect(() => {
+    unpacking
+      .deliveries()
+      .then((rows) => setDeliveries(rows.filter((d) => !d.closed)))
+      .catch(() => {})
+  }, [])
+
   const load = () => {
     setError(null)
     catalog
-      .browse(query.trim(), status, category, 0, PAGE_SIZE)
+      .browse(query.trim(), status, category, 0, PAGE_SIZE, lot)
       .then((rows) => {
         setEntries(rows)
         setPage(0)
@@ -65,12 +83,12 @@ export function Catalog() {
       })
       .catch(fail)
   }
-  useEffect(load, [query, status, category])
+  useEffect(load, [query, status, category, lot])
 
   const loadMore = () => {
     const next = page + 1
     catalog
-      .browse(query.trim(), status, category, next, PAGE_SIZE)
+      .browse(query.trim(), status, category, next, PAGE_SIZE, lot)
       .then((rows) => {
         setEntries((prev) => [...prev, ...rows])
         setPage(next)
@@ -82,6 +100,7 @@ export function Catalog() {
   const open = (productId: string) => {
     setSelected(productId)
     setDetail(null)
+    setNote(null)
     catalog.detail(productId).then(setDetail).catch(fail)
   }
 
@@ -102,6 +121,7 @@ export function Catalog() {
       </header>
 
       {error && <div className="banner stop">{error}</div>}
+      {note && <div className="banner ok">{note}</div>}
 
       <input
         className="scan small cat-search"
@@ -139,6 +159,25 @@ export function Catalog() {
           </button>
         ))}
       </nav>
+
+      <div className="pcc-lot-row">
+        <label htmlFor="cat-lot-select" className="pcc-lot-label">
+          Delivery
+        </label>
+        <select
+          id="cat-lot-select"
+          className="scan small pcc-lot-select"
+          value={lot}
+          onChange={(e) => setLot(e.target.value)}
+        >
+          <option value="">All deliveries</option>
+          {deliveries.map((d) => (
+            <option key={d.lotId} value={d.lotId}>
+              {d.supplier} · {d.category}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="cat-shell">
         <div className="cat-list">
@@ -187,11 +226,17 @@ export function Catalog() {
             <CatalogDetailPanel
               productId={selected}
               detail={detail}
+              lot={lot}
               onClose={() => {
                 setSelected(null)
                 setDetail(null)
               }}
               onPriced={() => refresh(selected)}
+              onCountProgress={() => refresh(selected)}
+              onCountDone={(message) => {
+                refresh(selected)
+                setNote(message)
+              }}
               onError={setError}
             />
           ) : (
@@ -205,18 +250,25 @@ export function Catalog() {
 function CatalogDetailPanel({
   productId,
   detail,
+  lot,
   onClose,
   onPriced,
+  onCountProgress,
+  onCountDone,
   onError,
 }: {
   productId: string
   detail: CatalogDetail
+  lot: string
   onClose: () => void
   onPriced: () => void
+  onCountProgress: () => void
+  onCountDone: (message: string) => void
   onError: (message: string) => void
 }) {
   const [entered, setEntered] = useState('')
   const [countNote, setCountNote] = useState(false)
+  const [counting, setCounting] = useState(false)
 
   const setPrice = async () => {
     const paise = toPaise(entered)
@@ -231,6 +283,21 @@ function CatalogDetailPanel({
     } catch (e) {
       onError(e instanceof BackendError ? e.message : 'Could not set the price.')
     }
+  }
+
+  if (counting && lot) {
+    return (
+      <ProductCountPane
+        lotId={lot}
+        productId={productId}
+        onClose={() => setCounting(false)}
+        onProgress={onCountProgress}
+        onDone={(message) => {
+          setCounting(false)
+          onCountDone(message)
+        }}
+      />
+    )
   }
 
   return (
@@ -299,13 +366,21 @@ function CatalogDetailPanel({
       </div>
 
       <h3 className="cat-sub-head">Count</h3>
-      <button className="btn-ghost" onClick={() => setCountNote(true)}>
-        Count
-      </button>
-      {countNote && (
-        <p className="cat-count-note">
-          Counting happens in Unpacking — product-centric counting is coming.
-        </p>
+      {lot ? (
+        <button className="btn-ghost" onClick={() => setCounting(true)}>
+          Count
+        </button>
+      ) : (
+        <>
+          <button className="btn-ghost" onClick={() => setCountNote(true)}>
+            Count
+          </button>
+          {countNote && (
+            <p className="cat-count-note">
+              Choose a delivery above to count this product across its boxes.
+            </p>
+          )}
+        </>
       )}
     </div>
   )

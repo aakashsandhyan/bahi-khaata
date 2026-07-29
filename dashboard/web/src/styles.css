@@ -522,3 +522,35 @@ tr.damaged { background: var(--warn-tint); }
 /* On-paper unit count on a catalog row — the gap still to find. */
 .cat-onpaper { color: var(--warn); font-weight: 600; }
 .cat-count { color: var(--ink-soft); }
+
+/* ============================================================================
+   Product-centric counting — a delivery filter on Catalog, and the grid opened from a
+   product's detail to count it across every box of that delivery at once.
+   Prefixed pcc- throughout; reuses .cat-detail/.cond/.banner/.scan/.mrp-hint/.btn-primary.
+   ============================================================================ */
+.pcc-lot-row { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); }
+.pcc-lot-label { font-size: 13px; color: var(--ink-faint); font-weight: 600; }
+.pcc-lot-select { width: auto; min-width: 220px; margin: 0; }
+
+.pcc-pane .cat-detail-meta { color: var(--ink-faint); font-size: 13px; }
+
+.pcc-rows { display: flex; flex-direction: column; gap: var(--s2); margin: var(--s3) 0; }
+.pcc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: 10px 12px; border-radius: var(--r1); background: var(--line-soft);
+  border: 1px solid transparent;
+}
+.pcc-row-done { opacity: 0.55; }
+.pcc-row-rejected { background: var(--warn-tint); border-color: #f6d3ba; }
+.pcc-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pcc-box { font-family: ui-monospace, monospace; font-weight: 600; font-size: 14px; }
+.pcc-row-meta { font-size: 12px; color: var(--ink-faint); }
+.pcc-row-rejected .pcc-row-meta { color: var(--warn); font-weight: 600; }
+.pcc-qty-in {
+  width: 64px; font-size: 16px; padding: 6px 8px; text-align: center; flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: var(--r1); background: var(--card); color: var(--ink);
+}
+.pcc-qty-in:disabled { border-color: var(--line); background: var(--line-soft); color: var(--ink-faint); }
+
+.pcc-cond-row { margin: var(--s3) 0 var(--s2); }
+.pcc-submit { width: 100%; margin-top: var(--s3); }
