@@ -28,9 +28,13 @@ echo.
 REM Open the till in the default browser a few seconds after the server starts.
 start "" cmd /c "timeout /t 6 >nul & start http://localhost:%PORT%"
 
+REM Prefer Java 21 explicitly (an older Java may also be installed on this machine).
+set "JAVA=java"
+for /d %%d in ("%ProgramFiles%\Eclipse Adoptium\jdk-21*") do set "JAVA=%%d\bin\java.exe"
+
 REM Run the app. -Dbahikhaata.db.path pins the database to this folder's data\ dir,
 REM so it is the same file every time no matter where the shortcut is launched from.
-java -Dbahikhaata.db.path="%DBPATH%" -Dserver.port=%PORT% -jar "%~dp0backend.jar"
+"%JAVA%" -Dbahikhaata.db.path="%DBPATH%" -Dserver.port=%PORT% -jar "%~dp0backend.jar"
 
 echo.
 echo Server stopped. Press any key to close.
