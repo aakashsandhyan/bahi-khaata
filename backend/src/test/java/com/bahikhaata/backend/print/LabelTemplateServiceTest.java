@@ -22,6 +22,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * The label body is composed server-side into a bitmap (the firmware's fonts lie about their
+ * widths), so these tests check the TSPL structure and the barcode — the parts still readable in
+ * the command stream. What the bitmap looks like is the in-person test print's job.
+ */
 class LabelTemplateServiceTest {
 
     private final LabelTemplateService service = new LabelTemplateService();
@@ -32,41 +37,17 @@ class LabelTemplateServiceTest {
             new PrintLabelRequest("BBZ-100043", "Milton Flask 1000ml", null, 299_00L);
 
     @Test
-    void rendersTheOneLabelWithMrpStruckAndSaving() {
+    void rendersOneRowWithBitmapBodyAndNativeBarcode() {
         String tspl = service.renderLabel(WITH_MRP);
 
         assertTrue(tspl.contains("SIZE 82mm,24mm"), "declares the measured 2-up web");
+        assertTrue(tspl.contains("GAP 3mm,0mm"), "declares the measured row gap");
         assertTrue(tspl.contains("CLS"), "clears the buffer before drawing");
         assertTrue(tspl.contains("PRINT 1,1"), "fires the print at the end");
-        assertTrue(tspl.contains("BITMAP"), "the Devanagari wordmark ships as a bitmap");
-        assertTrue(tspl.contains("\"128\""), "Code 128 barcode");
+        assertEquals(2, countOf(tspl, "BITMAP "), "the composed body prints once per column");
+        assertEquals(2, countOf(tspl, "BARCODE "), "the native barcode prints once per column");
         assertTrue(tspl.contains("BBZ-100042"), "barcode value present");
-        assertTrue(tspl.contains("Prestige Cooker 5L"), "name present");
-        assertTrue(tspl.contains("MRP Rs.1499"), "confirmed MRP printed");
-        assertTrue(tspl.contains("BAR "), "the MRP is struck through with a BAR");
-        assertTrue(tspl.contains("70% OFF"), "saving derived from the two figures");
-        assertTrue(tspl.contains("Rs.449"), "the shop's price is the hero");
-    }
-
-    @Test
-    void withoutMrpTheLabelClaimsNothing() {
-        String tspl = service.renderLabel(WITHOUT_MRP);
-
-        assertTrue(tspl.contains("Rs.299"), "price prints alone");
-        assertFalse(tspl.contains("MRP"), "no MRP line when none is confirmed");
-        assertFalse(tspl.contains("% OFF"), "no saving claimed without an MRP");
-        assertFalse(tspl.contains("BAR "), "nothing to strike through");
-    }
-
-    @Test
-    void anMrpNotAboveThePriceIsNotClaimed() {
-        // A degenerate figure (MRP at or below our price) would advertise a 0% saving or worse —
-        // print the price alone instead.
-        PrintLabelRequest odd = new PrintLabelRequest("BBZ-1", "Thing", 200_00L, 250_00L);
-        String tspl = service.renderLabel(odd);
-
-        assertFalse(tspl.contains("MRP"), "an MRP below the price does not print");
-        assertTrue(tspl.contains("Rs.250"));
+        assertTrue(tspl.contains("\"128\""), "Code 128");
     }
 
     @Test
@@ -74,11 +55,18 @@ class LabelTemplateServiceTest {
         String tspl = service.renderRow(WITH_MRP, WITHOUT_MRP);
 
         assertTrue(tspl.contains("BBZ-100042") && tspl.contains("BBZ-100043"),
-                "each column carries its own product");
-        assertEquals(2, countOf(tspl, "BITMAP"), "the wordmark prints once per column");
-        // Only the left label has an MRP: exactly one strike bar, one saving.
-        assertEquals(1, countOf(tspl, "BAR "), "one strike for the one MRP");
-        assertEquals(1, countOf(tspl, "% OFF"));
+                "each column carries its own product's barcode");
+        assertEquals(2, countOf(tspl, "BITMAP "));
+        assertEquals(2, countOf(tspl, "BARCODE "));
+    }
+
+    @Test
+    void theWholeStreamStaysSingleByte() {
+        // The driver sends ISO-8859-1; every char must fit one byte, including the bitmap data.
+        String tspl = service.renderRow(WITH_MRP, WITHOUT_MRP);
+        for (int i = 0; i < tspl.length(); i++) {
+            assertTrue(tspl.charAt(i) < 256, "char beyond one byte at " + i);
+        }
     }
 
     @Test
@@ -91,42 +79,17 @@ class LabelTemplateServiceTest {
     }
 
     @Test
-    void textCommandsStayAsciiAndTheWholeStreamStaysSingleByte() {
-        // The driver sends ISO-8859-1: every char must fit one byte (the BITMAP data uses the full
-        // range), and the TEXT lines must stay pure ASCII — the printer's fonts have nothing else.
-        PrintLabelRequest longName = new PrintLabelRequest(
-                "BBZ-9", "A Genuinely Very Long Product Name That Must Truncate", 999_00L, 99_00L);
-        String tspl = service.renderLabel(longName);
-
-        for (int i = 0; i < tspl.length(); i++) {
-            assertTrue(tspl.charAt(i) < 256, "char beyond one byte at " + i);
-        }
-        for (String line : tspl.split("\r\n")) {
-            if (line.startsWith("TEXT")) {
-                for (int i = 0; i < line.length(); i++) {
-                    assertTrue(line.charAt(i) < 128,
-                            "non-ASCII in a TEXT line: " + line);
-                }
-            }
-        }
-    }
-
-    @Test
-    void aQuoteInAFieldDoesNotBreakTheCommandSyntax() {
-        PrintLabelRequest quoted = new PrintLabelRequest("BBZ-2", "12\" Cable", null, 99_00L);
+    void aQuoteInABarcodeCannotBreakTheCommand() {
+        PrintLabelRequest quoted = new PrintLabelRequest("BB\"Z", "Thing", null, 99_00L);
         String tspl = service.renderLabel(quoted);
-
-        assertFalse(tspl.contains("12\" Cable"), "a literal quote must not reach the command text");
-        assertTrue(tspl.contains("12' Cable"), "the quote is replaced, not dropped");
+        assertFalse(tspl.contains("BB\"Z"), "a literal quote must not reach the command");
     }
 
     @Test
-    void paiseRenderOnlyWhenTheyExist() {
-        PrintLabelRequest odd = new PrintLabelRequest("BBZ-3", "Thing", null, 249_50L);
-        assertTrue(service.renderLabel(odd).contains("Rs.249.50"), "real paise show two decimals");
-
-        PrintLabelRequest whole = new PrintLabelRequest("BBZ-4", "Thing", null, 249_00L);
-        assertTrue(service.renderLabel(whole).contains("Rs.249"), "whole rupees stay whole");
+    void aNullNameStillRenders() {
+        PrintLabelRequest nameless = new PrintLabelRequest("BBZ-5", null, null, 99_00L);
+        String tspl = service.renderLabel(nameless);
+        assertTrue(tspl.contains("PRINT 1,1"), "renders without a name rather than throwing");
     }
 
     private static int countOf(String haystack, String needle) {
