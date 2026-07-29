@@ -143,7 +143,7 @@ public class LabelTemplateService {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 
         // Wordmark, centred at the top.
-        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 6, null);
+        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 10, null);
 
         // Name: real metrics, truncated to what actually fits between the margins.
         g.setFont(nameFont);
