@@ -120,44 +120,48 @@ public class LabelTemplateService {
     }
 
     /**
-     * One label's content at a column origin. Vertical budget 192 dots: wordmark 10–46, bars
-     * 54–110 (7mm), name 116–136, then the deal — MRP struck at 142 with the saving under it on
-     * the right, and the price large on the left at 152.
+     * One label's content at a column origin. Vertical budget 192 dots: wordmark 16–52 (the first
+     * live row sat a touch high), bars 58–122, name 128–152, and the deal on one line at the foot.
+     *
+     * <p>All text is font "1" (8 x 12) scaled with explicit multipliers, never the higher-numbered
+     * fonts: the first live print showed this firmware's font "2" is wider than its documented 12
+     * dots, which pushed the name and MRP clean off the label's edge. A multiplier of font "1" is
+     * arithmetic — 8 x N dots per character, exactly — so line widths cannot lie.
      */
     private void column(StringBuilder t, PrintLabelRequest req, int origin) {
         // Wordmark, centred. BITMAP: x, y, width-in-bytes, height, mode 0 (overwrite), raw rows.
         int wmX = origin + (LABEL_WIDTH_DOTS - wordmarkWidthDots) / 2;
-        t.append("BITMAP ").append(wmX).append(",10,").append(wordmarkWidthBytes).append(',')
+        t.append("BITMAP ").append(wmX).append(",16,").append(wordmarkWidthBytes).append(',')
                 .append(wordmarkHeight).append(",0,").append(wordmarkBitmapData).append("\r\n");
 
         // Centred Code 128, no readable line — the bars are the identity. A 10-char BBZ code at
         // narrow 2 is ~290 dots wide, so "centred" is a small indent; shorter codes centre wider.
         int barsWidth = (req.barcode().length() * 11 + 35) * 2;
         int barsX = origin + Math.max(0, (LABEL_WIDTH_DOTS - barsWidth) / 2);
-        t.append("BARCODE ").append(barsX).append(",54,\"128\",56,0,0,2,2,\"")
+        t.append("BARCODE ").append(barsX).append(",58,\"128\",64,0,0,2,2,\"")
                 .append(sanitize(req.barcode())).append("\"\r\n");
 
-        // Name: font "2" is 12 dots wide — 23 chars inside the 284 usable dots.
-        t.append("TEXT ").append(origin + MARGIN).append(",116,\"2\",0,1,1,\"")
-                .append(truncate(sanitize(req.productName()), 23)).append("\"\r\n");
+        // Name: font "1" at x1,y2 — 8 x 24, compressed-tall; 35 chars inside the 284 usable dots.
+        t.append("TEXT ").append(origin + MARGIN).append(",128,\"1\",0,1,2,\"")
+                .append(truncate(sanitize(req.productName()), 35)).append("\"\r\n");
 
         if (req.mrpPaise() != null && req.mrpPaise() > req.pricePaise()) {
-            // MRP struck through, right-aligned, font "2" so it reads at arm's length.
+            // The whole deal on one line: struck MRP then the saving, right-aligned as a cluster.
             String mrp = "MRP Rs." + rupees(req.mrpPaise());
-            int mrpWidth = mrp.length() * 12;
-            int mrpX = origin + LABEL_WIDTH_DOTS - MARGIN - mrpWidth;
-            t.append("TEXT ").append(mrpX).append(",142,\"2\",0,1,1,\"").append(mrp).append("\"\r\n");
-            // The strike: a 3-dot bar through the MRP's middle.
-            t.append("BAR ").append(mrpX - 2).append(",151,").append(mrpWidth + 4).append(",3\r\n");
-
             long percent = (req.mrpPaise() - req.pricePaise()) * 100 / req.mrpPaise();
             String off = percent + "% OFF";
-            int offX = origin + LABEL_WIDTH_DOTS - MARGIN - off.length() * 12;
-            t.append("TEXT ").append(offX).append(",166,\"2\",0,1,1,\"").append(off).append("\"\r\n");
+            int offWidth = off.length() * 8;
+            int mrpWidth = mrp.length() * 8;
+            int offX = origin + LABEL_WIDTH_DOTS - MARGIN - offWidth;
+            int mrpX = offX - 16 - mrpWidth;
+            t.append("TEXT ").append(mrpX).append(",162,\"1\",0,1,2,\"").append(mrp).append("\"\r\n");
+            // The strike: a 3-dot bar through the MRP's middle.
+            t.append("BAR ").append(mrpX - 2).append(",172,").append(mrpWidth + 4).append(",3\r\n");
+            t.append("TEXT ").append(offX).append(",162,\"1\",0,1,2,\"").append(off).append("\"\r\n");
         }
 
-        // The shop's price — the hero, font "3" (16 x 24).
-        t.append("TEXT ").append(origin + MARGIN).append(",152,\"3\",0,1,1,\"")
+        // The shop's price — the hero: font "1" at x2,y3 (16 x 36), on the same line at the left.
+        t.append("TEXT ").append(origin + MARGIN).append(",154,\"1\",0,2,3,\"")
                 .append("Rs.").append(rupees(req.pricePaise())).append("\"\r\n");
     }
 
