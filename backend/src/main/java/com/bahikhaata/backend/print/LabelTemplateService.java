@@ -101,6 +101,8 @@ public class LabelTemplateService {
         t.append("SIZE ").append(WEB_WIDTH_MM).append("mm,").append(LABEL_HEIGHT_MM).append("mm\r\n");
         t.append("GAP 3mm,0mm\r\n");
         t.append("DIRECTION 1\r\n");
+        // The frame registers ~1mm high on the sticker; shift the whole image down into that slack.
+        t.append("SHIFT 8\r\n");
         t.append("CLS\r\n");
         column(t, left, LEFT_ORIGIN);
         column(t, right, RIGHT_ORIGIN);
@@ -139,13 +141,13 @@ public class LabelTemplateService {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 
         // Wordmark, centred at the top.
-        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 10, null);
+        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 6, null);
 
         // Name: real metrics, truncated to what actually fits between the margins.
         g.setFont(nameFont);
         FontMetrics nm = g.getFontMetrics();
         String name = fit(req.productName() == null ? "" : req.productName(), nm, 300 - 2 * MARGIN);
-        g.drawString(name, MARGIN, 144);
+        g.drawString(name, MARGIN, 138);
 
         // The deal, filling the foot. The price sits low, its foot aligned with the badge's.
         g.setFont(priceFont);
