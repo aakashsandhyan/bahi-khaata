@@ -53,7 +53,9 @@ public class LabelTemplateService {
      * centres the declared area on the head: declaring the wrong width shifts every column
      * sideways by half the error, which is precisely what the first 2-up print showed. */
     private static final int WEB_WIDTH_MM = 82;
-    private static final int LABEL_HEIGHT_MM = 25;
+    /** Measured on the roll: 24mm tall, not the nominal 25 — the missing millimetre is why every
+     * print registered high and shaved the barcode's top against the sticker's edge. */
+    private static final int LABEL_HEIGHT_MM = 24;
 
     /** Where each column's content begins: the label's measured start plus a 1mm inner margin.
      * Left label spans 2..39.5mm, the right one 42.5..80mm. Dots, not mm, because the right
@@ -86,34 +88,33 @@ public class LabelTemplateService {
     }
 
     /**
-     * One label's content, drawn at a column's x-origin, spread over the whole 200-dot (25mm)
-     * height — the first live prints crowded everything into the top and clipped the barcode's
-     * first row of dots against the label's sensed edge. Now: 12 dots of headroom (registration is
-     * never exact to half a millimetre), a 84-dot barcode (10.5mm — taller scans better), its
-     * human-readable line to ~118, the name to ~142, and the three small lines walking down to 186,
-     * leaving a symmetric margin at the foot.
+     * One label's content, drawn at a column's x-origin. The vertical budget is 192 dots — the
+     * measured 24mm, not the nominal 25 that had every print registering high. 20 dots (2.5mm) of
+     * headroom before the bars, because the sensed edge still lands a shade late; then a 72-dot
+     * barcode (9mm), its human-readable line to ~116, the name to ~138, and three small lines down
+     * to 180, leaving 12 dots at the foot.
      */
     private void column(StringBuilder t, PrintLabelRequest req, int x) {
         // The one thing that must scan; trailing "1" prints the readable code beneath the bars.
-        t.append("BARCODE ").append(x).append(",12,\"128\",84,1,0,2,2,\"")
+        t.append("BARCODE ").append(x).append(",20,\"128\",72,1,0,2,2,\"")
                 .append(sanitize(req.barcode())).append("\"\r\n");
 
         // Font "2" is 12 dots wide: 23 chars = 276 dots, inside the 284 usable dots.
-        t.append("TEXT ").append(x).append(",122,\"2\",0,1,1,\"")
+        t.append("TEXT ").append(x).append(",118,\"2\",0,1,1,\"")
                 .append(truncate(sanitize(req.productName()), 23)).append("\"\r\n");
 
         String line2 = truncate(sanitize(req.category()) + "  MRP Rs." + sanitize(req.mrpPaise()), 35);
-        t.append("TEXT ").append(x).append(",146,\"1\",0,1,1,\"").append(line2).append("\"\r\n");
+        t.append("TEXT ").append(x).append(",142,\"1\",0,1,1,\"").append(line2).append("\"\r\n");
 
         String line3 =
                 truncate("Cost Rs." + sanitize(req.costPerUnit()) + "  Lot " + sanitize(req.lotId()), 35);
-        t.append("TEXT ").append(x).append(",160,\"1\",0,1,1,\"").append(line3).append("\"\r\n");
+        t.append("TEXT ").append(x).append(",156,\"1\",0,1,1,\"").append(line3).append("\"\r\n");
 
         String line4 = "Rec " + sanitize(req.receivedDate());
         if (req.expiryDate() != null && !req.expiryDate().isEmpty()) {
             line4 += "  Exp " + sanitize(req.expiryDate());
         }
-        t.append("TEXT ").append(x).append(",174,\"1\",0,1,1,\"").append(truncate(line4, 35)).append("\"\r\n");
+        t.append("TEXT ").append(x).append(",170,\"1\",0,1,1,\"").append(truncate(line4, 35)).append("\"\r\n");
     }
 
     /**

@@ -41,7 +41,7 @@ class LabelTemplateServiceTest {
 
         String tspl = service.renderLabel(req);
 
-        assertTrue(tspl.contains("SIZE 82mm,25mm"),
+        assertTrue(tspl.contains("SIZE 82mm,24mm"),
             "must declare the full 2-up web, not one label — the printer centres the declared area");
         assertTrue(tspl.contains("CLS"), "must clear the image buffer before drawing");
         assertTrue(tspl.contains("PRINT 1,1"), "must end by firing the print");
