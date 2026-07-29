@@ -101,8 +101,10 @@ public class LabelTemplateService {
         t.append("SIZE ").append(WEB_WIDTH_MM).append("mm,").append(LABEL_HEIGHT_MM).append("mm\r\n");
         t.append("GAP 3mm,0mm\r\n");
         t.append("DIRECTION 1\r\n");
-        // The frame registers ~1mm high on the sticker; shift the whole image down into that slack.
-        t.append("SHIFT 8\r\n");
+        // The frame registers ~1mm high on the sticker; shift the whole image down into that
+        // slack. On this firmware a POSITIVE shift moves the image UP (the first live row lost its
+        // top margins to a +8), so down is negative.
+        t.append("SHIFT -8\r\n");
         t.append("CLS\r\n");
         column(t, left, LEFT_ORIGIN);
         column(t, right, RIGHT_ORIGIN);
