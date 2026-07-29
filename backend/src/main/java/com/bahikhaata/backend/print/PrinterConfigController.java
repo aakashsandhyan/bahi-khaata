@@ -107,12 +107,12 @@ public class PrinterConfigController {
     @PostMapping("/test-print")
     public ResponseEntity<PrinterTestResponse> testPrint() {
         PrinterConfig config = configRepo.getSingleton().orElseGet(PrinterConfig::createDefault);
-        // One row, both variants side by side: left with a confirmed MRP (strike + saving), right
-        // without one (price alone) — so a single test row shows the whole label design for real.
+        // Two different with-MRP labels side by side — the deal cluster is the part still being
+        // tuned (the no-MRP variant is settled), so both columns exercise it with different data.
         PrintLabelRequest withMrp = new PrintLabelRequest(
                 "BBZ-100042", "Prestige Cooker 5L Test", 1499_00L, 449_00L);
         PrintLabelRequest withoutMrp = new PrintLabelRequest(
-                "BBZ-100043", "Milton Flask 1000ml Test", null, 299_00L);
+                "BBZ-100044", "Kettle Steel 1.8L Test", 2199_00L, 999_00L);
         try {
             String doc = labelService.renderRow(withMrp, withoutMrp);
             printerDriver.sendLabel(doc, 1);

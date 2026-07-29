@@ -139,24 +139,24 @@ public class LabelTemplateService {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 
         // Wordmark, centred at the top.
-        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 14, null);
+        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 10, null);
 
         // Name: real metrics, truncated to what actually fits between the margins.
         g.setFont(nameFont);
         FontMetrics nm = g.getFontMetrics();
         String name = fit(req.productName() == null ? "" : req.productName(), nm, 300 - 2 * MARGIN);
-        g.drawString(name, MARGIN, 146);
+        g.drawString(name, MARGIN, 144);
 
-        // The deal, filling the foot. Price first, at the left.
+        // The deal, filling the foot. The price sits low, its foot aligned with the badge's.
         g.setFont(priceFont);
         FontMetrics pm = g.getFontMetrics();
         String price = rupee + rupees(req.pricePaise());
-        g.drawString(price, MARGIN, 186);
+        g.drawString(price, MARGIN, 190);
 
         if (req.mrpPaise() != null && req.mrpPaise() > req.pricePaise()) {
             int clusterLeft = MARGIN + pm.stringWidth(price) + 10;
-            // 2mm breathing space on the right — 1mm read as touching the sticker's edge.
-            int right = 300 - 16;
+            // The cluster sits a shade in from the right edge — 3mm reads better than flush.
+            int right = 300 - 24;
 
             // The reference format: a small "MRP" prefix (not struck), then the amount larger with
             // Indian digit grouping, the strike through the amount alone.
@@ -169,25 +169,25 @@ public class LabelTemplateService {
             int lineW = prefixW + mm.stringWidth(amount);
             int lineX = Math.max(clusterLeft, right - lineW);
             g.setFont(mrpLabelFont);
-            g.drawString("MRP", lineX, 164);
+            g.drawString("MRP", lineX, 159);
             g.setFont(mrpFont);
-            g.drawString(amount, lineX + prefixW, 165);
+            g.drawString(amount, lineX + prefixW, 160);
             g.setStroke(new BasicStroke(2));
-            g.drawLine(lineX + prefixW - 2, 158, lineX + prefixW + mm.stringWidth(amount) + 2, 158);
+            g.drawLine(lineX + prefixW - 2, 153, lineX + prefixW + mm.stringWidth(amount) + 2, 153);
 
-            // "SAVE 70%" as a reversed badge — white on a solid black block, right-aligned below.
+            // "SAVE 70%" as a reversed badge — white on solid black, a 1mm breath below the MRP.
             long percent = (req.mrpPaise() - req.pricePaise()) * 100 / req.mrpPaise();
             String save = "SAVE " + percent + "%";
             g.setFont(badgeFont);
             FontMetrics bm = g.getFontMetrics();
             int padX = 7;
             int badgeW = bm.stringWidth(save) + 2 * padX;
-            int badgeH = 22;
+            int badgeH = 21;
             int badgeX = Math.max(clusterLeft, right - badgeW);
-            int badgeY = 168;
+            int badgeY = 170;
             g.fillRect(badgeX, badgeY, badgeW, badgeH);
             g.setColor(Color.WHITE);
-            g.drawString(save, badgeX + padX, badgeY + 17);
+            g.drawString(save, badgeX + padX, badgeY + 16);
             g.setColor(Color.BLACK);
         }
 
