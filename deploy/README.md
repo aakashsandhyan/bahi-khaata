@@ -74,6 +74,38 @@ Bookmark it / set it as the home page. Plug in the scanner. Done.
 
 ---
 
+## Deploying from the Mac over SSH (instead of walking a USB stick over)
+
+If SSH to the Windows machine works, push and run it all from the Mac:
+
+```bash
+export WINHOST=user@192.168.1.10      # your ssh target (or an ~/.ssh/config alias)
+./deploy/deploy-ssh.sh                # build + copy + install Java + register auto-start on boot
+./deploy/deploy-ssh.sh --run-now      # ...and start it right now, detached
+./deploy/deploy-ssh.sh --no-build     # just re-copy an already-built release/ (faster updates)
+```
+
+What it does on the Windows side:
+- copies the release to `C:\BachatBaazar` (never touches `data\`, so records are safe),
+- installs Java 21 if missing,
+- registers a **Task Scheduler** job `BachatBaazar` that runs `run-service.bat` **on every boot** —
+  so after a power cut the shop comes back on its own, no one double-clicking anything,
+- `--run-now` starts it immediately via the scheduler, so it keeps running after you disconnect.
+
+`run-service.bat` is the headless runner: no browser pop-up, no pause, logs to `server.log`.
+`start-bachat.bat` is still there for a manual double-click on the machine itself.
+
+Handy over SSH:
+```bash
+ssh $WINHOST type "C:\BachatBaazar\server.log"          # see the log
+ssh $WINHOST schtasks /run  /tn BachatBaazar            # start it
+ssh $WINHOST schtasks /end  /tn BachatBaazar            # stop it
+ssh $WINHOST schtasks /query /tn BachatBaazar           # is it set to auto-start?
+```
+
+> A raw `ssh host "java -jar backend.jar"` dies the moment you disconnect — that is why this goes
+> through Task Scheduler, which keeps it running independently of your SSH session.
+
 ## Updating the software later
 
 1. On the Mac: `./deploy/build-release.sh`.
