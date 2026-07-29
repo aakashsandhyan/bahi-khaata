@@ -153,7 +153,9 @@ public class LabelTemplateService {
 
         if (req.mrpPaise() != null && req.mrpPaise() > req.pricePaise()) {
             int clusterLeft = MARGIN + pm.stringWidth(price) + 10;
-            int right = 300 - MARGIN;
+            // A fuller 2mm breathing space on the right for the deal cluster — the 1mm the name
+            // uses read as touching the sticker's edge on the printed row.
+            int right = 300 - 16;
 
             // Struck MRP, right-aligned in the space left of the price.
             g.setFont(mrpFont);
@@ -164,9 +166,9 @@ public class LabelTemplateService {
             if (mrpX < clusterLeft) {
                 mrpX = clusterLeft; // never collide with the price; clip at the edge instead
             }
-            g.drawString(mrp, mrpX, 164);
+            g.drawString(mrp, mrpX, 168);
             g.setStroke(new BasicStroke(3));
-            g.drawLine(mrpX - 2, 157, mrpX + mrpW + 2, 157);
+            g.drawLine(mrpX - 2, 161, mrpX + mrpW + 2, 161);
 
             // The saving, right-aligned beneath the struck MRP.
             long percent = (req.mrpPaise() - req.pricePaise()) * 100 / req.mrpPaise();
