@@ -22,7 +22,6 @@ import com.bahikhaata.contracts.PrinterConfigRequest;
 import com.bahikhaata.contracts.PrinterConfigResponse;
 import com.bahikhaata.contracts.PrinterTestResponse;
 import java.time.Instant;
-import java.time.LocalDate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -108,21 +107,18 @@ public class PrinterConfigController {
     @PostMapping("/test-print")
     public ResponseEntity<PrinterTestResponse> testPrint() {
         PrinterConfig config = configRepo.getSingleton().orElseGet(PrinterConfig::createDefault);
-        // ASCII only — the driver sends US-ASCII, and an em-dash here once printed as "?".
-        PrintLabelRequest sample = new PrintLabelRequest(
-                "TEST-0001",
-                "Test Print - Bachat Baazar",
-                "SETUP",
-                "0",
-                "0",
-                "TEST",
-                null,
-                LocalDate.now().toString());
+        // One row, both variants side by side: left with a confirmed MRP (strike + saving), right
+        // without one (price alone) — so a single test row shows the whole label design for real.
+        PrintLabelRequest withMrp = new PrintLabelRequest(
+                "BBZ-100042", "Prestige Cooker 5L Test", 1499_00L, 449_00L);
+        PrintLabelRequest withoutMrp = new PrintLabelRequest(
+                "BBZ-100043", "Milton Flask 1000ml Test", null, 299_00L);
         try {
-            String zpl = labelService.renderLabel(sample);
-            printerDriver.sendLabel(zpl, LabelTemplateService.rowsFor(1));
+            String doc = labelService.renderRow(withMrp, withoutMrp);
+            printerDriver.sendLabel(doc, 1);
             return ResponseEntity.ok(
-                    new PrinterTestResponse("OK", "Test label sent to " + config.getAddress() + ".", Instant.now()));
+                    new PrinterTestResponse("OK", "Test row (with + without MRP) sent to "
+                            + config.getAddress() + ".", Instant.now()));
         } catch (PrinterDriver.PrinterException e) {
             return ResponseEntity.ok(
                     new PrinterTestResponse("ERROR", e.getMessage(), Instant.now()));

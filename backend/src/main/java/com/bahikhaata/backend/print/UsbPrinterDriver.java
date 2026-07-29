@@ -72,9 +72,8 @@ public class UsbPrinterDriver implements PrinterDriver {
             throw new PrinterException("Printer is disabled");
         }
 
-        // Each rendered label is already a complete ^XA...^XZ document, so N copies means N whole
-        // documents, not N bare ^XZ commands appended after one — a ^XZ with no matching ^XA does
-        // not print anything, it only sits there.
+        // Each rendered document is one complete, self-contained row (SIZE..PRINT), so N copies
+        // means the whole document repeated N times.
         String job = zpl.repeat(Math.max(1, copies));
 
         String address = config.getAddress();
@@ -95,7 +94,7 @@ public class UsbPrinterDriver implements PrinterDriver {
         try {
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(host, port), NETWORK_TIMEOUT_MS);
-            socket.getOutputStream().write(job.getBytes(StandardCharsets.US_ASCII));
+            socket.getOutputStream().write(job.getBytes(StandardCharsets.ISO_8859_1));
             socket.getOutputStream().flush();
             socket.close();
             log.info("Printed to {}:{}", host, port);
@@ -122,7 +121,7 @@ public class UsbPrinterDriver implements PrinterDriver {
             .orElseThrow(() -> new PrinterException(
                 "Printer not found: \"" + printerName + "\" is not an installed printer"));
 
-        Doc doc = new SimpleDoc(job.getBytes(StandardCharsets.US_ASCII), DocFlavor.BYTE_ARRAY.AUTOSENSE, null);
+        Doc doc = new SimpleDoc(job.getBytes(StandardCharsets.ISO_8859_1), DocFlavor.BYTE_ARRAY.AUTOSENSE, null);
         DocPrintJob printJob = service.createPrintJob();
         PrintRequestAttributeSet attrs = new HashPrintRequestAttributeSet();
 
