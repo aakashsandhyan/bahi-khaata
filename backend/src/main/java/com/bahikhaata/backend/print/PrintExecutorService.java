@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.print;
 
 import com.bahikhaata.contracts.PrintLabelRequest;
+import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,98 +26,146 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bahikhaata.backend.catalog.ProductRepository;
+
 /**
- * Polls the print job queue every 500ms and executes queued jobs.
+ * The label print queue, paired for the 2-up roll.
  *
- * <p>For each queued job: renders the label (FreeMarker → ZPL), sends to printer via
- * PrinterDriver. On success, marks as "done". On printer unreachable, retries up to 10
- * times (~5 seconds); after 10 retries, marks as "failed" with error message.
- * On other errors (template, item not found), marks "failed" immediately.
+ * <p>Each queued job is one self-contained label — one column of a row. The stickers come two to a
+ * row, so a label cannot print alone without either wasting the other sticker or printing a
+ * duplicate; instead a lone label is <em>held</em> and printed only once a second label pairs with
+ * it, at which point the two go out on one row (two different products, no waste). At rest at most
+ * one label is ever held — the odd one waiting for a partner.
+ *
+ * <p>{@link #flushPending} prints a held leftover deliberately, as a duplicate pair, when the
+ * operator is done and wants it out anyway. Labels render from the job's own fields, with no
+ * database read; a printed job marks its product labelled.
  */
 @Service
 public class PrintExecutorService {
     private static final Logger log = LoggerFactory.getLogger(PrintExecutorService.class);
     private static final int MAX_RETRIES = 10;
-    private static final int BATCH_SIZE = 5;
+    private static final int MAX_PAIRS_PER_POLL = 5;
 
     private final PrintJobRepository printJobRepository;
     private final PrinterDriver printerDriver;
     private final LabelTemplateService labelService;
+    private final ProductRepository productRepository;
 
     public PrintExecutorService(
         PrintJobRepository printJobRepository,
         PrinterDriver printerDriver,
-        LabelTemplateService labelService) {
+        LabelTemplateService labelService,
+        ProductRepository productRepository) {
         this.printJobRepository = printJobRepository;
         this.printerDriver = printerDriver;
         this.labelService = labelService;
+        this.productRepository = productRepository;
     }
 
+    /** How many labels are held, waiting to print — the pending count the pricing screen shows. */
+    @Transactional(readOnly = true)
+    public long pendingCount() {
+        return printJobRepository.findByStatusOrderByCreatedAtAsc("queued").size();
+    }
+
+    /**
+     * Every poll, print the held labels in pairs. A lone last label is left queued — held for a
+     * partner — rather than printed alone.
+     */
     @Scheduled(fixedRate = 500)
     @Transactional
     public void executePrintQueue() {
-        List<PrintJob> queued = printJobRepository
-            .findByStatusOrderByCreatedAtAsc("queued")
-            .stream()
-            .limit(BATCH_SIZE)
-            .toList();
-
-        for (PrintJob job : queued) {
-            executeSingleJob(job);
+        List<PrintJob> queued = printJobRepository.findByStatusOrderByCreatedAtAsc("queued");
+        int pairs = Math.min(queued.size() / 2, MAX_PAIRS_PER_POLL);
+        for (int i = 0; i < pairs; i++) {
+            printRow(queued.get(2 * i), queued.get(2 * i + 1));
         }
     }
 
-    private void executeSingleJob(PrintJob job) {
-        try {
+    /**
+     * Prints every held label now, deliberately — pairs first, then a lone leftover as a duplicate
+     * pair rather than a blank. Returns how many labels were sent out. Used by the flush control
+     * when the operator is done and wants pending labels printed even though one is unpaired.
+     */
+    @Transactional
+    public long flushPending() {
+        List<PrintJob> queued = printJobRepository.findByStatusOrderByCreatedAtAsc("queued");
+        long printed = 0;
+        int i = 0;
+        for (; i + 1 < queued.size(); i += 2) {
+            if (printRow(queued.get(i), queued.get(i + 1))) {
+                printed += 2;
+            }
+        }
+        if (i < queued.size()) {
+            // The odd leftover: print it as a duplicate pair so no sticker is left blank.
+            PrintJob lone = queued.get(i);
+            if (printOne(lone)) {
+                printed += 1;
+            }
+        }
+        return printed;
+    }
+
+    /** Prints two labels as one row; marks both done and their products on success. */
+    private boolean printRow(PrintJob left, PrintJob right) {
+        return send(labelService.renderRow(labelRequestFrom(left), labelRequestFrom(right)), left, right);
+    }
+
+    /** Prints one label as a duplicate pair — both columns the same product. */
+    private boolean printOne(PrintJob job) {
+        return send(labelService.renderLabel(labelRequestFrom(job)), job);
+    }
+
+    /** Sends a rendered row and settles the jobs it carries: done on success, retry/fail on error. */
+    private boolean send(String tspl, PrintJob... jobs) {
+        for (PrintJob job : jobs) {
             job.setStatus("printing");
             printJobRepository.save(job);
-
-            // Render label via FreeMarker
-            PrintLabelRequest labelReq = buildLabelRequest(job);
-            String zpl = labelService.renderLabel(labelReq);
-
-            // Send to printer. The stock is 2-up — one rendered document is a row of two identical
-            // stickers — so the asked-for copies convert to rows, rounded up: an odd ask yields one
-            // extra usable sticker, never a blank one.
-            printerDriver.sendLabel(zpl, LabelTemplateService.rowsFor(job.getCopies()));
-
-            // Success
-            job.setStatus("done");
-            job.setError(null);
-            job.setRetryCount(0);
-            log.info("Job {} printed successfully", job.getId());
-
+        }
+        try {
+            printerDriver.sendLabel(tspl, 1);
+            for (PrintJob job : jobs) {
+                job.setStatus("done");
+                job.setError(null);
+                job.setRetryCount(0);
+                markProductLabelled(job);
+                printJobRepository.save(job);
+            }
+            return true;
         } catch (PrinterDriver.PrinterException e) {
-            if (isPrinterOfflineError(e)) {
-                // Printer unreachable — retry later
-                if (job.getRetryCount() < MAX_RETRIES) {
+            boolean offline = isPrinterOfflineError(e);
+            for (PrintJob job : jobs) {
+                if (offline && job.getRetryCount() < MAX_RETRIES) {
                     job.setStatus("queued");
                     job.incrementRetry();
-                    log.warn("Job {} printer offline, retry {} of {}", job.getId(), job.getRetryCount(), MAX_RETRIES);
                 } else {
                     job.setStatus("failed");
-                    job.setError("Printer unreachable after " + MAX_RETRIES + " retries: " + e.getMessage());
-                    log.error("Job {} failed after max retries: {}", job.getId(), e.getMessage());
+                    job.setError((offline ? "Printer unreachable: " : "Printer error: ") + e.getMessage());
                 }
-            } else {
-                // Other error (template, rendering, etc.) — fail immediately
-                job.setStatus("failed");
-                job.setError("Printer error: " + e.getMessage());
-                log.error("Job {} failed: {}", job.getId(), e.getMessage());
+                printJobRepository.save(job);
             }
-        } catch (Exception e) {
-            job.setStatus("failed");
-            job.setError("Unexpected error: " + e.getMessage());
-            log.error("Job {} unexpected error: {}", job.getId(), e);
-        } finally {
-            printJobRepository.save(job);
+            log.warn("Print row failed ({}): {}", offline ? "offline" : "error", e.getMessage());
+            return false;
         }
     }
 
-    private PrintLabelRequest buildLabelRequest(PrintJob job) throws PrinterDriver.PrinterException {
-        // TODO: fetch item (Box, Batch, Product) by job.itemId and build label data
-        // For now, return a placeholder; real implementation loads from repositories
-        throw new PrinterDriver.PrinterException("Label data building not yet implemented");
+    /** The label data the job carries — the whole point of a self-contained job. */
+    private PrintLabelRequest labelRequestFrom(PrintJob job) {
+        return new PrintLabelRequest(
+                job.getBarcode(), job.getProductName(), job.getMrpPaise(), job.getSellingPricePaise());
+    }
+
+    /** Stamp the product's label-printed marker, if this job references one. */
+    private void markProductLabelled(PrintJob job) {
+        if (job.getProductId() == null) {
+            return;
+        }
+        productRepository.findById(job.getProductId()).ifPresent(product -> {
+            product.markLabelPrinted(Instant.now());
+            productRepository.save(product);
+        });
     }
 
     private boolean isPrinterOfflineError(PrinterDriver.PrinterException e) {

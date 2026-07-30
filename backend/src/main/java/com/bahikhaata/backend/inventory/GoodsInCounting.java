@@ -783,6 +783,28 @@ public class GoodsInCounting {
      * receipt for the increment only — not for the batch total, which would count everything
      * already found a second time.
      */
+    /**
+     * Materialises stock keyed in by hand at pricing into a batch and a stock-ledger receipt.
+     *
+     * <p>Pricing reaches for this when an item cannot be scanned to an existing record — its
+     * LSN/LPN reference is lost, or it was never counted — so it is entering the system here for
+     * the first time. It runs the same {@link #addToBatch} path counting uses, so the rule that
+     * only GOOD/DAMAGED units reach the ledger, and the MRP handling, live in one place rather
+     * than being duplicated in the pricing module.
+     */
+    @Transactional
+    public Batch receiveManual(
+            Lot lot,
+            Product product,
+            StockCondition condition,
+            long quantity,
+            Money mrp,
+            boolean mrpIsEstimate,
+            Instant at) {
+        requireOpen(lot);
+        return addToBatch(lot, product, condition, quantity, mrp, mrpIsEstimate, null, null, at);
+    }
+
     // Package-private: the remediation service adds to a target batch through this same path, so
     // the MRP inheritance and the off-ledger rule below are written once.
     Batch addToBatch(

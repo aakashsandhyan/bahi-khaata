@@ -19,7 +19,16 @@ package com.bahikhaata.contracts;
 
 import java.util.UUID;
 
+/**
+ * Queues a self-contained label print job: the request carries the label fields directly, so the
+ * executor renders without a database read. {@code mrpPaise} is null when there is no confirmed
+ * MRP. {@code productId} is optional — supplied so the printed product can be marked labelled,
+ * never read to render.
+ */
 public record QueuePrintJobRequest(
-    String itemType,
-    UUID itemId,
-    int copies) {}
+    String barcode,
+    String productName,
+    long sellingPricePaise,
+    Long mrpPaise,
+    int copies,
+    UUID productId) {}

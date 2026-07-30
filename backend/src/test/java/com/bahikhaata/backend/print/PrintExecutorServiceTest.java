@@ -17,7 +17,8 @@
  */
 package com.bahikhaata.backend.print;
 
-import com.bahikhaata.contracts.PrintLabelRequest;
+import com.bahikhaata.backend.catalog.Product;
+import com.bahikhaata.backend.catalog.ProductRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,89 +31,115 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PrintExecutorServiceTest {
 
-    @Mock
-    private PrintJobRepository printJobRepository;
+    @Mock private PrintJobRepository printJobRepository;
+    @Mock private PrinterDriver printerDriver;
+    @Mock private LabelTemplateService labelService;
+    @Mock private ProductRepository productRepository;
 
-    @Mock
-    private PrinterDriver printerDriver;
+    @InjectMocks private PrintExecutorService executor;
 
-    @Mock
-    private LabelTemplateService labelService;
-
-    @InjectMocks
-    private PrintExecutorService executor;
-
-    @Test
-    void pollsQueuedJobs() {
-        UUID jobId = UUID.randomUUID();
-        PrintJob job = PrintJob.create("box", UUID.randomUUID(), 1);
+    private static PrintJob queued(UUID productId) {
+        PrintJob job = PrintJob.create("BBZ-1", "Test Product", 49900L, 149900L, 1, productId);
         job.setStatus("queued");
-
-        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(List.of(job))
-            .thenReturn(List.of());
-
-        executor.executePrintQueue();
-
-        verify(printJobRepository, atLeastOnce()).findByStatusOrderByCreatedAtAsc("queued");
+        return job;
     }
 
     @Test
-    void marksJobAsFailedAfterMaxRetries() {
-        PrintJob job = PrintJob.create("box", UUID.randomUUID(), 1);
-        job.setStatus("queued");
-        job.setRetryCount(10);
-
-        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(List.of(job))
-            .thenReturn(List.of());
+    void aLoneLabelIsHeldNotPrinted() throws Exception {
+        PrintJob lone = queued(null);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of(lone));
 
         executor.executePrintQueue();
 
-        assertEquals("failed", job.getStatus());
-        assertNotNull(job.getError());
+        // One label alone cannot fill a 2-up row without waste, so it waits.
+        verify(printerDriver, never()).sendLabel(any(), anyInt());
+        assertEquals("queued", lone.getStatus());
     }
 
     @Test
-    void queuesJobForRetryOnPrinterOffline() throws PrinterDriver.PrinterException {
-        PrintJob job = PrintJob.create("box", UUID.randomUUID(), 1);
-        job.setStatus("queued");
-        job.setRetryCount(0);
-
-        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(List.of(job))
-            .thenReturn(List.of());
-        when(labelService.renderLabel(any()))
-            .thenThrow(new PrinterDriver.PrinterException("Printer unreachable"));
+    void twoLabelsPrintAsOneRowAndBothAreMarked() throws Exception {
+        UUID pa = UUID.randomUUID();
+        UUID pb = UUID.randomUUID();
+        PrintJob a = queued(pa);
+        PrintJob b = queued(pb);
+        Product prodA = mock(Product.class);
+        Product prodB = mock(Product.class);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of(a, b));
+        when(labelService.renderRow(any(), any())).thenReturn("SIZE ...");
+        when(productRepository.findById(pa)).thenReturn(Optional.of(prodA));
+        when(productRepository.findById(pb)).thenReturn(Optional.of(prodB));
 
         executor.executePrintQueue();
 
-        assertTrue(job.getRetryCount() > 0 || job.getStatus().equals("failed"));
+        // Both go out on one row, both done, both products marked.
+        verify(printerDriver, times(1)).sendLabel(any(), anyInt());
+        assertEquals("done", a.getStatus());
+        assertEquals("done", b.getStatus());
+        verify(prodA).markLabelPrinted(any());
+        verify(prodB).markLabelPrinted(any());
     }
 
     @Test
-    void batchProcessesUpTo5Jobs() {
-        List<PrintJob> jobs = List.of(
-            PrintJob.create("box", UUID.randomUUID(), 1),
-            PrintJob.create("box", UUID.randomUUID(), 1),
-            PrintJob.create("box", UUID.randomUUID(), 1)
-        );
-
-        for (PrintJob job : jobs) {
-            job.setStatus("queued");
-        }
-
-        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(jobs)
-            .thenReturn(List.of());
+    void oddQueuePrintsOnePairAndHoldsTheLeftover() throws Exception {
+        PrintJob a = queued(null);
+        PrintJob b = queued(null);
+        PrintJob c = queued(null);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of(a, b, c));
+        when(labelService.renderRow(any(), any())).thenReturn("SIZE ...");
 
         executor.executePrintQueue();
 
-        verify(printJobRepository).findByStatusOrderByCreatedAtAsc("queued");
+        verify(printerDriver, times(1)).sendLabel(any(), anyInt()); // one pair
+        assertEquals("done", a.getStatus());
+        assertEquals("done", b.getStatus());
+        assertEquals("queued", c.getStatus()); // held
+    }
+
+    @Test
+    void flushPrintsALoneLeftoverAsADuplicatePair() throws Exception {
+        UUID p = UUID.randomUUID();
+        PrintJob lone = queued(p);
+        Product product = mock(Product.class);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of(lone));
+        when(labelService.renderLabel(any())).thenReturn("SIZE ...");
+        when(productRepository.findById(p)).thenReturn(Optional.of(product));
+
+        long printed = executor.flushPending();
+
+        assertEquals(1, printed);
+        verify(labelService).renderLabel(any()); // duplicate pair of the one product
+        assertEquals("done", lone.getStatus());
+        verify(product).markLabelPrinted(any());
+    }
+
+    @Test
+    void offlinePrinterRequeuesTheRowForRetry() throws Exception {
+        PrintJob a = queued(null);
+        PrintJob b = queued(null);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of(a, b));
+        when(labelService.renderRow(any(), any())).thenReturn("SIZE ...");
+        doThrow(new PrinterDriver.PrinterException("Printer unreachable"))
+            .when(printerDriver).sendLabel(any(), anyInt());
+
+        executor.executePrintQueue();
+
+        // Both go back to queued to retry, with the retry count bumped.
+        assertEquals("queued", a.getStatus());
+        assertEquals("queued", b.getStatus());
+        assertTrue(a.getRetryCount() > 0);
+    }
+
+    @Test
+    void pendingCountIsTheNumberOfHeldLabels() {
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
+            .thenReturn(List.of(queued(null), queued(null)));
+
+        assertEquals(2, executor.pendingCount());
     }
 }

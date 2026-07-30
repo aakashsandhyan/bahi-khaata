@@ -28,4 +28,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     /** Products whose name contains the query, for looking one up to change its stock's state. */
     List<Product> findTop25ByNameContainingIgnoreCaseOrderByName(String query);
+
+    /**
+     * Priced products whose label has not printed yet — the bulk-print queue. Priced means on the
+     * shelf (a price is set); a null {@code labelPrintedAt} means no label has printed for it.
+     */
+    List<Product> findBySellingPriceIsNotNullAndLabelPrintedAtIsNullOrderByName();
 }

@@ -31,6 +31,14 @@ public interface BatchRepository extends JpaRepository<Batch, UUID> {
     List<Batch> findByLotId(UUID lotId);
 
     /**
+     * The ids of lots that hold at least one counted-but-unpriced product — the pricing workbench's
+     * queue. Open lots (uncosted, hand-priced) and closed lots (costed, margin-suggested) both
+     * appear; a lot drops off once everything in it is priced.
+     */
+    @Query("select distinct b.lot.id from Batch b where b.product.sellingPrice is null")
+    List<UUID> lotIdsWithUnpricedStock();
+
+    /**
      * The one batch a product has within a lot. Unique by constraint: counting the same
      * product out of several cartons of one delivery accumulates into a single batch, since a
      * batch is one product's arrival in one lot however many boxes it was split between.

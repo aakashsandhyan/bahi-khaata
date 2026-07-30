@@ -31,25 +31,42 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A queued print job for barcode label output on TSC TE-244 thermal printer.
+ * A queued, self-contained label print job for the TSC TE-244.
  *
- * <p>Each job is queued independently; the executor polls the queue every 500ms and
- * processes jobs in FIFO order. Status progresses: queued → printing → done (or failed
- * after max retries). Retry logic handles offline printers gracefully.
+ * <p>The job carries the label fields it needs — barcode, product name, selling price, optional
+ * MRP — so the executor renders it without reading the database. A later price change therefore
+ * cannot alter a queued label, and a reprint just queues fresh values.
+ *
+ * <p>{@code productId} is a back-reference only: on a successful print the executor marks that
+ * product's label as printed, and the bulk screen uses it to tell what is done. It is never read
+ * to render.
+ *
+ * <p>The executor polls the queue every 500ms and processes jobs in FIFO order. Status
+ * progresses: queued → printing → done (or failed after max retries).
  */
 @Entity
 @Table(name = "print_job")
 public class PrintJob extends UuidEntity {
 
-    @Column(name = "item_type", nullable = false, columnDefinition = "text")
-    private String itemType; // "box", "batch", "product"
+    @Column(name = "barcode", nullable = false, columnDefinition = "text")
+    private String barcode;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "item_id", nullable = false)
-    private UUID itemId;
+    @Column(name = "product_name", nullable = false, columnDefinition = "text")
+    private String productName;
+
+    @Column(name = "selling_price_paise", nullable = false)
+    private long sellingPricePaise;
+
+    @Column(name = "mrp_paise")
+    private Long mrpPaise;
 
     @Column(name = "copies", nullable = false)
     private int copies;
+
+    /** Back-reference for the printed-marker and bulk view only — never read to render. */
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "product_id")
+    private UUID productId;
 
     @Column(name = "status", nullable = false, columnDefinition = "text")
     private String status; // "queued", "printing", "done", "failed"
@@ -72,33 +89,49 @@ public class PrintJob extends UuidEntity {
 
     protected PrintJob() {}
 
-    public PrintJob(UUID id, String itemType, UUID itemId, int copies) {
+    public PrintJob(
+            UUID id,
+            String barcode,
+            String productName,
+            long sellingPricePaise,
+            Long mrpPaise,
+            int copies,
+            UUID productId) {
         super(id);
-        this.itemType = itemType;
-        this.itemId = itemId;
+        this.barcode = barcode;
+        this.productName = productName;
+        this.sellingPricePaise = sellingPricePaise;
+        this.mrpPaise = mrpPaise;
         this.copies = copies;
+        this.productId = productId;
         this.status = "queued";
         this.retryCount = 0;
     }
 
-    public static PrintJob create(String itemType, UUID itemId, int copies) {
-        return new PrintJob(newId(), itemType, itemId, copies);
+    public static PrintJob create(
+            String barcode,
+            String productName,
+            long sellingPricePaise,
+            Long mrpPaise,
+            int copies,
+            UUID productId) {
+        return new PrintJob(newId(), barcode, productName, sellingPricePaise, mrpPaise, copies, productId);
     }
 
-    public String getItemType() {
-        return itemType;
+    public String getBarcode() {
+        return barcode;
     }
 
-    public void setItemType(String itemType) {
-        this.itemType = itemType;
+    public String getProductName() {
+        return productName;
     }
 
-    public UUID getItemId() {
-        return itemId;
+    public long getSellingPricePaise() {
+        return sellingPricePaise;
     }
 
-    public void setItemId(UUID itemId) {
-        this.itemId = itemId;
+    public Long getMrpPaise() {
+        return mrpPaise;
     }
 
     public int getCopies() {
@@ -107,6 +140,10 @@ public class PrintJob extends UuidEntity {
 
     public void setCopies(int copies) {
         this.copies = copies;
+    }
+
+    public UUID getProductId() {
+        return productId;
     }
 
     public String getStatus() {

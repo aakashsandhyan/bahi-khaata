@@ -22,7 +22,7 @@ import java.util.UUID;
 public record QueuePrintJobResponse(
     UUID jobId,
     String status,
-    String itemType,
-    UUID itemId,
+    String barcode,
+    String productName,
     int copies,
     String error) {}

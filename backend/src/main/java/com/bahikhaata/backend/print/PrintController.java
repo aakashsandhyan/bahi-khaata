@@ -20,7 +20,6 @@ package com.bahikhaata.backend.print;
 import com.bahikhaata.contracts.QueuePrintJobRequest;
 import com.bahikhaata.contracts.QueuePrintJobResponse;
 import com.bahikhaata.contracts.PrintJobStatusResponse;
-import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,30 +40,49 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/print-jobs")
 public class PrintController {
     private final PrintJobRepository printJobRepository;
+    private final PrintExecutorService executor;
 
-    public PrintController(PrintJobRepository printJobRepository) {
+    public PrintController(PrintJobRepository printJobRepository, PrintExecutorService executor) {
         this.printJobRepository = printJobRepository;
+        this.executor = executor;
+    }
+
+    /** How many labels are held, waiting for a partner to pair with — shown on the pricing screen. */
+    @GetMapping("/pending-count")
+    public java.util.Map<String, Long> pendingCount() {
+        return java.util.Map.of("count", executor.pendingCount());
+    }
+
+    /** Print the held labels now — a lone leftover goes out as a duplicate pair. */
+    @PostMapping("/flush")
+    public java.util.Map<String, Long> flush() {
+        return java.util.Map.of("printed", executor.flushPending());
     }
 
     @PostMapping
     public ResponseEntity<QueuePrintJobResponse> queuePrintJob(@RequestBody QueuePrintJobRequest req) {
-        String itemType = req.itemType().toLowerCase();
-        if (!Arrays.asList("box", "batch", "product").contains(itemType)) {
+        if (req.barcode() == null || req.barcode().isBlank()
+                || req.productName() == null || req.productName().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-
         if (req.copies() < 1 || req.copies() > 100) {
             return ResponseEntity.badRequest().build();
         }
 
-        PrintJob job = PrintJob.create(itemType, req.itemId(), req.copies());
+        PrintJob job = PrintJob.create(
+                req.barcode(),
+                req.productName(),
+                req.sellingPricePaise(),
+                req.mrpPaise(),
+                req.copies(),
+                req.productId());
         printJobRepository.save(job);
 
         QueuePrintJobResponse resp = new QueuePrintJobResponse(
             job.getId(),
             job.getStatus(),
-            job.getItemType(),
-            job.getItemId(),
+            job.getBarcode(),
+            job.getProductName(),
             job.getCopies(),
             job.getError());
 
@@ -77,8 +95,8 @@ public class PrintController {
             .map(job -> new PrintJobStatusResponse(
                 job.getId(),
                 job.getStatus(),
-                job.getItemType(),
-                job.getItemId(),
+                job.getBarcode(),
+                job.getProductName(),
                 job.getCopies(),
                 job.getError(),
                 job.getCreatedAt(),

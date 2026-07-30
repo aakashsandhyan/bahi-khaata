@@ -554,3 +554,8 @@ tr.damaged { background: var(--warn-tint); }
 
 .pcc-cond-row { margin: var(--s3) 0 var(--s2); }
 .pcc-submit { width: 100%; margin-top: var(--s3); }
+
+/* Utility classes for the pricing/label screens. */
+.pad { padding: var(--s4); }
+.stop { color: var(--stop); }
+.good { color: var(--good); }

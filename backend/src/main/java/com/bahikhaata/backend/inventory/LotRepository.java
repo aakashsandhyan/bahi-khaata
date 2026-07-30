@@ -17,7 +17,13 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.contracts.LotState;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface LotRepository extends JpaRepository<Lot, UUID> {}
+public interface LotRepository extends JpaRepository<Lot, UUID> {
+
+    /** Lots in a given state, newest received first — the pricing workbench lists the open ones. */
+    List<Lot> findByStateOrderByReceivedOnDesc(LotState state);
+}

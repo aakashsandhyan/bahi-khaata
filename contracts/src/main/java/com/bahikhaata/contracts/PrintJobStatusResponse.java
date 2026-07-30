@@ -23,8 +23,8 @@ import java.util.UUID;
 public record PrintJobStatusResponse(
     UUID jobId,
     String status,
-    String itemType,
-    UUID itemId,
+    String barcode,
+    String productName,
     int copies,
     String error,
     Instant createdAt,
