@@ -343,6 +343,23 @@ public class Batch extends UuidEntity {
     }
 
     /**
+     * Pins this batch's per-unit cost from a figure known at receipt — the cost its manifest line
+     * states. The batch is costed the moment it is received, not at lot close, so its product can
+     * be priced at once. Unlike {@link #applyAllocation} this may be re-applied while the lot is
+     * open: a later box of the same product carries the same stated cost, and the pinned total
+     * follows the running received quantity. The unit cost SHALL be positive.
+     */
+    public void pinUnitCost(Money unitCost) {
+        Objects.requireNonNull(unitCost, "unit cost");
+        if (!unitCost.isPositive()) {
+            throw new IllegalArgumentException("a pinned unit cost must be positive, was " + unitCost);
+        }
+        this.allocatedUnitCost = unitCost;
+        this.costBasis = CostBasis.PINNED;
+        this.allocatedTotal = unitCost.times(sellableQuantity());
+    }
+
+    /**
      * Takes units back off, when a count was a mistake.
      *
      * <p>Down to nothing, if that is what was counted. The batch stays either way: the receipt
@@ -357,9 +374,11 @@ public class Batch extends UuidEntity {
                     "cannot take off " + quantity + " when only " + quantityReceived
                             + " were counted");
         }
-        if (isCosted()) {
+        // A pinned cost does not close counting — only a closed lot does. Its cost was known at
+        // receipt, but the lot is still open and its counts may still be corrected.
+        if (!lot.isOpen()) {
             throw new IllegalStateException(
-                    "batch " + getId() + " is already costed; its delivery has been closed");
+                    "batch " + getId() + "'s lot is closed; counts cannot be taken back");
         }
         this.quantityReceived -= quantity;
     }
@@ -369,11 +388,17 @@ public class Batch extends UuidEntity {
         if (quantity <= 0) {
             throw new IllegalArgumentException("counted quantity must be positive, was " + quantity);
         }
-        if (isCosted()) {
+        // A pinned cost does not close counting — a later box of the same product still adds to it.
+        // Only a closed lot refuses further counts.
+        if (!lot.isOpen()) {
             throw new IllegalStateException(
-                    "batch " + getId() + " is already costed; its lot has been closed");
+                    "batch " + getId() + "'s lot is closed; counts cannot be added");
         }
         this.quantityReceived += quantity;
+        if (costBasis == CostBasis.PINNED && allocatedUnitCost != null) {
+            // Keep the pinned total in step with the running quantity.
+            this.allocatedTotal = allocatedUnitCost.times(sellableQuantity());
+        }
     }
 
     /** This line's share of the lot amount, or null while its lot is still open. */

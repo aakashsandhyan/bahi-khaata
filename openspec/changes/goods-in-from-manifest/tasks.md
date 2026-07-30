@@ -71,3 +71,16 @@
 - [x] 7.1 Mark task 4.13 in `foundation-and-first-sale` superseded by section 6, with a line saying why, so the older goods-in screen is not built against a replaced model.
 - [x] 7.2 Keep `GoodsInService.receive()` for small hand-entered deliveries and document in its Javadoc that consignments go through counting instead. Confirm its tests still pass unchanged.
 - [x] 7.3 Update `Bachat_Bazar_POS_Report.md` and the change's own design if anything drifted during implementation, so the record matches what was built.
+
+## 8. Cost pinned at receipt (overturns section 4 — apportion-at-close)
+
+- [x] 8.1 `Batch`: add a costed-at-receipt path that sets `allocatedUnitCost`, `costBasis = PINNED`, and `allocatedTotal` when a batch is created with a known per-unit cost. Keep the uncosted path for a surplus.
+- [x] 8.2 `countExpected` pins the expected line's stated per-unit cost onto the batch it creates (`CostBasis.PINNED`). Test the batch is `isCosted()` at receipt, no lot close needed.
+- [x] 8.3 `countUnlisted` (surplus, no stated cost) leaves the batch uncosted. Test `isCosted()` is false and distinguishable from a zero cost.
+- [ ] 8.4 `ConsignmentImporter` reads the manifest's per-product cost into the expected line, so counting can pin it. Test import populates it; extend `tools/consignment.py` to read the cost column.
+- [x] 8.5 `LotClosing`: closing marks the lot `CLOSED` (receiving done) without apportioning — remove the `CostAllocator` call, keep the unopened-boxes confirmation. Test close changes no batch's cost.
+- [x] 8.6 Remove the `CostBasis.ESTIMATED` lot-average weighting of a surplus; a surplus stays uncosted.
+- [x] 8.7 Amount-paid cross-check: sum of pinned costs × received quantity vs amount paid; report a material mismatch. Test clean and mismatch.
+- [x] 8.8 Update the section-4 tests (apportion-at-close, uncosted-until-close, lot-average) to the pinned model; confirm the pre-existing "boxes pending / can't price an open lot" failures clear.
+- [x] 8.9 Frontend: the manual add-product path pins its entered per-unit cost; manifest import pins per line.
+- [ ] 8.10 Verify: boots under `ddl-auto=validate`; full suite green; price a real product from an open lot and see the margin suggestion fire.

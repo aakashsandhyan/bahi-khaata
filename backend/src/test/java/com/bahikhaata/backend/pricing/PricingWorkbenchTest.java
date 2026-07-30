@@ -26,7 +26,6 @@ import com.bahikhaata.backend.inventory.ExpectedLine;
 import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
-import com.bahikhaata.backend.inventory.LotClosing;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
@@ -61,7 +60,6 @@ class PricingWorkbenchTest {
 
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
-    @Autowired private LotClosing closing;
     @Autowired private PricingWorkbench workbench;
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BarcodeRepository barcodes;
@@ -69,7 +67,8 @@ class PricingWorkbenchTest {
 
     /**
      * Receives one HOME_ESSENTIALS product, online at the given price, bought at a quarter of it,
-     * counts it, closes the delivery, and returns its product id. Priced and ready.
+     * counts it, and returns its product id. Costed at receipt from the manifest's stated per-unit
+     * cost, so it is priceable at once — the delivery is deliberately left open.
      */
     private UUID received(String code, long onlinePaise, long mrpPaise) {
         long costPaise = onlinePaise / 4; // the 0.25 factor of a real off-market sheet
@@ -78,26 +77,41 @@ class PricingWorkbenchTest {
                         "Sushil", "2026-07-17",
                         List.of(new ImportLot("HOME_ESSENTIALS", costPaise,
                                 AllocationMethod.RELATIVE_MRP,
-                                List.of(new ImportLine(code, code, 1, onlinePaise, null,
+                                // The stated per-unit value IS the pinned cost; the online price is
+                                // carried separately as the figure the shop must beat.
+                                List.of(new ImportLine(code, code, 1, costPaise, null,
                                         "BOX-" + code, onlinePaise, Marketplace.AMAZON))))));
         UUID lotId = lots.findAll().stream().filter(Lot::isOpen).reduce((a, b) -> b)
                 .orElseThrow().getId();
         ExpectedLine line = expectedLines.findByLotIdOrderByCode(lotId).get(0);
         counting.countExpected(line.getId(), StockCondition.GOOD, 1, Money.ofPaise(mrpPaise),
                 false, AT);
-        closing.close(lotId, false, AT);
         return line.getProduct().getId();
     }
 
     @Test
-    @DisplayName("Only goods from a closed delivery are priceable")
-    void openDeliveriesAreNotPriceable() {
+    @DisplayName("Goods costed at receipt are priceable even before their delivery closes")
+    void costedGoodsArePriceableWhileOpen() {
+        UUID id = received("STILLOPEN", 40_000, 99_900);
+
+        assertThat(lots.findAll().stream().anyMatch(Lot::isOpen))
+                .as("the delivery is still open — cost was pinned at receipt, not at close")
+                .isTrue();
+        assertThat(workbench.priceable("HOME_ESSENTIALS"))
+                .as("its cost is pinned at receipt, so the margin is real without waiting to close")
+                .anyMatch(item -> item.productId().equals(id));
+    }
+
+    @Test
+    @DisplayName("Goods whose cost was never stated stay off the pricing workbench")
+    void uncostedGoodsAreNotPriceable() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
                         "Sushil", "2026-07-17",
                         List.of(new ImportLot("HOME_ESSENTIALS", 10_000,
                                 AllocationMethod.RELATIVE_MRP,
-                                List.of(new ImportLine("OPEN", "Still open", 1, 40_000, null,
+                                // No stated value: the batch is an uncosted surplus.
+                                List.of(new ImportLine("NOSTATED", "No stated cost", 1, 0, null,
                                         "BOX-O", null, null))))));
         UUID lotId = lots.findAll().stream().filter(Lot::isOpen).reduce((a, b) -> b)
                 .orElseThrow().getId();
@@ -106,8 +120,8 @@ class PricingWorkbenchTest {
                 StockCondition.GOOD, 1, Money.ofPaise(99_900), false, AT);
 
         assertThat(workbench.priceable("HOME_ESSENTIALS"))
-                .as("cost is not settled until the delivery closes; a margin on it is not a margin")
-                .noneMatch(item -> item.name().equals("Still open"));
+                .as("an uncosted surplus has no known cost; a margin on it is not a margin")
+                .noneMatch(item -> item.name().equals("No stated cost"));
     }
 
     @Test

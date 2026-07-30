@@ -17,16 +17,11 @@
  */
 package com.bahikhaata.backend.inventory;
 
-import com.bahikhaata.backend.inventory.allocation.AllocatedLine;
-import com.bahikhaata.backend.inventory.allocation.Allocation;
-import com.bahikhaata.backend.inventory.allocation.AllocationLine;
-import com.bahikhaata.backend.inventory.allocation.CostAllocator;
 import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,21 +30,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settling what a delivery cost, once it has all been counted.
+ * Closing a delivery once it has all been counted — a receiving-completeness marker.
  *
- * <p>Apportionment happens here and nowhere else. A lot's shares depend on every line in it, so
- * none can be final while a carton is still unopened — which is why a batch carries stock at an
- * unknown cost until this runs.
- *
- * <p>The amount is spread across <em>what actually arrived</em>, not what was promised. The
- * money was paid regardless of what turned up, so the goods that did turn up must carry all of
- * it: eleven units where twelve were expected carry the whole line's cost between them and each
- * cost a little more. That is not an error to correct — it is what the shortfall cost.
- *
- * <p>A caution that cost real money once: shares summing exactly to the amount paid proves
- * nothing about whether the split is right. Shares of an amount sum to that amount however
- * wrongly they are divided. The tests here therefore compare lines against one another, which
- * is the only place a misdistribution shows.
+ * <p>Cost is not settled here. Each product's cost was pinned from its manifest line as it was
+ * received (see {@code GoodsInCounting} and the stock-ledger spec), so a product is costed and
+ * priceable the moment it arrives, not when its lot closes. Closing records that the boxes have
+ * been dealt with, and reports any left unopened so writing them off is a deliberate decision
+ * rather than something discovered later.
  */
 @Service
 public class LotClosing {
@@ -59,7 +46,6 @@ public class LotClosing {
     private final ExpectedLineRepository expectedLines;
     private final UnlistedFindRepository unlistedFinds;
     private final BoxRepository boxes;
-    private final CostAllocator allocator;
     private final ReceivingService receivingService;
 
     LotClosing(
@@ -68,15 +54,32 @@ public class LotClosing {
             ExpectedLineRepository expectedLines,
             UnlistedFindRepository unlistedFinds,
             BoxRepository boxes,
-            CostAllocator allocator,
             ReceivingService receivingService) {
         this.lots = lots;
         this.batches = batches;
         this.expectedLines = expectedLines;
         this.unlistedFinds = unlistedFinds;
         this.boxes = boxes;
-        this.allocator = allocator;
         this.receivingService = receivingService;
+    }
+
+    /**
+     * Cross-checks what a lot was paid against the sum of its products' pinned costs times the
+     * quantities received — a reporting figure, not a costing step. Cost is pinned per product, so
+     * a difference here is surfaced for someone to look at, never apportioned into the goods.
+     * Uncosted surplus contributes nothing to the pinned total.
+     */
+    @Transactional(readOnly = true)
+    public com.bahikhaata.contracts.LotCostReconciliation crossCheckCost(UUID lotId) {
+        Lot lot = lots.findById(lotId)
+                .orElseThrow(() -> new IllegalArgumentException("no such lot: " + lotId));
+        long pinned = batches.findByLotId(lotId).stream()
+                .filter(Batch::isCosted)
+                .mapToLong(b -> b.getAllocatedUnitCost().paise() * b.getQuantityReceived())
+                .sum();
+        long paid = lot.getAmountPaid().paise();
+        return new com.bahikhaata.contracts.LotCostReconciliation(
+                lotId, paid, pinned, paid - pinned, paid == pinned);
     }
 
     /**
@@ -99,7 +102,8 @@ public class LotClosing {
     }
 
     /**
-     * Closes a lot and apportions what was paid across the goods that actually arrived.
+     * Closes a lot — a receiving-completeness marker. Cost was pinned per product at receipt,
+     * so closing apportions nothing; it records that the boxes have been dealt with.
      *
      * <p>Cartons left unopened do not prevent this. Goods that never came would otherwise hold
      * a lot open forever, and nothing in it could be priced or sold — so closing over them is
@@ -122,82 +126,16 @@ public class LotClosing {
             throw new UnopenedCartonsException(unopened);
         }
 
-        List<Batch> uncosted = batches.findByLotId(lotId).stream()
-                .filter(batch -> !batch.isCosted())
-                .toList();
-
-        // Goods fit for nothing take no share. What they would have carried stays with the ones
-        // that can be sold, which is what the delivery really cost to get sellable stock out of.
-        List<Batch> unusable =
-                uncosted.stream().filter(batch -> batch.getCondition() == StockCondition.UNUSABLE)
-                        .toList();
+        // Cost was pinned per product at receipt, so closing apportions nothing — it only records
+        // that receiving is done. The goods actually received (excluding unusable scrap and lines
+        // corrected back to nothing) are summarised for the caller, and any that arrived without a
+        // stated cost — a surplus — are counted so an uncosted tail is visible rather than silent.
         List<Batch> received =
-                uncosted.stream()
+                batches.findByLotId(lotId).stream()
                         .filter(batch -> batch.getCondition() != StockCondition.UNUSABLE)
-                        // A batch corrected back to nothing has nothing to carry a share, and
-                        // asking the allocator to divide by zero would fail rather than say so.
                         .filter(batch -> batch.getQuantityReceived() > 0)
                         .toList();
-        if (received.isEmpty()) {
-            throw new IllegalStateException(
-                    "lot "
-                            + lotId
-                            + (unusable.isEmpty()
-                                    ? " has nothing counted against it, so there is nothing to"
-                                            + " carry what was paid. Count at least one carton"
-                                            + " first."
-                                    : " holds nothing but unusable goods, so there is nothing"
-                                            + " that can carry what was paid. Record the loss"
-                                            + " against the delivery instead of closing it."));
-        }
-
-        Map<UUID, Money> statedByProduct = statedValuePerUnitByProduct(lotId);
-        Money lotAverage = averageUnitValue(statedByProduct, received);
-        if (lotAverage == null) {
-            throw new IllegalArgumentException(
-                    "lot " + lotId + ": no line states a value, so there is nothing to apportion"
-                            + " by and no average to fall back on. Supply a value for at least"
-                            + " one line.");
-        }
-
-        List<AllocationLine> lines = new ArrayList<>();
-        List<Boolean> estimated = new ArrayList<>();
-        for (Batch batch : received) {
-            Money stated = statedByProduct.get(batch.getProduct().getId());
-            boolean isEstimate = stated == null;
-            lines.add(
-                    new AllocationLine(
-                            batch.getId().toString(),
-                            batch.getQuantityReceived(),
-                            batch.getQuantityDamaged(),
-                            isEstimate ? lotAverage : stated,
-                            null));
-            estimated.add(isEstimate);
-        }
-
-        Allocation allocation = allocator.allocate(lot.getAmountPaid(), lot.getFreight(), lines);
-
-        long estimatedCount = 0;
-        for (int i = 0; i < received.size(); i++) {
-            AllocatedLine allocated = allocation.lines().get(i);
-            boolean isEstimate = estimated.get(i);
-            if (isEstimate) {
-                estimatedCount++;
-            }
-            received.get(i)
-                    .applyAllocation(
-                            allocated.allocatedTotal(),
-                            allocated.allocatedUnitCost(),
-                            // Recorded as estimated where the weight was the lot average rather
-                            // than a figure the manifest stated, so a margin resting on it can
-                            // be recognised for what it is.
-                            isEstimate ? CostBasis.ESTIMATED : allocated.basis());
-        }
-
-        // Recorded as absorbed rather than left at a bare zero, which reads like an oversight.
-        for (Batch scrap : unusable) {
-            scrap.applyAllocation(Money.ZERO, Money.ZERO, CostBasis.ABSORBED);
-        }
+        long uncostedSurplus = received.stream().filter(batch -> !batch.isCosted()).count();
 
         lot.close(at);
 
@@ -206,62 +144,8 @@ public class LotClosing {
                 received.size(),
                 received.stream().mapToLong(Batch::getQuantityReceived).sum(),
                 lot.getAmountPaid().plus(lot.getFreight()).paise(),
-                estimatedCount,
+                uncostedSurplus,
                 unopened);
-    }
-
-    /**
-     * Each product's per-unit stated value, averaged across the cartons it was expected in.
-     *
-     * <p>Weighted by expected quantity, because the stated value is a claim about the goods and
-     * a claim covering nine units should count for more than one covering a single unit.
-     * Products whose lines all state nothing are absent, and fall to the lot average.
-     */
-    private Map<UUID, Money> statedValuePerUnitByProduct(UUID lotId) {
-        Map<UUID, long[]> totals = new HashMap<>();
-        for (ExpectedLine line : expectedLines.findByLotIdOrderByCode(lotId)) {
-            if (line.getStatedValue() == null) {
-                continue;
-            }
-            long[] sums = totals.computeIfAbsent(line.getProduct().getId(), id -> new long[2]);
-            sums[0] += line.getStatedValue().paise() * line.getQuantityExpected();
-            sums[1] += line.getQuantityExpected();
-        }
-        Map<UUID, Money> perUnit = new HashMap<>();
-        totals.forEach(
-                (productId, sums) -> {
-                    if (sums[1] > 0) {
-                        perUnit.put(productId, Money.ofPaise(sums[0] / sums[1]));
-                    }
-                });
-        return perUnit;
-    }
-
-    /**
-     * The lot's average unit value, used for goods with no stated value of their own.
-     *
-     * <p>Computed over the quantities actually counted rather than expected, so the average
-     * reflects the mix that really turned up — the same quantities the apportionment itself
-     * runs over.
-     *
-     * <p>A genuine estimate: right on average, wrong on any particular item. A surplus carton
-     * of something dear comes out undercosted and something cheap overcosted. Accepted because
-     * the alternatives are worse — leaving the goods uncosted strands them off the shelf, and
-     * excluding them makes every margin computed from them read as pure profit.
-     *
-     * <p>Null when no line states a value at all, which the caller refuses on.
-     */
-    private Money averageUnitValue(Map<UUID, Money> statedByProduct, List<Batch> received) {
-        long value = 0;
-        long quantity = 0;
-        for (Batch batch : received) {
-            Money stated = statedByProduct.get(batch.getProduct().getId());
-            if (stated != null) {
-                value += stated.paise() * batch.getQuantityReceived();
-                quantity += batch.getQuantityReceived();
-            }
-        }
-        return quantity == 0 ? null : Money.ofPaise(Math.max(1, value / quantity));
     }
 
     /** Raised rather than returned: closing over unopened cartons must be a decision. */
