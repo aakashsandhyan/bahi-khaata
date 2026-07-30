@@ -75,8 +75,10 @@ public class PrintExecutorService {
             PrintLabelRequest labelReq = buildLabelRequest(job);
             String zpl = labelService.renderLabel(labelReq);
 
-            // Send to printer
-            printerDriver.sendLabel(zpl, job.getCopies());
+            // Send to printer. The stock is 2-up — one rendered document is a row of two identical
+            // stickers — so the asked-for copies convert to rows, rounded up: an odd ask yields one
+            // extra usable sticker, never a blank one.
+            printerDriver.sendLabel(zpl, LabelTemplateService.rowsFor(job.getCopies()));
 
             // Success
             job.setStatus("done");

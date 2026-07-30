@@ -137,7 +137,7 @@ export function PrinterConfig() {
           </label>
           <input
             type="text"
-            placeholder="192.168.1.100:9100 or /dev/ttyUSB0"
+            placeholder='"TSC TE244" (Windows printer name), or 192.168.1.100:9100'
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             style={{

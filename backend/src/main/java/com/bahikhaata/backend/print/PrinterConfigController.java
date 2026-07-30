@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.contracts.PrintLabelRequest;
 import com.bahikhaata.contracts.PrinterConfigRequest;
 import com.bahikhaata.contracts.PrinterConfigResponse;
 import com.bahikhaata.contracts.PrinterTestResponse;
@@ -41,10 +42,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class PrinterConfigController {
     private final PrinterConfigRepository configRepo;
     private final PrinterConnectionTester tester;
+    private final LabelTemplateService labelService;
+    private final PrinterDriver printerDriver;
 
-    public PrinterConfigController(PrinterConfigRepository configRepo, PrinterConnectionTester tester) {
+    public PrinterConfigController(
+            PrinterConfigRepository configRepo,
+            PrinterConnectionTester tester,
+            LabelTemplateService labelService,
+            PrinterDriver printerDriver) {
         this.configRepo = configRepo;
         this.tester = tester;
+        this.labelService = labelService;
+        this.printerDriver = printerDriver;
     }
 
     @GetMapping
@@ -86,6 +95,34 @@ public class PrinterConfigController {
 
         PrinterTestResponse resp = new PrinterTestResponse(result.status(), result.message(), Instant.now());
         return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * Renders a fixed sample label and sends it straight to the configured printer, synchronously —
+     * a real physical print, unlike {@code /test} which only checks the printer is reachable. This
+     * is what a "print test page" button means on any OS printer settings screen: something the
+     * connection check cannot prove, because the queue can report ready while the printer itself is
+     * out of paper, off, or (for a print-service address) fed bytes it cannot actually parse.
+     */
+    @PostMapping("/test-print")
+    public ResponseEntity<PrinterTestResponse> testPrint() {
+        PrinterConfig config = configRepo.getSingleton().orElseGet(PrinterConfig::createDefault);
+        // Two different with-MRP labels side by side — the deal cluster is the part still being
+        // tuned (the no-MRP variant is settled), so both columns exercise it with different data.
+        PrintLabelRequest withMrp = new PrintLabelRequest(
+                "BBZ-100042", "Prestige Cooker 5L Test", 1499_00L, 449_00L);
+        PrintLabelRequest withoutMrp = new PrintLabelRequest(
+                "BBZ-100044", "Kettle Steel 1.8L Test", 2199_00L, 999_00L);
+        try {
+            String doc = labelService.renderRow(withMrp, withoutMrp);
+            printerDriver.sendLabel(doc, 1);
+            return ResponseEntity.ok(
+                    new PrinterTestResponse("OK", "Test row (with + without MRP) sent to "
+                            + config.getAddress() + ".", Instant.now()));
+        } catch (PrinterDriver.PrinterException e) {
+            return ResponseEntity.ok(
+                    new PrinterTestResponse("ERROR", e.getMessage(), Instant.now()));
+        }
     }
 
     private PrinterConfigResponse toResponse(PrinterConfig config) {
