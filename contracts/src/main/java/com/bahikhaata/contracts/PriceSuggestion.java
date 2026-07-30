@@ -15,15 +15,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.inventory;
+package com.bahikhaata.contracts;
 
-import com.bahikhaata.contracts.LotState;
-import java.util.List;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface LotRepository extends JpaRepository<Lot, UUID> {
-
-    /** Lots in a given state, newest received first — the pricing workbench lists the open ones. */
-    List<Lot> findByStateOrderByReceivedOnDesc(LotState state);
-}
+/**
+ * A suggested selling price from a category's target margin against a batch's unit cost. Produced
+ * only for costed stock; uncosted stock is hand-priced and yields no suggestion.
+ */
+public record PriceSuggestion(int marginPercent, long suggestedPricePaise) {}

@@ -9,7 +9,7 @@
 
 - [x] 2.1 Reshape `QueuePrintJobRequest` to self-contained fields: `barcode`, `productName`, `sellingPricePaise`, `mrpPaise` (null), `copies`, optional `productId`.
 - [x] 2.2 Update `QueuePrintJobResponse`/`PrintJobStatusResponse` to drop item-type/id, reflect new fields.
-- [ ] 2.3 New pricing contracts: `LotSummary`, `PriceableProduct` (with unit cost, costed flag), `LotCategory`, `PriceSuggestion`, `ShelfPricingSaveRequest` (lot, product-or-manual, category, mrp?, quantity, condition, price), `ShelfPricingSaveResult`.
+- [x] 2.3 New pricing contracts: `LotSummary`, `PriceableProduct` (with unit cost, costed flag), `LotCategory`, `PriceSuggestion`, `ShelfPricingSaveRequest` (lot, product-or-manual, category, mrp?, quantity, condition, price), `ShelfPricingSaveResult`.
 - [ ] 2.4 New reconciliation contracts: `LotReconciliation` (counted vs priced/shelved per product), `WriteOffResult`.
 - [ ] 2.5 New capture contracts: `CaptureRequest`, `CaptureSummary`, `ReviewQueueItem`, `ApproveCaptureRequest`.
 
@@ -24,13 +24,13 @@
 
 ## 4. Shelf pricing service
 
-- [ ] 4.1 `ShelfPricing` service in `pricing`: `lots()` (open lots), `resolveScanned(code)` (LSN/ASIN via barcode resolver → already-counted product + its batch in the lot + unit cost), `categoriesForLot(lotId)` (distinct categories, empty → caller falls back to full list).
-- [ ] 4.2 `suggestPrice(unitCost, category, customMargin?)` reusing `TargetMargins.resolve` + `Margins.priceForTargetMargin`; only for costed stock (uncosted → no suggestion, hand-priced).
-- [ ] 4.3 `saveExisting(...)`: scanned already-counted product — set category + selling price (`Product.setSellingPrice`), confirm the batch MRP (non-estimate), mint BBZ if none. **No** ledger movement (already received at counting).
-- [ ] 4.4 Expose an inventory entry point (`GoodsInCounting.receiveManual(lot, product, condition, qty, mrp, at)` reusing `addToBatch`) that creates the batch + writes the receipt; `saveManual(...)` creates the `Product`, calls it, then sets category/price/confirmed-MRP/BBZ. Uncosted batch → price required from caller.
-- [ ] 4.5 Guard: existing product with a BBZ keeps it (no re-mint). MRP entered at pricing is recorded confirmed.
-- [ ] 4.6 `ShelfPricingController` `/api/pricing/shelf`: lots, products-in-lot, categories-for-lot, suggest, save-existing, save-manual.
-- [ ] 4.7 Tests: costed → suggestion; uncosted → no suggestion + hand price; save sets price/mints BBZ/ledger-moves; manifested-missing product absent from priceable.
+- [x] 4.1 `ShelfPricing` service in `pricing`: `lots()` (open lots), `resolveScanned(code)` (LSN/ASIN via barcode resolver → already-counted product + its batch in the lot + unit cost), `categoriesForLot(lotId)` (distinct categories, empty → caller falls back to full list).
+- [x] 4.2 `suggestPrice(unitCost, category, customMargin?)` reusing `TargetMargins.resolve` + `Margins.priceForTargetMargin`; only for costed stock (uncosted → no suggestion, hand-priced).
+- [x] 4.3 `saveExisting(...)`: scanned already-counted product — set category + selling price (`Product.setSellingPrice`), confirm the batch MRP (non-estimate), mint BBZ if none. **No** ledger movement (already received at counting).
+- [x] 4.4 Expose an inventory entry point (`GoodsInCounting.receiveManual(lot, product, condition, qty, mrp, at)` reusing `addToBatch`) that creates the batch + writes the receipt; `saveManual(...)` creates the `Product`, calls it, then sets category/price/confirmed-MRP/BBZ. Uncosted batch → price required from caller.
+- [x] 4.5 Guard: existing product with a BBZ keeps it (no re-mint). MRP entered at pricing is recorded confirmed.
+- [x] 4.6 `ShelfPricingController` `/api/pricing/shelf`: lots, products-in-lot, categories-for-lot, suggest, save-existing, save-manual.
+- [x] 4.7 Tests: costed → suggestion; uncosted → no suggestion + hand price; save sets price/mints BBZ/ledger-moves; manifested-missing product absent from priceable.
 
 ## 5. Lot reconciliation write-off
 

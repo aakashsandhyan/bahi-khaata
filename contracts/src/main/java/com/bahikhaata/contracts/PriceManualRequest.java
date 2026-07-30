@@ -15,15 +15,21 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.inventory;
+package com.bahikhaata.contracts;
 
-import com.bahikhaata.contracts.LotState;
-import java.util.List;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface LotRepository extends JpaRepository<Lot, UUID> {
-
-    /** Lots in a given state, newest received first — the pricing workbench lists the open ones. */
-    List<Lot> findByStateOrderByReceivedOnDesc(LotState state);
-}
+/**
+ * Prices stock keyed in by hand — never counted, or a lost-reference item re-entered. Creates the
+ * product and a batch under the lot for {@code quantity} units in {@code condition} ("GOOD" or
+ * "DAMAGED"), writes the stock receipt, sets category and selling price, records the MRP confirmed
+ * (null for none), and mints a BBZ. An uncosted batch has no suggestion, so the price is required.
+ */
+public record PriceManualRequest(
+        UUID lotId,
+        String name,
+        String categoryCode,
+        String condition,
+        long quantity,
+        long sellingPricePaise,
+        Long mrpPaise) {}

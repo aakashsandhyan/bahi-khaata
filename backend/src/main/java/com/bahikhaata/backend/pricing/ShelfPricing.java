@@ -1,0 +1,211 @@
+/*
+ * bahi-khaata — point of sale for Bachat Baazar
+ * Copyright (C) 2026 Aakash Sandhyan
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+package com.bahikhaata.backend.pricing;
+
+import com.bahikhaata.backend.catalog.Barcode;
+import com.bahikhaata.backend.catalog.BarcodeRepository;
+import com.bahikhaata.backend.catalog.BarcodeResolver;
+import com.bahikhaata.backend.catalog.InternalBarcodeGenerator;
+import com.bahikhaata.backend.catalog.Product;
+import com.bahikhaata.backend.catalog.ProductRepository;
+import com.bahikhaata.backend.inventory.Batch;
+import com.bahikhaata.backend.inventory.BatchRepository;
+import com.bahikhaata.backend.inventory.GoodsInCounting;
+import com.bahikhaata.backend.inventory.Lot;
+import com.bahikhaata.backend.inventory.LotRepository;
+import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.LotState;
+import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.PriceExistingRequest;
+import com.bahikhaata.contracts.PriceManualRequest;
+import com.bahikhaata.contracts.PriceSuggestion;
+import com.bahikhaata.contracts.ScannedItem;
+import com.bahikhaata.contracts.ShelfLot;
+import com.bahikhaata.contracts.ShelfPricedProduct;
+import com.bahikhaata.contracts.StockCondition;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The lot-first pricing workbench: turn received stock into priced, barcoded, sellable shelf
+ * products. Reuses the margin machinery ({@link TargetMargins}, {@link Margins}) for suggestions,
+ * the catalog's barcode generation for the shelf identity, and — for stock keyed in by hand — the
+ * inventory receipt path, so the ledger rule lives in one place.
+ *
+ * <p>Two save paths, split by whether an item can be scanned to its record (see the design):
+ * {@link #saveExisting} prices a scanned already-counted product and writes no stock; {@link
+ * #saveManual} materialises hand-keyed stock into a batch and a receipt. MRP entered here is
+ * recorded confirmed, so the label may show a real struck MRP.
+ */
+@Service
+public class ShelfPricing {
+
+    private final LotRepository lots;
+    private final BatchRepository batches;
+    private final ProductRepository products;
+    private final BarcodeRepository barcodes;
+    private final BarcodeResolver barcodeResolver;
+    private final InternalBarcodeGenerator barcodeGenerator;
+    private final GoodsInCounting goodsIn;
+    private final TargetMargins targetMargins;
+
+    public ShelfPricing(
+            LotRepository lots,
+            BatchRepository batches,
+            ProductRepository products,
+            BarcodeRepository barcodes,
+            BarcodeResolver barcodeResolver,
+            InternalBarcodeGenerator barcodeGenerator,
+            GoodsInCounting goodsIn,
+            TargetMargins targetMargins) {
+        this.lots = lots;
+        this.batches = batches;
+        this.products = products;
+        this.barcodes = barcodes;
+        this.barcodeResolver = barcodeResolver;
+        this.barcodeGenerator = barcodeGenerator;
+        this.goodsIn = goodsIn;
+        this.targetMargins = targetMargins;
+    }
+
+    /** The open lots the workbench can be scoped to, newest received first. */
+    @Transactional(readOnly = true)
+    public List<ShelfLot> lots() {
+        return lots.findByStateOrderByReceivedOnDesc(LotState.OPEN).stream()
+                .map(l -> new ShelfLot(l.getId(), l.getSupplier(), l.getReceivedOn()))
+                .toList();
+    }
+
+    /**
+     * The scanner path: a scanned code (LSN/ASIN) is resolved to its product, and its batch in the
+     * given lot is opened for pricing. Empty when the code is unknown or the product has no batch
+     * in this lot — the item does not belong to the lot being priced, and it must be keyed in by
+     * hand instead.
+     */
+    @Transactional(readOnly = true)
+    public Optional<ScannedItem> resolveScanned(UUID lotId, String code) {
+        return barcodeResolver
+                .resolve(code)
+                .flatMap(product -> batchInLot(lotId, product.getId())
+                        .map(batch -> toScannedItem(product, batch)));
+    }
+
+    /** The distinct category codes of products already in the lot, for the dropdown. */
+    @Transactional(readOnly = true)
+    public List<String> categoriesForLot(UUID lotId) {
+        return batches.findByLotId(lotId).stream()
+                .map(b -> b.getProduct().getCategory().code())
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * A suggested selling price from a category's target margin against a unit cost. Only
+     * meaningful for costed stock; the caller does not ask for uncosted stock, which is hand-priced.
+     */
+    @Transactional(readOnly = true)
+    public PriceSuggestion suggestPrice(long unitCostPaise, String categoryCode, Integer customMargin) {
+        int margin = targetMargins.resolve(Category.of(categoryCode), customMargin);
+        Money price = Margins.priceForTargetMargin(Money.ofPaise(unitCostPaise), margin);
+        return new PriceSuggestion(margin, price.paise());
+    }
+
+    /**
+     * Prices a scanned, already-counted product: sets category and selling price, confirms the
+     * batch MRP if one is given, and mints the BBZ if the product has none. Writes no stock — the
+     * receipt was already recorded at counting.
+     */
+    @Transactional
+    public ShelfPricedProduct saveExisting(PriceExistingRequest req) {
+        Product product = products.findById(req.productId())
+                .orElseThrow(() -> new IllegalArgumentException("no such product: " + req.productId()));
+        product.setCategory(Category.of(req.categoryCode()));
+        product.setSellingPrice(Money.ofPaise(req.sellingPricePaise()));
+        if (req.mrpPaise() != null) {
+            Batch batch = batches.findById(req.batchId())
+                    .orElseThrow(() -> new IllegalArgumentException("no such batch: " + req.batchId()));
+            batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
+            batches.save(batch);
+        }
+        String barcode = bbzFor(product);
+        products.save(product);
+        return new ShelfPricedProduct(
+                product.getId(), barcode, product.getName(), req.sellingPricePaise(), req.mrpPaise());
+    }
+
+    /**
+     * Prices stock keyed in by hand: creates the product, materialises the stock into a batch and
+     * a receipt through the inventory path, sets category and selling price, records the MRP
+     * confirmed, and mints the BBZ. This is the only pricing path that writes stock.
+     */
+    @Transactional
+    public ShelfPricedProduct saveManual(PriceManualRequest req) {
+        Lot lot = lots.findById(req.lotId())
+                .orElseThrow(() -> new IllegalArgumentException("no such lot: " + req.lotId()));
+        Category category = Category.of(req.categoryCode());
+        Product product = products.save(new Product(req.name(), category, Map.of()));
+
+        Money mrp = req.mrpPaise() != null ? Money.ofPaise(req.mrpPaise()) : null;
+        goodsIn.receiveManual(
+                lot,
+                product,
+                StockCondition.valueOf(req.condition()),
+                req.quantity(),
+                mrp,
+                false,
+                Instant.now());
+
+        product.setSellingPrice(Money.ofPaise(req.sellingPricePaise()));
+        String barcode = bbzFor(product);
+        products.save(product);
+        return new ShelfPricedProduct(
+                product.getId(), barcode, product.getName(), req.sellingPricePaise(), req.mrpPaise());
+    }
+
+    /** The product's BBZ code, minting one if it has none — the shelf-scannable identity. */
+    private String bbzFor(Product product) {
+        return barcodes.findByProductId(product.getId()).stream()
+                .filter(b -> b.getOrigin() == Origin.INTERNAL)
+                .findFirst()
+                .map(Barcode::getCode)
+                .orElseGet(() -> barcodeGenerator.generateFor(product).getCode());
+    }
+
+    private Optional<Batch> batchInLot(UUID lotId, UUID productId) {
+        return batches.findByLotIdAndProductId(lotId, productId).stream().findFirst();
+    }
+
+    private ScannedItem toScannedItem(Product product, Batch batch) {
+        boolean costed = batch.isCosted();
+        return new ScannedItem(
+                product.getId(),
+                product.getName(),
+                product.getCategory().code(),
+                batch.getId(),
+                costed,
+                costed ? batch.getAllocatedUnitCost().paise() : null,
+                batch.getMrp() != null ? batch.getMrp().paise() : null,
+                batch.isMrpEstimate());
+    }
+}

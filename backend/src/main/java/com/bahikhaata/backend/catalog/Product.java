@@ -174,6 +174,14 @@ public class Product extends UuidEntity {
         return Category.of(categoryCode);
     }
 
+    /**
+     * Sets the product's category. Its category is a label it carries, decided or corrected at
+     * pricing; unlike selling price it has no costing invariant riding on it.
+     */
+    public void setCategory(Category category) {
+        this.categoryCode = Objects.requireNonNull(category, "category").code();
+    }
+
     /** The selling price, or null when the product is unpriced. Never zero for "no price". */
     public Money getSellingPrice() {
         return sellingPrice;

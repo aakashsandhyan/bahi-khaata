@@ -15,15 +15,22 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.inventory;
+package com.bahikhaata.contracts;
 
-import com.bahikhaata.contracts.LotState;
-import java.util.List;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface LotRepository extends JpaRepository<Lot, UUID> {
-
-    /** Lots in a given state, newest received first — the pricing workbench lists the open ones. */
-    List<Lot> findByStateOrderByReceivedOnDesc(LotState state);
-}
+/**
+ * The already-counted product a scanned LSN/ASIN resolved to, opened for pricing. Carries what the
+ * workbench needs to price it: its batch, whether that batch is costed (drives whether a price can
+ * be suggested), its unit cost when costed, and any MRP already recorded (and whether it is still
+ * an estimate to be confirmed here).
+ */
+public record ScannedItem(
+        UUID productId,
+        String name,
+        String categoryCode,
+        UUID batchId,
+        boolean costed,
+        Long unitCostPaise,
+        Long mrpPaise,
+        boolean mrpIsEstimate) {}
