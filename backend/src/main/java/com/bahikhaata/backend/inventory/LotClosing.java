@@ -17,16 +17,11 @@
  */
 package com.bahikhaata.backend.inventory;
 
-import com.bahikhaata.backend.inventory.allocation.AllocatedLine;
-import com.bahikhaata.backend.inventory.allocation.Allocation;
-import com.bahikhaata.backend.inventory.allocation.AllocationLine;
-import com.bahikhaata.backend.inventory.allocation.CostAllocator;
 import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.DeliveryClosed;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,21 +30,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settling what a delivery cost, once it has all been counted.
+ * Closing a delivery once it has all been counted — a receiving-completeness marker.
  *
- * <p>Apportionment happens here and nowhere else. A lot's shares depend on every line in it, so
- * none can be final while a carton is still unopened — which is why a batch carries stock at an
- * unknown cost until this runs.
- *
- * <p>The amount is spread across <em>what actually arrived</em>, not what was promised. The
- * money was paid regardless of what turned up, so the goods that did turn up must carry all of
- * it: eleven units where twelve were expected carry the whole line's cost between them and each
- * cost a little more. That is not an error to correct — it is what the shortfall cost.
- *
- * <p>A caution that cost real money once: shares summing exactly to the amount paid proves
- * nothing about whether the split is right. Shares of an amount sum to that amount however
- * wrongly they are divided. The tests here therefore compare lines against one another, which
- * is the only place a misdistribution shows.
+ * <p>Cost is not settled here. Each product's cost was pinned from its manifest line as it was
+ * received (see {@code GoodsInCounting} and the stock-ledger spec), so a product is costed and
+ * priceable the moment it arrives, not when its lot closes. Closing records that the boxes have
+ * been dealt with, and reports any left unopened so writing them off is a deliberate decision
+ * rather than something discovered later.
  */
 @Service
 public class LotClosing {
@@ -59,7 +46,6 @@ public class LotClosing {
     private final ExpectedLineRepository expectedLines;
     private final UnlistedFindRepository unlistedFinds;
     private final BoxRepository boxes;
-    private final CostAllocator allocator;
     private final ReceivingService receivingService;
 
     LotClosing(
@@ -68,14 +54,12 @@ public class LotClosing {
             ExpectedLineRepository expectedLines,
             UnlistedFindRepository unlistedFinds,
             BoxRepository boxes,
-            CostAllocator allocator,
             ReceivingService receivingService) {
         this.lots = lots;
         this.batches = batches;
         this.expectedLines = expectedLines;
         this.unlistedFinds = unlistedFinds;
         this.boxes = boxes;
-        this.allocator = allocator;
         this.receivingService = receivingService;
     }
 
@@ -143,60 +127,6 @@ public class LotClosing {
                 lot.getAmountPaid().plus(lot.getFreight()).paise(),
                 uncostedSurplus,
                 unopened);
-    }
-
-    /**
-     * Each product's per-unit stated value, averaged across the cartons it was expected in.
-     *
-     * <p>Weighted by expected quantity, because the stated value is a claim about the goods and
-     * a claim covering nine units should count for more than one covering a single unit.
-     * Products whose lines all state nothing are absent, and fall to the lot average.
-     */
-    private Map<UUID, Money> statedValuePerUnitByProduct(UUID lotId) {
-        Map<UUID, long[]> totals = new HashMap<>();
-        for (ExpectedLine line : expectedLines.findByLotIdOrderByCode(lotId)) {
-            if (line.getStatedValue() == null) {
-                continue;
-            }
-            long[] sums = totals.computeIfAbsent(line.getProduct().getId(), id -> new long[2]);
-            sums[0] += line.getStatedValue().paise() * line.getQuantityExpected();
-            sums[1] += line.getQuantityExpected();
-        }
-        Map<UUID, Money> perUnit = new HashMap<>();
-        totals.forEach(
-                (productId, sums) -> {
-                    if (sums[1] > 0) {
-                        perUnit.put(productId, Money.ofPaise(sums[0] / sums[1]));
-                    }
-                });
-        return perUnit;
-    }
-
-    /**
-     * The lot's average unit value, used for goods with no stated value of their own.
-     *
-     * <p>Computed over the quantities actually counted rather than expected, so the average
-     * reflects the mix that really turned up — the same quantities the apportionment itself
-     * runs over.
-     *
-     * <p>A genuine estimate: right on average, wrong on any particular item. A surplus carton
-     * of something dear comes out undercosted and something cheap overcosted. Accepted because
-     * the alternatives are worse — leaving the goods uncosted strands them off the shelf, and
-     * excluding them makes every margin computed from them read as pure profit.
-     *
-     * <p>Null when no line states a value at all, which the caller refuses on.
-     */
-    private Money averageUnitValue(Map<UUID, Money> statedByProduct, List<Batch> received) {
-        long value = 0;
-        long quantity = 0;
-        for (Batch batch : received) {
-            Money stated = statedByProduct.get(batch.getProduct().getId());
-            if (stated != null) {
-                value += stated.paise() * batch.getQuantityReceived();
-                quantity += batch.getQuantityReceived();
-            }
-        }
-        return quantity == 0 ? null : Money.ofPaise(Math.max(1, value / quantity));
     }
 
     /** Raised rather than returned: closing over unopened cartons must be a decision. */
