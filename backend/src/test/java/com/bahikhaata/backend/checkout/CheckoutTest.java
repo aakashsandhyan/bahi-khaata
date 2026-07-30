@@ -28,7 +28,6 @@ import com.bahikhaata.backend.inventory.ExpectedLine;
 import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
-import com.bahikhaata.backend.inventory.LotClosing;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.backend.shelf.ShelfReadiness;
@@ -57,7 +56,6 @@ class CheckoutTest {
 
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
-    @Autowired private LotClosing closing;
     @Autowired private ProductPricing pricing;
     @Autowired private ShelfReadiness shelf;
     @Autowired private Checkout checkout;
@@ -83,7 +81,7 @@ class CheckoutTest {
         ExpectedLine line = expectedLines.findByLotIdOrderByCode(lotId).get(0);
         counting.countExpected(line.getId(), StockCondition.GOOD, 5, Money.ofPaise(mrpPaise),
                 false, AT);
-        closing.close(lotId, false, AT);
+        // Costed at receipt from the manifest line; the lot need not be closed to price or label.
         UUID productId = line.getProduct().getId();
         pricing.setSellingPrice(productId, Money.ofPaise(pricePaise));
         Batch batch = batches.findByLotId(lotId).get(0);
@@ -139,7 +137,6 @@ class CheckoutTest {
                 .orElseThrow().getId();
         counting.countExpected(expectedLines.findByLotIdOrderByCode(lotId).get(0).getId(),
                 StockCondition.GOOD, 1, Money.ofPaise(99_900), false, AT);
-        closing.close(lotId, false, AT);
 
         CartView cart = checkout.open();
         UUID cartId = cart.cartId();

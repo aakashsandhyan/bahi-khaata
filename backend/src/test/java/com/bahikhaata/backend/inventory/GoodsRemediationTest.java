@@ -52,8 +52,10 @@ class GoodsRemediationTest {
     @Autowired private GoodsInCounting counting;
     @Autowired private GoodsRemediation remediation;
     @Autowired private LotClosing closing;
+    @Autowired private ReceivingService receiving;
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BatchRepository batches;
+    @Autowired private BoxRepository boxes;
     @Autowired private LotRepository lots;
     @Autowired private StockLevels stock;
 
@@ -89,6 +91,16 @@ class GoodsRemediationTest {
                 .orElseThrow();
     }
 
+    /** Drives every carton receipt to a terminal state so the receiving guard permits a close. */
+    private void finishReceiving() {
+        for (Box box : boxes.findByLotIdOrderByTrackingNumber(lotId)) {
+            String carton = box.getTrackingNumber();
+            receiving.receiveBox(lotId, carton, AT);
+            receiving.markBoxUnpacking(lotId, carton);
+            receiving.markBoxUnpacked(lotId, carton);
+        }
+    }
+
     @Test
     @DisplayName("Needs-work goods are counted and costed but never reach the ledger")
     void needsWorkIsOffLedger() {
@@ -105,20 +117,19 @@ class GoodsRemediationTest {
     }
 
     @Test
-    @DisplayName("Needs-work carries ordinary cost at close, since it will sell at full price")
+    @DisplayName("Needs-work carries ordinary cost, pinned at receipt, since it will sell at full price")
     void needsWorkCarriesCost() {
         counting.countExpected(line().getId(), StockCondition.GOOD, 6, null, false, AT);
         counting.countExpected(
                 line().getId(), StockCondition.NEEDS_WORK, 4, null, false, null, "CLEAN", AT);
 
-        closing.close(lotId, false, AT);
-
+        // Pinned at receipt from the line's stated value, just like the sound goods; no close needed.
         assertThat(needsWork("CLEAN").getAllocatedUnitCost())
                 .as("it will sell at full price, so it costs what a sound unit costs")
                 .isEqualTo(batch(StockCondition.GOOD).getAllocatedUnitCost());
         assertThat(batch(StockCondition.GOOD).getAllocatedTotal().paise()
                         + needsWork("CLEAN").getAllocatedTotal().paise())
-                .as("the whole lot amount is carried between the ten that will sell")
+                .as("ten units at their stated 10,000 each — the whole amount paid for the lot")
                 .isEqualTo(100_000);
     }
 
@@ -187,6 +198,7 @@ class GoodsRemediationTest {
     @DisplayName("A state change against a closed lot is refused")
     void closedLotRefused() {
         counting.countExpected(line().getId(), StockCondition.GOOD, 5, Money.ofPaise(50_000), false, AT);
+        finishReceiving();
         closing.close(lotId, false, AT);
 
         assertThatThrownBy(() ->
@@ -247,6 +259,7 @@ class GoodsRemediationTest {
     void linkIntoClosedLotRefused() {
         counting.countExpected(line().getId(), StockCondition.GOOD, 8, Money.ofPaise(50_000), false, AT);
         UUID extraId = recordExtra("LPNEXTRA0003", 2);
+        finishReceiving();
         closing.close(lotId, false, AT);
         assertThatThrownBy(() -> remediation.linkExtra(extraId, line().getId(), AT))
                 .isInstanceOf(IllegalStateException.class)

@@ -29,7 +29,6 @@ import com.bahikhaata.backend.inventory.ExpectedLine;
 import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
-import com.bahikhaata.backend.inventory.LotClosing;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
@@ -56,7 +55,6 @@ class ShelfReadinessTest {
 
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
-    @Autowired private LotClosing closing;
     @Autowired private ShelfReadiness shelf;
     @Autowired private ProductPricing pricing;
     @Autowired private ExpectedLineRepository expectedLines;
@@ -89,28 +87,39 @@ class ShelfReadinessTest {
     }
 
     @Test
-    @DisplayName("Pricing is refused while the delivery is still being unpacked")
-    void cannotPriceBeforeTheLotCloses() {
+    @DisplayName("A product costed at receipt is priceable before its lot closes")
+    void canPriceOnceCostedAtReceipt() {
         UUID lot = receive("OPEN1", 4, 10_000, 99_900L);
         UUID productId = productIn(lot);
 
-        assertThatThrownBy(() -> pricing.setSellingPrice(productId, Money.ofPaise(50_000)))
-                .as("a margin against an unknown cost is not a margin")
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("still being unpacked");
-
-        closing.close(lot, false, AT);
+        // The lot is still open, but the batch was costed from its manifest line the moment it was
+        // counted, so its margin is against a known cost — pricing needs no lot close.
+        assertThat(lots.findById(lot).orElseThrow().isOpen()).isTrue();
+        assertThat(batchIn(lot).isCosted()).isTrue();
 
         pricing.setSellingPrice(productId, Money.ofPaise(50_000));
         assertThat(batchIn(lot).getProduct().getSellingPrice()).isEqualTo(Money.ofPaise(50_000));
     }
 
     @Test
+    @DisplayName("Pricing is refused while a product's cost is still unknown")
+    void cannotPriceUncostedStock() {
+        // A line that states no value leaves the batch uncosted: a margin against an unknown cost
+        // is not a margin, so pricing is refused until the cost is known.
+        UUID lot = receive("UNCOSTED1", 4, 0, 99_900L);
+        UUID productId = productIn(lot);
+        assertThat(batchIn(lot).isCosted()).isFalse();
+
+        assertThatThrownBy(() -> pricing.setSellingPrice(productId, Money.ofPaise(50_000)))
+                .as("a margin against an unknown cost is not a margin")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("still being unpacked");
+    }
+
+    @Test
     @DisplayName("A price above the printed MRP is refused, and exactly at it is allowed")
     void cannotPriceAboveMrp() {
-        UUID lot = receive("MRP1", 2, 10_000, 99_900L);
-        closing.close(lot, false, AT);
-        UUID productId = productIn(lot);
+        UUID lot = receive("MRP1", 2, 10_000, 99_900L);        UUID productId = productIn(lot);
 
         assertThatThrownBy(() -> pricing.setSellingPrice(productId, Money.ofPaise(99_901)))
                 .as("selling above the printed maximum retail price is unlawful")
@@ -124,9 +133,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("Goods are not sellable until priced, MRP-bearing and labelled")
     void allThreeAreRequired() {
-        UUID lot = receive("GATE1", 2, 10_000, 99_900L);
-        closing.close(lot, false, AT);
-        UUID batchId = batchIn(lot).getId();
+        UUID lot = receive("GATE1", 2, 10_000, 99_900L);        UUID batchId = batchIn(lot).getId();
 
         assertThat(shelf.of(batchId).sellable()).isFalse();
         assertThat(shelf.of(batchId).missing()).containsExactly("no price set", "not labelled");
@@ -146,9 +153,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("Goods with no MRP stay off the floor and cannot be labelled")
     void noMrpNoLabel() {
-        UUID lot = receive("NOMRP", 2, 10_000, null);
-        closing.close(lot, false, AT);
-        UUID batchId = batchIn(lot).getId();
+        UUID lot = receive("NOMRP", 2, 10_000, null);        UUID batchId = batchIn(lot).getId();
         pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
 
         assertThat(shelf.of(batchId).hasMrp()).isFalse();
@@ -164,9 +169,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("A label carries the MRP, our price, and the saving both ways")
     void labelShowsTheSaving() {
-        UUID lot = receive("LABEL1", 2, 10_000, 100_000L);
-        closing.close(lot, false, AT);
-        pricing.setSellingPrice(productIn(lot), Money.ofPaise(75_000));
+        UUID lot = receive("LABEL1", 2, 10_000, 100_000L);        pricing.setSellingPrice(productIn(lot), Money.ofPaise(75_000));
 
         var label = shelf.label(batchIn(lot).getId(), AT);
 
@@ -179,9 +182,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("The saving percentage rounds down, never flattering the discount")
     void savingPercentRoundsDown() {
-        UUID lot = receive("ROUND1", 1, 10_000, 30_000L);
-        closing.close(lot, false, AT);
-        // 30,000 down to 20,500 is 31.66…% — the tag must say 31, not 32.
+        UUID lot = receive("ROUND1", 1, 10_000, 30_000L);        // 30,000 down to 20,500 is 31.66…% — the tag must say 31, not 32.
         pricing.setSellingPrice(productIn(lot), Money.ofPaise(20_500));
 
         var label = shelf.label(batchIn(lot).getId(), AT);
@@ -195,8 +196,6 @@ class ShelfReadinessTest {
     @DisplayName("Labelling is refused while anything is still missing")
     void labellingNeedsEverythingFirst() {
         UUID lot = receive("UNPRICED", 1, 10_000, 99_900L);
-        closing.close(lot, false, AT);
-
         assertThatThrownBy(() -> shelf.label(batchIn(lot).getId(), AT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no price set");
@@ -240,9 +239,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("A label carries a code that will still scan next month")
     void labelCarriesADurableCode() {
-        UUID lot = receive("LPNONLY", 1, 10_000, 100_000L);
-        closing.close(lot, false, AT);
-        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+        UUID lot = receive("LPNONLY", 1, 10_000, 100_000L);        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
 
         // What arrives on returns: the supplier's marketplace reference, which was never
         // scannable, and a sticker naming this one unit. Neither survives onto a shelf label.
@@ -260,9 +257,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("A printed manufacturer barcode is used rather than minting our own")
     void anExistingBarcodeIsReused() {
-        UUID lot = receive("HASEAN", 1, 10_000, 100_000L);
-        closing.close(lot, false, AT);
-        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+        UUID lot = receive("HASEAN", 1, 10_000, 100_000L);        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
         var product = batchIn(lot).getProduct();
         barcodes.save(new Barcode(product, "8901234567891", Origin.MANUFACTURER));
 
@@ -274,9 +269,7 @@ class ShelfReadinessTest {
     @Test
     @DisplayName("Relabelling a product prints the same code, not a new one")
     void relabellingKeepsTheCode() {
-        UUID lot = receive("SAMECODE", 2, 10_000, 100_000L);
-        closing.close(lot, false, AT);
-        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
+        UUID lot = receive("SAMECODE", 2, 10_000, 100_000L);        pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
 
         String first = shelf.label(batchIn(lot).getId(), AT).code();
         String again = shelf.contentOf(batchIn(lot).getId()).code();
@@ -292,7 +285,6 @@ class ShelfReadinessTest {
     void damagedGoodsNeedTheirOwnPrice() {
         UUID lot = receive("DAMAGED1", 2, 10_000, 100_000L);
         // The sound price is set; the scratched ones are still undecided.
-        closing.close(lot, false, AT);
         pricing.setSellingPrice(productIn(lot), Money.ofPaise(50_000));
 
         Batch damaged = batches.save(
@@ -310,8 +302,6 @@ class ShelfReadinessTest {
     @DisplayName("A product's origin reaches back to its supplier")
     void originReachesTheSupplier() {
         UUID lot = receive("ORIGIN1", 3, 10_000, 99_900L);
-        closing.close(lot, false, AT);
-
         Batch batch = batchIn(lot);
         assertThat(batch.getLot().getSupplier()).isEqualTo("Sushil");
         assertThat(barcodes.findByCode("ORIGIN1").orElseThrow().getProduct().getId())

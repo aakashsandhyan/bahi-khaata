@@ -18,11 +18,9 @@
 package com.bahikhaata.backend.inventory;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.contracts.AllocationMethod;
-import com.bahikhaata.contracts.CostBasis;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
@@ -55,8 +53,10 @@ class DamagedStockTest {
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
     @Autowired private LotClosing closing;
+    @Autowired private ReceivingService receiving;
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BatchRepository batches;
+    @Autowired private BoxRepository boxes;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
     @Autowired private StockLevels stock;
@@ -84,6 +84,16 @@ class DamagedStockTest {
                 .findByLotIdAndProductIdAndCondition(
                         lotId, line().getProduct().getId(), condition)
                 .orElseThrow();
+    }
+
+    /** Drives every carton receipt to a terminal state so the receiving guard permits a close. */
+    private void finishReceiving() {
+        for (Box box : boxes.findByLotIdOrderByTrackingNumber(lotId)) {
+            String carton = box.getTrackingNumber();
+            receiving.receiveBox(lotId, carton, AT);
+            receiving.markBoxUnpacking(lotId, carton);
+            receiving.markBoxUnpacked(lotId, carton);
+        }
     }
 
     @Test
@@ -121,8 +131,7 @@ class DamagedStockTest {
         counting.countExpected(line().getId(), StockCondition.GOOD, 8, null, false, AT);
         counting.countExpected(line().getId(), StockCondition.DAMAGED, 2, null, false, AT);
 
-        closing.close(lotId, false, AT);
-
+        // Both are pinned at receipt from the line's stated per-unit value; no close is needed.
         assertThat(batch(StockCondition.DAMAGED).getAllocatedUnitCost())
                 .as("they cost the same to buy; only what they fetch differs")
                 .isEqualTo(batch(StockCondition.GOOD).getAllocatedUnitCost());
@@ -132,6 +141,7 @@ class DamagedStockTest {
                 .isEqualTo(10_000);
         assertThat(batch(StockCondition.GOOD).getAllocatedTotal().paise()
                         + batch(StockCondition.DAMAGED).getAllocatedTotal().paise())
+                .as("ten units at their stated 10,000 each — the whole amount paid for the lot")
                 .isEqualTo(100_000);
     }
 
@@ -140,7 +150,6 @@ class DamagedStockTest {
     void damagedGoodsHaveTheirOwnPrice() {
         counting.countExpected(line().getId(), StockCondition.GOOD, 8, Money.ofPaise(50_000), false, AT);
         counting.countExpected(line().getId(), StockCondition.DAMAGED, 2, null, false, AT);
-        closing.close(lotId, false, AT);
 
         var product = barcodes.findByCode("KETTLE").orElseThrow().getProduct();
         product.setSellingPrice(Money.ofPaise(30_000));
@@ -172,22 +181,22 @@ class DamagedStockTest {
     }
 
     @Test
-    @DisplayName("Their cost is absorbed by the goods that can be sold")
-    void unusableGoodsCostNothing() {
+    @DisplayName("Sound goods carry only their own stated cost; scrap is left out of what closed")
+    void unusableGoodsAreExcludedFromWhatClosed() {
         counting.countExpected(line().getId(), StockCondition.GOOD, 8, null, false, AT);
         counting.countExpected(line().getId(), StockCondition.UNUSABLE, 2, null, false, AT);
 
-        closing.close(lotId, false, AT);
+        finishReceiving();
+        var closed = closing.close(lotId, false, AT);
 
-        assertThat(batch(StockCondition.UNUSABLE).getAllocatedTotal()).isEqualTo(Money.ZERO);
-        assertThat(batch(StockCondition.UNUSABLE).getCostBasis())
-                .as("recorded as absorbed rather than left a bare zero, which reads like a"
-                        + " mistake")
-                .isEqualTo(CostBasis.ABSORBED);
-        assertThat(batch(StockCondition.GOOD).getAllocatedTotal())
-                .as("the eight that can be sold carry the whole amount — what the delivery"
-                        + " really cost to get sellable stock out of")
-                .isEqualTo(Money.ofPaise(100_000));
+        // Cost is pinned per unit at receipt, not a pot spread over the survivors: each sound unit
+        // keeps its own stated 10,000, so the eight come to 80,000 — not the whole amount paid.
+        assertThat(batch(StockCondition.GOOD).getAllocatedUnitCost().paise()).isEqualTo(10_000);
+        assertThat(batch(StockCondition.GOOD).getAllocatedTotal()).isEqualTo(Money.ofPaise(80_000));
+        // The scrap never became sellable stock, so closing leaves it out of what it reports as
+        // received and costed — only the eight sound units count.
+        assertThat(closed.batchesCosted()).as("only the sound batch").isEqualTo(1);
+        assertThat(closed.unitsCosted()).as("the two scrap units are not counted").isEqualTo(8);
     }
 
     @Test
@@ -196,9 +205,8 @@ class DamagedStockTest {
         counting.countExpected(line().getId(), StockCondition.GOOD, 7, null, false, AT);
         counting.countExpected(line().getId(), StockCondition.DAMAGED, 1, null, false, AT);
         counting.countExpected(line().getId(), StockCondition.UNUSABLE, 2, null, false, AT);
-        closing.close(lotId, false, AT);
 
-        // Absorbing the cost settles the accounting; it must not erase the fact. This is what
+        // The scrap holds no sellable stock; its count must still not erase the fact. This is what
         // tells a good supplier from a bad one later.
         assertThat(batches.findByLotId(lotId).stream()
                         .filter(b -> b.getCondition() == StockCondition.UNUSABLE)
@@ -210,14 +218,18 @@ class DamagedStockTest {
     }
 
     @Test
-    @DisplayName("A delivery of nothing but scrap is refused rather than costed")
-    void allScrapIsRefused() {
+    @DisplayName("A delivery of nothing but scrap closes, reporting nothing costed")
+    void allScrapClosesWithNothingCosted() {
         counting.countExpected(line().getId(), StockCondition.UNUSABLE, 3, null, false, AT);
 
-        assertThatThrownBy(() -> closing.close(lotId, false, AT))
-                .as("there is nothing that can carry what was paid")
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("nothing but unusable goods");
+        finishReceiving();
+        // Closing settles no cost now, so an all-scrap delivery is not refused: it simply closes
+        // as a completeness marker with nothing sellable and nothing to report as costed.
+        var closed = closing.close(lotId, false, AT);
+
+        assertThat(closed.batchesCosted()).as("scrap is excluded from what closed").isZero();
+        assertThat(closed.unitsCosted()).isZero();
+        assertThat(lots.findById(lotId).orElseThrow().isOpen()).isFalse();
     }
 
     @Test

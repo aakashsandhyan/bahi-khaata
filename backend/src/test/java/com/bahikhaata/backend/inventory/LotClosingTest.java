@@ -39,12 +39,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settling what a delivery cost.
+ * Costing a delivery, and closing it.
+ *
+ * <p>Cost is now pinned per product at receipt, not apportioned at close: each product is costed
+ * from its manifest line's stated per-unit value the moment it is counted, so a batch is costed
+ * and priceable while its lot is still open. Closing settles nothing — it is a
+ * receiving-completeness marker that reports any goods that arrived without a stated cost (an
+ * uncosted surplus) rather than inventing a figure for them.
  *
  * <p>These assertions deliberately compare lines with one another rather than checking that the
  * shares add up. A quantity fault once survived a 2,000-lot property test and a real import of
- * 3,583 units precisely because the totals were always right: shares of the amount paid sum to
- * the amount paid however wrongly they are split. Only the split can reveal a split.
+ * 3,583 units precisely because the totals were always right. Under pinning each line stands on
+ * its own stated value, so the split is checked line by line.
  */
 @SpringBootTest(properties = "bahikhaata.db.path=build/test-lot-closing.db")
 @Transactional
@@ -55,6 +61,7 @@ class LotClosingTest {
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
     @Autowired private LotClosing closing;
+    @Autowired private ReceivingService receiving;
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BatchRepository batches;
     @Autowired private BoxRepository boxes;
@@ -93,6 +100,20 @@ class LotClosingTest {
                 .orElseThrow();
     }
 
+    /**
+     * Drives every carton receipt to a terminal state so the lot's receiving guard permits a
+     * close. Closing no longer settles cost — it only records that receiving is done — but the
+     * guard still requires every carton to have been dealt with.
+     */
+    private void finishReceiving(UUID lotId) {
+        for (Box box : boxes.findByLotIdOrderByTrackingNumber(lotId)) {
+            String carton = box.getTrackingNumber();
+            receiving.receiveBox(lotId, carton, AT);
+            receiving.markBoxUnpacking(lotId, carton);
+            receiving.markBoxUnpacked(lotId, carton);
+        }
+    }
+
     @Test
     @DisplayName("Two lines of equal unit value get equal unit cost, whatever their quantities")
     void quantityDoesNotCompound() {
@@ -102,34 +123,33 @@ class LotClosingTest {
         count(lot, "ONE", 1);
         count(lot, "FOUR", 4);
 
-        closing.close(lot, false, AT);
-
+        // Cost is pinned at receipt from the stated unit value — no lot close needed. Four of a
+        // thing cost four times one; a differing unit cost would mean quantity was applied twice.
         assertThat(batchFor(lot, "FOUR").getAllocatedUnitCost())
-                .as("four of a thing cost four times one; a differing unit cost means quantity"
-                        + " was applied twice")
                 .isEqualTo(batchFor(lot, "ONE").getAllocatedUnitCost());
+        assertThat(batchFor(lot, "ONE").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(10_000));
+        assertThat(batchFor(lot, "ONE").isCosted()).isTrue();
+        assertThat(batchFor(lot, "ONE").getCostBasis()).isEqualTo(CostBasis.PINNED);
     }
 
     @Test
-    @DisplayName("A uniform fraction of stated value reaches every line")
-    void uniformFactorReachesEveryLine() {
-        // Paying a quarter of the stated value must make every line cost a quarter of its own,
-        // not merely make the lot come to a quarter of the whole.
+    @DisplayName("Each line is costed at its own stated per-unit value")
+    void eachLineKeepsItsStatedUnitCost() {
+        // The stated per-unit value IS the cost now: no fraction of the amount paid is spread
+        // across the lines. A dear line stays dear and a cheap one stays cheap.
         UUID lot = importLot(150_000, List.of(
                 line("BOX-1", "DEAR", 1, 400_000),
                 line("BOX-1", "MANY", 4, 50_000)));
         count(lot, "DEAR", 1);
         count(lot, "MANY", 4);
 
-        closing.close(lot, false, AT);
-
-        assertThat(batchFor(lot, "DEAR").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(100_000));
-        assertThat(batchFor(lot, "MANY").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(12_500));
+        assertThat(batchFor(lot, "DEAR").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(400_000));
+        assertThat(batchFor(lot, "MANY").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(50_000));
     }
 
     @Test
-    @DisplayName("Shares sum exactly to what was paid")
-    void sharesReconcileExactly() {
+    @DisplayName("Each batch's total is its stated unit value times its quantity, independently")
+    void eachBatchCostedIndependently() {
         UUID lot = importLot(100_000, List.of(
                 line("BOX-1", "A", 3, 7_777),
                 line("BOX-1", "B", 11, 1_234),
@@ -138,47 +158,42 @@ class LotClosingTest {
         count(lot, "B", 11);
         count(lot, "C", 2);
 
-        closing.close(lot, false, AT);
-
-        long allocated = batches.findByLotId(lot).stream()
-                .mapToLong(b -> b.getAllocatedTotal().paise()).sum();
-        assertThat(allocated).isEqualTo(100_000);
+        // Each line stands on its own stated value; the amount paid apportions nothing.
+        assertThat(batchFor(lot, "A").getAllocatedTotal()).isEqualTo(Money.ofPaise(3 * 7_777));
+        assertThat(batchFor(lot, "B").getAllocatedTotal()).isEqualTo(Money.ofPaise(11 * 1_234));
+        assertThat(batchFor(lot, "C").getAllocatedTotal()).isEqualTo(Money.ofPaise(2 * 99_999));
     }
 
     @Test
-    @DisplayName("A shortfall raises the cost of the units that did arrive")
-    void shortfallRaisesUnitCost() {
+    @DisplayName("A shortfall changes nothing — each unit keeps its stated cost")
+    void shortfallChangesNothing() {
         UUID lot = importLot(100_000, List.of(
                 line("BOX-1", "SHORT", 10, 10_000),
                 line("BOX-1", "FULL", 10, 10_000)));
         count(lot, "SHORT", 5);
         count(lot, "FULL", 10);
 
-        closing.close(lot, false, AT);
-
-        // 15 units arrived, all of equal stated value, so each carries a fifteenth of 100,000.
+        // The units that did not arrive do not raise the cost of the ones that did: cost is
+        // pinned per unit, not a share of a fixed pot spread over fewer survivors.
         assertThat(batchFor(lot, "SHORT").getAllocatedUnitCost())
                 .isEqualTo(batchFor(lot, "FULL").getAllocatedUnitCost());
-        assertThat(batchFor(lot, "SHORT").getAllocatedUnitCost().paise())
-                .as("fewer units carrying the same money means each costs more than the 5,000"
-                        + " it would have at the expected 20")
-                .isGreaterThan(5_000);
-        assertThat(batchFor(lot, "SHORT").getAllocatedTotal().paise()
-                        + batchFor(lot, "FULL").getAllocatedTotal().paise())
-                .isEqualTo(100_000);
+        assertThat(batchFor(lot, "SHORT").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(10_000));
+        assertThat(batchFor(lot, "SHORT").getAllocatedTotal().paise()).isEqualTo(5 * 10_000);
+        assertThat(batchFor(lot, "FULL").getAllocatedTotal().paise()).isEqualTo(10 * 10_000);
     }
 
     @Test
-    @DisplayName("Lines never counted receive no share at all")
+    @DisplayName("Lines never counted receive no batch and no cost")
     void uncountedLinesGetNothing() {
         UUID lot = importLot(100_000, List.of(
                 line("BOX-1", "CAME", 4, 10_000),
                 line("BOX-2", "NEVER", 4, 10_000)));
         count(lot, "CAME", 4);
 
+        finishReceiving(lot);
         closing.close(lot, true, AT);
 
-        assertThat(batchFor(lot, "CAME").getAllocatedTotal()).isEqualTo(Money.ofPaise(100_000));
+        assertThat(batchFor(lot, "CAME").getAllocatedTotal()).isEqualTo(Money.ofPaise(40_000));
         assertThat(barcodes.findByCode("NEVER")).isPresent();
         assertThat(batches.findByLotIdAndProductId(
                         lot, barcodes.findByCode("NEVER").orElseThrow().getProduct().getId()))
@@ -187,39 +202,43 @@ class LotClosingTest {
     }
 
     @Test
-    @DisplayName("Goods nobody listed are weighed at the lot average and marked estimated")
-    void unlistedGoodsAreWeighedAtTheLotAverage() {
+    @DisplayName("Goods nobody listed stay uncosted — no lot-average estimate is invented")
+    void unlistedGoodsStayUncosted() {
         UUID lot = importLot(100_000, List.of(line("BOX-1", "KNOWN", 4, 10_000)));
         count(lot, "KNOWN", 4);
         UUID boxId = lineFor(lot, "KNOWN").getBox().getId();
         counting.countUnlisted(boxId, "SURPRISE", "Surprise", "KITCHEN", 1, null, false, AT);
 
+        finishReceiving(lot);
         closing.close(lot, false, AT);
 
         Batch surprise = batchFor(lot, "SURPRISE");
-        assertThat(surprise.getCostBasis())
-                .as("weighed at an average rather than a stated figure, and recorded as such")
-                .isEqualTo(CostBasis.ESTIMATED);
-        assertThat(batchFor(lot, "KNOWN").getCostBasis()).isEqualTo(CostBasis.ALLOCATED);
-        assertThat(surprise.getAllocatedUnitCost())
-                .as("the average of the named lines is their own unit value here")
-                .isEqualTo(batchFor(lot, "KNOWN").getAllocatedUnitCost());
-        assertThat(surprise.getAllocatedTotal().paise()
-                        + batchFor(lot, "KNOWN").getAllocatedTotal().paise())
-                .isEqualTo(100_000);
+        assertThat(surprise.isCosted())
+                .as("a surplus carries no stated value and is not weighed at any average; it stays"
+                        + " genuinely uncosted rather than being passed off as a figure")
+                .isFalse();
+        assertThat(batchFor(lot, "KNOWN").getCostBasis())
+                .as("the listed line was pinned at receipt from its stated value")
+                .isEqualTo(CostBasis.PINNED);
+        assertThat(batchFor(lot, "KNOWN").getAllocatedUnitCost()).isEqualTo(Money.ofPaise(10_000));
     }
 
     @Test
-    @DisplayName("Closing a lot in which nothing states a value is refused")
-    void noStatedValueAnywhereIsRefused() {
+    @DisplayName("Closing a lot whose goods state no value succeeds, leaving them uncosted")
+    void noStatedValueLeavesGoodsUncosted() {
         UUID lot = importLot(100_000, List.of(line("BOX-1", "NOVALUE", 2, 0)));
         count(lot, "NOVALUE", 2);
 
-        assertThatThrownBy(() -> closing.close(lot, false, AT))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("no line states a value");
+        finishReceiving(lot);
+        // Closing no longer refuses a lot that states no value; it is a completeness marker that
+        // settles no cost. The goods stay uncosted and are reported as a surplus.
+        var outcome = closing.close(lot, false, AT);
+
         assertThat(batchFor(lot, "NOVALUE").isCosted()).isFalse();
-        assertThat(lots.findById(lot).orElseThrow().getState()).isEqualTo(LotState.OPEN);
+        assertThat(outcome.batchesWeighedAtLotAverage())
+                .as("the uncosted surplus is counted so an uncosted tail is visible, not silent")
+                .isEqualTo(1);
+        assertThat(lots.findById(lot).orElseThrow().getState()).isEqualTo(LotState.CLOSED);
     }
 
     @Test
@@ -230,6 +249,7 @@ class LotClosingTest {
                 line("BOX-UNTOUCHED", "B", 2, 10_000)));
         count(lot, "A", 2);
 
+        finishReceiving(lot);
         assertThatThrownBy(() -> closing.close(lot, false, AT))
                 .isInstanceOf(LotClosing.UnopenedCartonsException.class)
                 .hasMessageContaining("BOX-UNTOUCHED");
@@ -246,6 +266,7 @@ class LotClosingTest {
     void closedLotIsFinal() {
         UUID lot = importLot(100_000, List.of(line("BOX-1", "DONE", 4, 10_000)));
         count(lot, "DONE", 4);
+        finishReceiving(lot);
         closing.close(lot, false, AT);
 
         Money settled = batchFor(lot, "DONE").getAllocatedTotal();
@@ -261,24 +282,43 @@ class LotClosingTest {
     }
 
     @Test
-    @DisplayName("Valuation reports uncosted stock apart rather than counting it at zero")
+    @DisplayName("Valuation values pinned stock at once and reports uncosted surplus apart")
     void valuationSeparatesUncostedStock() {
-        UUID lot = importLot(100_000, List.of(line("BOX-1", "HELD", 4, 10_000)));
+        UUID lot = importLot(100_000, List.of(
+                line("BOX-1", "COSTED", 4, 10_000),
+                line("BOX-1", "HELD", 4, 0)));
+        count(lot, "COSTED", 4);
         count(lot, "HELD", 4);
-        UUID productId = barcodes.findByCode("HELD").orElseThrow().getProduct().getId();
+        UUID costedId = barcodes.findByCode("COSTED").orElseThrow().getProduct().getId();
+        UUID heldId = barcodes.findByCode("HELD").orElseThrow().getProduct().getId();
 
-        var open = stock.valuationDetailAsAt(productId, AT.plusSeconds(60));
-        assertThat(open.valued()).isEqualTo(Money.ZERO);
-        assertThat(open.uncostedUnits())
-                .as("four units are genuinely held; their cost is simply not yet known")
+        // Pinned at receipt: valued at once, while the lot is still open.
+        var costedOpen = stock.valuationDetailAsAt(costedId, AT.plusSeconds(60));
+        assertThat(costedOpen.valued()).isEqualTo(Money.ofPaise(40_000));
+        assertThat(costedOpen.uncostedUnits()).isZero();
+        assertThat(costedOpen.isComplete()).isTrue();
+
+        // A surplus states no value, so it stays uncosted — reported apart, not counted at zero.
+        var heldOpen = stock.valuationDetailAsAt(heldId, AT.plusSeconds(60));
+        assertThat(heldOpen.valued()).isEqualTo(Money.ZERO);
+        assertThat(heldOpen.uncostedUnits())
+                .as("four units are genuinely held; their cost is simply not stated")
                 .isEqualTo(4);
-        assertThat(open.isComplete()).isFalse();
+        assertThat(heldOpen.isComplete()).isFalse();
 
+        finishReceiving(lot);
         closing.close(lot, false, AT);
 
-        var closed = stock.valuationDetailAsAt(productId, AT.plusSeconds(60));
-        assertThat(closed.valued()).isEqualTo(Money.ofPaise(100_000));
-        assertThat(closed.uncostedUnits()).isZero();
-        assertThat(closed.isComplete()).isTrue();
+        // Closing settles no cost: the pinned stock is unchanged and the surplus stays uncosted.
+        var costedClosed = stock.valuationDetailAsAt(costedId, AT.plusSeconds(60));
+        assertThat(costedClosed.valued()).isEqualTo(Money.ofPaise(40_000));
+        assertThat(costedClosed.isComplete()).isTrue();
+
+        var heldClosed = stock.valuationDetailAsAt(heldId, AT.plusSeconds(60));
+        assertThat(heldClosed.valued()).isEqualTo(Money.ZERO);
+        assertThat(heldClosed.uncostedUnits())
+                .as("closing invents no cost for a surplus that never stated one")
+                .isEqualTo(4);
+        assertThat(heldClosed.isComplete()).isFalse();
     }
 }

@@ -54,8 +54,10 @@ class UndoCountTest {
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
     @Autowired private LotClosing closing;
+    @Autowired private ReceivingService receiving;
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BatchRepository batches;
+    @Autowired private BoxRepository boxes;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private StockLedgerRepository ledger;
     @Autowired private LotRepository lots;
@@ -85,6 +87,16 @@ class UndoCountTest {
 
     private long onHand(String code) {
         return stock.onHand(barcodes.findByCode(code).orElseThrow().getProduct().getId());
+    }
+
+    /** Drives every carton receipt to a terminal state so the receiving guard permits a close. */
+    private void finishReceiving() {
+        for (Box box : boxes.findByLotIdOrderByTrackingNumber(lotId)) {
+            String carton = box.getTrackingNumber();
+            receiving.receiveBox(lotId, carton, AT);
+            receiving.markBoxUnpacking(lotId, carton);
+            receiving.markBoxUnpacked(lotId, carton);
+        }
     }
 
     @Test
@@ -151,14 +163,16 @@ class UndoCountTest {
         counting.countExpected(line("WRONG").getId(), StockCondition.GOOD, 1, null, false, AT);
         counting.undoCount(line("WRONG").getId(), StockCondition.GOOD, 1, null, AT);
 
+        finishReceiving();
         closing.close(lotId, true, AT);
 
         UUID rightProduct = barcodes.findByCode("RIGHT").orElseThrow().getProduct().getId();
         assertThat(batches.findByLotIdAndProductIdAndCondition(
                         lotId, rightProduct, StockCondition.GOOD).orElseThrow()
                         .getAllocatedTotal())
-                .as("a batch corrected back to nothing carries no share, and cannot be asked to")
-                .isEqualTo(Money.ofPaise(100_000));
+                .as("each surviving unit keeps its own stated 10,000, pinned at receipt; the"
+                        + " taken-back count changes nothing here — two units, so 20,000")
+                .isEqualTo(Money.ofPaise(20_000));
     }
 
     @Test
@@ -276,6 +290,7 @@ class UndoCountTest {
     @DisplayName("Nothing can be taken back once the delivery is closed")
     void closedDeliveriesAreFinal() {
         counting.countExpected(line("RIGHT").getId(), StockCondition.GOOD, 1, null, false, AT);
+        finishReceiving();
         closing.close(lotId, true, AT);
         UUID lineId = line("RIGHT").getId();
 

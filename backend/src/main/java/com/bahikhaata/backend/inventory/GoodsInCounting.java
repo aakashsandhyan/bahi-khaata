@@ -174,8 +174,9 @@ public class GoodsInCounting {
 
         // Pin the manifest's stated per-unit cost onto the batch as it is received, so it is costed
         // at once and its product is priceable without the lot being closed. A line that states no
-        // cost leaves the batch uncosted.
-        if (line.getStatedValue() != null) {
+        // cost leaves the batch uncosted. Unusable scrap is never stock — it is excluded from the
+        // ledger and from pricing — so it carries no inventory cost even when its line states one.
+        if (line.getStatedValue() != null && condition != StockCondition.UNUSABLE) {
             batch.pinUnitCost(line.getStatedValue());
         }
 
