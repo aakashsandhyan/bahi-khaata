@@ -80,7 +80,7 @@
 - [ ] 8.4 `ConsignmentImporter` reads the manifest's per-product cost into the expected line, so counting can pin it. Test import populates it; extend `tools/consignment.py` to read the cost column.
 - [x] 8.5 `LotClosing`: closing marks the lot `CLOSED` (receiving done) without apportioning — remove the `CostAllocator` call, keep the unopened-boxes confirmation. Test close changes no batch's cost.
 - [x] 8.6 Remove the `CostBasis.ESTIMATED` lot-average weighting of a surplus; a surplus stays uncosted.
-- [ ] 8.7 Amount-paid cross-check: sum of pinned costs × received quantity vs amount paid; report a material mismatch. Test clean and mismatch.
+- [x] 8.7 Amount-paid cross-check: sum of pinned costs × received quantity vs amount paid; report a material mismatch. Test clean and mismatch.
 - [x] 8.8 Update the section-4 tests (apportion-at-close, uncosted-until-close, lot-average) to the pinned model; confirm the pre-existing "boxes pending / can't price an open lot" failures clear.
-- [ ] 8.9 Frontend: the manual add-product path pins its entered per-unit cost; manifest import pins per line.
+- [x] 8.9 Frontend: the manual add-product path pins its entered per-unit cost; manifest import pins per line.
 - [ ] 8.10 Verify: boots under `ddl-auto=validate`; full suite green; price a real product from an open lot and see the margin suggestion fire.

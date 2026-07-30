@@ -64,6 +64,25 @@ public class LotClosing {
     }
 
     /**
+     * Cross-checks what a lot was paid against the sum of its products' pinned costs times the
+     * quantities received — a reporting figure, not a costing step. Cost is pinned per product, so
+     * a difference here is surfaced for someone to look at, never apportioned into the goods.
+     * Uncosted surplus contributes nothing to the pinned total.
+     */
+    @Transactional(readOnly = true)
+    public com.bahikhaata.contracts.LotCostReconciliation crossCheckCost(UUID lotId) {
+        Lot lot = lots.findById(lotId)
+                .orElseThrow(() -> new IllegalArgumentException("no such lot: " + lotId));
+        long pinned = batches.findByLotId(lotId).stream()
+                .filter(Batch::isCosted)
+                .mapToLong(b -> b.getAllocatedUnitCost().paise() * b.getQuantityReceived())
+                .sum();
+        long paid = lot.getAmountPaid().paise();
+        return new com.bahikhaata.contracts.LotCostReconciliation(
+                lotId, paid, pinned, paid - pinned, paid == pinned);
+    }
+
+    /**
      * Cartons nobody has opened. Reported before closing so the decision to write them off is
      * taken deliberately rather than discovered afterwards.
      */
