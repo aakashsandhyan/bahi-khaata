@@ -50,6 +50,11 @@ the selling price by hand. A margin-based suggestion SHALL appear only for coste
 - **WHEN** the user prices a product whose batch is costed and chooses a category
 - **THEN** a suggested price is shown from the category margin and the batch's unit cost
 
+#### Scenario: Uncosted stock may be priced, but never above MRP
+- **WHEN** the user hand-prices stock whose lot is not yet costed
+- **THEN** the price is accepted even though the cost is unknown, unless it exceeds the recorded
+  MRP, which is refused because selling above the printed MRP is unlawful
+
 ### Requirement: Missing manifested stock is not priceable
 The workbench SHALL list only stock on hand — products with a costed batch in the lot. A
 manifested item that was never counted SHALL NOT appear in the workbench; its cost is absorbed

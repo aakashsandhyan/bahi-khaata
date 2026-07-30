@@ -53,6 +53,18 @@ public class ProductPricing {
 
     @Transactional
     public Product setSellingPrice(UUID productId, Money price) {
+        return setSellingPrice(productId, price, false);
+    }
+
+    /**
+     * As above, but {@code allowUncosted} lets a caller price stock whose delivery is not yet
+     * costed. The pricing workbench does this deliberately: a mixed lot's contents are not known
+     * until entered by hand, so an item may be priced before its lot is allocated, accepting that
+     * the price may be revisited once the cost is known. The MRP ceiling is never waived — it is a
+     * legal limit, not a costing convenience — so it still applies whenever an MRP is recorded.
+     */
+    @Transactional
+    public Product setSellingPrice(UUID productId, Money price, boolean allowUncosted) {
         Product product =
                 products.findById(productId)
                         .orElseThrow(
@@ -64,7 +76,9 @@ public class ProductPricing {
         // rules on Product are all that apply. This is how a product priced before its first
         // delivery still works.
         if (!held.isEmpty()) {
-            requireCostKnown(held, productId);
+            if (!allowUncosted) {
+                requireCostKnown(held, productId);
+            }
             requireAtOrBelowMrp(held, price);
         }
 

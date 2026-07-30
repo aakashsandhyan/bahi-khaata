@@ -28,6 +28,7 @@ import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
+import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
@@ -69,6 +70,7 @@ public class ShelfPricing {
     private final InternalBarcodeGenerator barcodeGenerator;
     private final GoodsInCounting goodsIn;
     private final TargetMargins targetMargins;
+    private final ProductPricing productPricing;
 
     public ShelfPricing(
             LotRepository lots,
@@ -78,7 +80,8 @@ public class ShelfPricing {
             BarcodeResolver barcodeResolver,
             InternalBarcodeGenerator barcodeGenerator,
             GoodsInCounting goodsIn,
-            TargetMargins targetMargins) {
+            TargetMargins targetMargins,
+            ProductPricing productPricing) {
         this.lots = lots;
         this.batches = batches;
         this.products = products;
@@ -87,6 +90,7 @@ public class ShelfPricing {
         this.barcodeGenerator = barcodeGenerator;
         this.goodsIn = goodsIn;
         this.targetMargins = targetMargins;
+        this.productPricing = productPricing;
     }
 
     /** The open lots the workbench can be scoped to, newest received first. */
@@ -141,13 +145,17 @@ public class ShelfPricing {
         Product product = products.findById(req.productId())
                 .orElseThrow(() -> new IllegalArgumentException("no such product: " + req.productId()));
         product.setCategory(Category.of(req.categoryCode()));
-        product.setSellingPrice(Money.ofPaise(req.sellingPricePaise()));
+        // Confirm the MRP before pricing, so the price is checked against the figure the operator
+        // just set, not a stale estimate.
         if (req.mrpPaise() != null) {
             Batch batch = batches.findById(req.batchId())
                     .orElseThrow(() -> new IllegalArgumentException("no such batch: " + req.batchId()));
             batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
             batches.save(batch);
         }
+        // Route through the guarded setter: the MRP ceiling is enforced, and uncosted stock is
+        // allowed (the workbench deliberately prices before a lot is costed — decision B-b).
+        productPricing.setSellingPrice(product.getId(), Money.ofPaise(req.sellingPricePaise()), true);
         String barcode = bbzFor(product);
         products.save(product);
         return new ShelfPricedProduct(
@@ -176,7 +184,9 @@ public class ShelfPricing {
                 false,
                 Instant.now());
 
-        product.setSellingPrice(Money.ofPaise(req.sellingPricePaise()));
+        // Route through the guarded setter (MRP ceiling enforced; uncosted allowed — decision B-b).
+        // The batch created above carries the MRP, so the ceiling is checked against it.
+        productPricing.setSellingPrice(product.getId(), Money.ofPaise(req.sellingPricePaise()), true);
         String barcode = bbzFor(product);
         products.save(product);
         return new ShelfPricedProduct(

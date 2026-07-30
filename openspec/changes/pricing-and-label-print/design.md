@@ -94,6 +94,14 @@ the selling price by hand; the margin suggestion appears only for costed stock. 
 deliberate: a mixed lot's contents are unknown until entered, so its late manual stock genuinely
 has no allocated cost to derive a margin from.
 
+All price-setting routes through the existing guarded setter `shelf.ProductPricing.setSellingPrice`
+rather than touching `Product` directly, so its two refusals are honoured. That setter normally
+also refuses to price stock whose delivery is not yet costed (a price on an unknown cost would be
+stale before it is printed). The workbench passes an `allowUncosted` flag that **relaxes only that
+cost-known check** (decision B-b) — the shop deliberately hand-prices mixed-lot stock before its
+lot is costed, accepting the price may be revisited. The **MRP ceiling is never waived**: selling
+above the printed MRP is unlawful, so that guard still applies on both paths.
+
 ### 3a. Missing manifested stock is out of scope for pricing
 A manifested item that was never counted has no batch, so `priceable`/`productsInLot` (which
 list only costed batches) never surface it — pricing only ever shows on-hand stock. Its cost is

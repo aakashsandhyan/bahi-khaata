@@ -34,6 +34,7 @@ import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
+import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
@@ -62,10 +63,12 @@ class ShelfPricingTest {
     @Mock private InternalBarcodeGenerator barcodeGenerator;
     @Mock private GoodsInCounting goodsIn;
     @Mock private TargetMargins targetMargins;
+    @Mock private ProductPricing productPricing;
 
     private ShelfPricing shelfPricing() {
         return new ShelfPricing(
-                lots, batches, products, barcodes, barcodeResolver, barcodeGenerator, goodsIn, targetMargins);
+                lots, batches, products, barcodes, barcodeResolver, barcodeGenerator, goodsIn,
+                targetMargins, productPricing);
     }
 
     private void stubMintsBbz(String code) {
@@ -84,7 +87,8 @@ class ShelfPricingTest {
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
                 product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null));
 
-        assertEquals(Money.ofPaise(44900L), product.getSellingPrice());
+        // Price is set through the guarded setter, allowing uncosted stock (decision B-b).
+        verify(productPricing).setSellingPrice(product.getId(), Money.ofPaise(44900L), true);
         assertEquals("APPLIANCE", product.getCategory().code());
         assertEquals("BBZ-100500", result.barcode());
         // The stock was already received at counting — pricing writes no ledger movement.
@@ -141,6 +145,8 @@ class ShelfPricingTest {
         // Stock enters through the inventory receipt path, with the captured quantity and condition.
         verify(goodsIn).receiveManual(eq(lot), any(Product.class), eq(StockCondition.GOOD), eq(5L),
                 any(), anyBoolean(), any());
+        // And the price is set through the guarded setter.
+        verify(productPricing).setSellingPrice(any(), eq(Money.ofPaise(9900L)), eq(true));
     }
 
     @Test
