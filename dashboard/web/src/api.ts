@@ -368,8 +368,16 @@ import type {
 } from './types'
 
 export const printer = {
-  queueJob: (itemType: string, itemId: string, copies: number) =>
-    post<_PrintJob>('/api/print-jobs', { itemType, itemId, copies }),
+  // A self-contained label job: the fields the label carries, so the executor renders without a
+  // database read. productId lets a successful print mark that product labelled.
+  queueLabel: (job: {
+    barcode: string
+    productName: string
+    sellingPricePaise: number
+    mrpPaise: number | null
+    copies: number
+    productId: string | null
+  }) => post<_PrintJob>('/api/print-jobs', job),
 
   getJobStatus: (jobId: string) =>
     get<_PrintJob>(`/api/print-jobs/${jobId}`),
@@ -382,4 +390,95 @@ export const printer = {
 
   testPrinter: () =>
     post<_PrinterTestResult>('/api/admin/printer-config/test'),
+}
+
+// --- pricing workbench, review queue, bulk label print, reconciliation --------------------------
+
+import type {
+  AwaitingLabelProduct as _AwaitingLabelProduct,
+  BulkPrintResult as _BulkPrintResult,
+  CaptureSummary as _CaptureSummary,
+  LotPhantomReport as _LotPhantomReport,
+  PriceSuggestion as _PriceSuggestion,
+  ScannedItem as _ScannedItem,
+  ShelfLot as _ShelfLot,
+  ShelfPricedProduct as _ShelfPricedProduct,
+  WriteOffResult as _WriteOffResult,
+} from './types'
+
+export const shelfPricing = {
+  lots: () => get<_ShelfLot[]>('/api/pricing/shelf/lots'),
+
+  categoriesForLot: (lotId: string) =>
+    get<string[]>(`/api/pricing/shelf/lots/${lotId}/categories`),
+
+  // A scanned code the lot does not hold answers 404 — getList turns that into an empty list, so
+  // "no match, key it by hand" is a clean [] rather than a thrown error.
+  scan: (lotId: string, code: string) =>
+    getList<_ScannedItem>(
+      `/api/pricing/shelf/scan?lotId=${lotId}&code=${encodeURIComponent(code)}`,
+    ).then((items) => items[0] ?? null),
+
+  suggest: (unitCostPaise: number, categoryCode: string, marginPercent?: number) =>
+    get<_PriceSuggestion>(
+      `/api/pricing/shelf/suggest?unitCostPaise=${unitCostPaise}&categoryCode=${encodeURIComponent(
+        categoryCode,
+      )}${marginPercent != null ? `&marginPercent=${marginPercent}` : ''}`,
+    ),
+
+  saveExisting: (body: {
+    productId: string
+    batchId: string
+    categoryCode: string
+    sellingPricePaise: number
+    mrpPaise: number | null
+  }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
+
+  saveManual: (body: {
+    lotId: string
+    name: string
+    categoryCode: string
+    condition: string
+    quantity: number
+    sellingPricePaise: number
+    mrpPaise: number | null
+  }) => post<_ShelfPricedProduct>('/api/pricing/shelf/manual', body) as Promise<_ShelfPricedProduct>,
+
+  phantomReport: (lotId: string) =>
+    get<_LotPhantomReport>(`/api/pricing/lots/${lotId}/reconcile`),
+
+  writeOff: (lotId: string) =>
+    post<_WriteOffResult>(`/api/pricing/lots/${lotId}/write-off`) as Promise<_WriteOffResult>,
+}
+
+export const reviewQueue = {
+  pending: () => get<_CaptureSummary[]>('/api/pricing/review-queue'),
+
+  approve: (
+    captureId: string,
+    body: {
+      lotId: string
+      categoryCode: string
+      condition: string
+      quantity: number
+      sellingPricePaise: number
+      mrpPaise: number | null
+    },
+  ) =>
+    post<_ShelfPricedProduct>(`/api/pricing/review-queue/${captureId}/approve`, body) as Promise<
+      _ShelfPricedProduct
+    >,
+
+  reject: (captureId: string) => post<void>(`/api/pricing/review-queue/${captureId}/reject`),
+}
+
+export const capture = {
+  submit: (body: { name: string; mrpPaise: number | null; description: string | null; lotId: string | null }) =>
+    post<_CaptureSummary>('/api/capture', body) as Promise<_CaptureSummary>,
+}
+
+export const bulkPrint = {
+  awaiting: () => get<_AwaitingLabelProduct[]>('/api/print-jobs/bulk/awaiting'),
+  print: (productIds: string[]) =>
+    post<_BulkPrintResult>('/api/print-jobs/bulk', { productIds }) as Promise<_BulkPrintResult>,
 }

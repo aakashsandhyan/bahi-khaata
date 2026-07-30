@@ -379,3 +379,76 @@ export interface PrinterTestResult {
   message: string
   testedAt: string
 }
+
+// --- pricing workbench, mobile capture, bulk label print ---------------------------------------
+
+export interface ShelfLot {
+  lotId: string
+  supplier: string
+  receivedOn: string | null
+}
+
+export interface ScannedItem {
+  productId: string
+  name: string
+  categoryCode: string | null
+  batchId: string
+  costed: boolean
+  unitCostPaise: number | null
+  mrpPaise: number | null
+  mrpIsEstimate: boolean
+}
+
+export interface PriceSuggestion {
+  marginPercent: number
+  suggestedPricePaise: number
+}
+
+export interface ShelfPricedProduct {
+  productId: string
+  barcode: string
+  name: string
+  sellingPricePaise: number
+  mrpPaise: number | null
+}
+
+export interface CaptureSummary {
+  id: string
+  name: string
+  mrpPaise: number | null
+  description: string | null
+  lotId: string | null
+  status: string
+  capturedAt: string
+}
+
+export interface AwaitingLabelProduct {
+  productId: string
+  barcode: string
+  name: string
+  sellingPricePaise: number
+  mrpPaise: number | null
+}
+
+export interface PhantomLine {
+  productId: string
+  name: string
+  batchId: string
+  quantity: number
+}
+
+export interface LotPhantomReport {
+  lotId: string
+  totalPhantom: number
+  lines: PhantomLine[]
+}
+
+export interface WriteOffResult {
+  lotId: string
+  quantityWrittenOff: number
+}
+
+export interface BulkPrintResult {
+  printed: number
+  failed: number
+}

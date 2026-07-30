@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { receiving, BackendError } from './api'
 import type { LotSummary, ReceivingBoxes } from './types'
-import { PrintModal } from './PrintModal'
 
 export function Receiving() {
   const [lots, setLots] = useState<LotSummary[] | null>(null)
@@ -11,7 +10,6 @@ export function Receiving() {
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
   const [state, setState] = useState<'in-progress' | 'complete'>('in-progress')
   const [productForm, setProductForm] = useState({ code: '', name: '', quantity: 1, categoryCode: 'KITCHEN', estimatedCost: '' })
-  const [printModal, setPrintModal] = useState<{ boxId: string; boxName: string; productName?: string; category?: string; costPerUnit?: string; mrp?: string; lotId?: string } | null>(null)
 
   useEffect(() => {
     loadLots()
@@ -398,29 +396,6 @@ export function Receiving() {
                   </span>
                 </div>
               </div>
-              {box.state === 'RECEIVED' && (
-                <button
-                  onClick={() => setPrintModal({
-                    boxId: box.manifestCartonId,
-                    boxName: box.manifestCartonId,
-                    lotId: selectedLot?.id,
-                  })}
-                  style={{
-                    fontSize: '12px',
-                    padding: '6px 10px',
-                    marginTop: '6px',
-                    background: 'transparent',
-                    border: '1px solid var(--brand)',
-                    color: 'var(--brand)',
-                    borderRadius: 'var(--r1)',
-                    cursor: 'pointer',
-                    width: '100%',
-                    fontWeight: '500',
-                  }}
-                >
-                  🖨 Print Label
-                </button>
-              )}
             </div>
           ))}
         </div>
@@ -434,23 +409,6 @@ export function Receiving() {
         </div>
       )}
 
-      {printModal && (
-        <PrintModal
-          itemType="box"
-          itemId={printModal.boxId}
-          itemName={printModal.boxName}
-          productName={printModal.productName}
-          category={printModal.category}
-          costPerUnit={printModal.costPerUnit}
-          mrp={printModal.mrp}
-          lotId={printModal.lotId}
-          onClose={() => setPrintModal(null)}
-          onSuccess={() => {
-            setPrintModal(null)
-            selectedLot && openLot(selectedLot)
-          }}
-        />
-      )}
     </div>
   )
 }

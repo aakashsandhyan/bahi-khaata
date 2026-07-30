@@ -55,17 +55,17 @@
 
 ## 8. Frontend — pricing workbench
 
-- [ ] 8.1 New `Pricing` workbench screen: lot picker (open lots, changeable), two add paths — pick-existing (from products-in-lot) and manual-create (nudge: only for never-counted stock).
-- [ ] 8.2 Category dropdown from `categoriesForLot` (fallback full list); suggested price on category select; hand-price field when uncosted; optional MRP; quantity; condition.
-- [ ] 8.3 Save → success → "print label?" prompt → queue self-contained job. Decline leaves it for bulk.
-- [ ] 8.4 Lot reconciliation panel: show phantom, confirm write-off.
+- [x] 8.1 New `Pricing` workbench screen: lot picker (open lots, changeable), two add paths — pick-existing (from products-in-lot) and manual-create (nudge: only for never-counted stock).
+- [x] 8.2 Category dropdown from `categoriesForLot` (fallback full list); suggested price on category select; hand-price field when uncosted; optional MRP; quantity; condition.
+- [x] 8.3 Save → success → "print label?" prompt → queue self-contained job. Decline leaves it for bulk.
+- [x] 8.4 Lot reconciliation panel: show phantom, confirm write-off.
 
 ## 9. Frontend — bulk print & mobile
 
-- [ ] 9.1 Bulk-print screen: list shelf products awaiting a label; multi-select; bulk queue.
-- [ ] 9.2 Mobile capture screen (phone layout, LAN route): name, optional MRP/description, optional lot; submit → confirmation.
-- [ ] 9.3 Review-queue screen (desktop): pending captures oldest-first; open pre-filled in the workbench; approve/reject.
-- [ ] 9.4 Retire the receiving-screen `PrintModal` (cost/lot label); remove its trigger from `Receiving.tsx`.
+- [x] 9.1 Bulk-print screen: list shelf products awaiting a label; multi-select; bulk queue.
+- [x] 9.2 Mobile capture screen (phone layout, LAN route): name, optional MRP/description, optional lot; submit → confirmation.
+- [x] 9.3 Review-queue screen (desktop): pending captures oldest-first; open pre-filled in the workbench; approve/reject.
+- [x] 9.4 Retire the receiving-screen `PrintModal` (cost/lot label); remove its trigger from `Receiving.tsx`.
 
 ## 10. Verify & wire-up
 
