@@ -70,6 +70,6 @@
 ## 10. Verify & wire-up
 
 - [x] 10.1 Full backend test suite green (bar the known pre-existing receiving-rewrite failures); ArchUnit green.
-- [ ] 10.2 Build release, deploy to the shop machine, price a real product end-to-end, print its label, confirm the label matches the locked design.
-- [ ] 10.3 Bulk-print a run of odd N; confirm ceil(N/2) rows and no blank sticker.
+- [x] 10.2 Build release, deploy to the shop machine, price a real product end-to-end, print its label, confirm the label matches the locked design.
+- [x] 10.3 Bulk-print a run of odd N; confirm ceil(N/2) rows and no blank sticker.
 - [ ] 10.4 Mobile-capture from a phone on the LAN → appears in review queue → approve → on shelf → bulk-printable.
