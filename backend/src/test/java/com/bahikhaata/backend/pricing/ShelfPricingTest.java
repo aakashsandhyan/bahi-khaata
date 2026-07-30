@@ -150,6 +150,22 @@ class ShelfPricingTest {
     }
 
     @Test
+    void listsLotsThatHaveUnpricedCountedStock() {
+        java.util.UUID lotId = java.util.UUID.randomUUID();
+        com.bahikhaata.backend.inventory.Lot lot = mock(com.bahikhaata.backend.inventory.Lot.class);
+        when(lot.getId()).thenReturn(lotId);
+        when(lot.getSupplier()).thenReturn("Acme");
+        when(lot.getReceivedOn()).thenReturn(java.time.LocalDate.of(2026, 7, 1));
+        when(batches.lotIdsWithUnpricedStock()).thenReturn(java.util.List.of(lotId));
+        when(lots.findAllById(java.util.List.of(lotId))).thenReturn(java.util.List.of(lot));
+
+        var result = shelfPricing().lots();
+
+        assertEquals(1, result.size());
+        assertEquals("Acme", result.get(0).supplier());
+    }
+
+    @Test
     void suggestsPriceFromCategoryMarginAndUnitCost() {
         when(targetMargins.resolve(Category.of("KITCHEN"), null)).thenReturn(40);
 

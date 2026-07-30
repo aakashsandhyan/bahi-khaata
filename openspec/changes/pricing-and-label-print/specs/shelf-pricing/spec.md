@@ -1,9 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Pricing starts from a lot
-The pricing workbench SHALL begin by selecting one open lot, and all pricing in a session
-SHALL be scoped to that lot so every product priced has a known FIFO unit cost. The selected
-lot SHALL be changeable during the session.
+The pricing workbench SHALL begin by selecting one lot that still has counted stock to price —
+open lots (uncosted, hand-priced) and closed lots (costed, margin-suggested) alike — and all
+pricing in a session SHALL be scoped to that lot. The selected lot SHALL be changeable during the
+session. A lot with nothing left unpriced SHALL NOT be listed.
 
 #### Scenario: Selecting a lot to price against
 - **WHEN** the user opens the pricing workbench and selects an open lot

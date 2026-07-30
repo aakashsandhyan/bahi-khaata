@@ -54,7 +54,9 @@ proposal; `print_job` has no production rows yet, so the migration recreates it.
 
 ### 2. Lot-first pricing, reusing the margin machinery
 A new `ShelfPricing` service (in `pricing`, alongside `PricingWorkbench`) drives the flow:
-- `lots()` — the open lots to price against.
+- `lots()` — the lots to price against: those holding counted stock still to be priced,
+  open (uncosted → hand-priced) and closed (costed → margin-suggested) alike. Filtering to open
+  lots only was wrong — a costed lot is a *closed* one, so the margin suggestion could never fire.
 - `resolveScanned(code)` — the scanner path: a scanned LSN/ASIN is looked up via the existing
   barcode resolver; a hit returns the already-counted product and its batch in the lot (with its
   unit cost), which the workbench opens for pricing without creating stock.

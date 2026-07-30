@@ -30,7 +30,6 @@ import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Category;
-import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.contracts.PriceExistingRequest;
@@ -41,6 +40,7 @@ import com.bahikhaata.contracts.ShelfLot;
 import com.bahikhaata.contracts.ShelfPricedProduct;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,10 +93,17 @@ public class ShelfPricing {
         this.productPricing = productPricing;
     }
 
-    /** The open lots the workbench can be scoped to, newest received first. */
+    /**
+     * The lots the workbench can be scoped to: those holding counted stock still to be priced,
+     * newest received first. Both open lots (uncosted, hand-priced) and closed lots (costed, so a
+     * margin price is suggested) appear — a lot is worth pricing whenever it has unpriced counted
+     * stock, whatever its state; it drops off once everything in it is priced.
+     */
     @Transactional(readOnly = true)
     public List<ShelfLot> lots() {
-        return lots.findByStateOrderByReceivedOnDesc(LotState.OPEN).stream()
+        return lots.findAllById(batches.lotIdsWithUnpricedStock()).stream()
+                .sorted(Comparator.comparing(
+                        Lot::getReceivedOn, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(l -> new ShelfLot(l.getId(), l.getSupplier(), l.getReceivedOn()))
                 .toList();
     }
