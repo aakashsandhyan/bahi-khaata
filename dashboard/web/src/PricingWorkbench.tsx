@@ -62,6 +62,7 @@ export function PricingWorkbench() {
   return (
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
       <h1>Pricing</h1>
+      <PendingLabels />
 
       <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginTop: 'var(--s3)' }}>
         Lot
@@ -99,6 +100,39 @@ export function PricingWorkbench() {
           onSaved={done}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Labels print two to a row, so a single one is held until a second pairs with it. This shows how
+ * many are waiting and lets the operator flush a leftover — printed as a duplicate pair — when
+ * they are done and want it out anyway.
+ */
+function PendingLabels() {
+  const [count, setCount] = useState(0)
+  const [flushing, setFlushing] = useState(false)
+
+  const refresh = () => printer.pendingCount().then((r) => setCount(r?.count ?? 0)).catch(() => {})
+  useEffect(() => {
+    refresh()
+    const t = setInterval(refresh, 2000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (count === 0) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', padding: 'var(--s2) var(--s3)',
+      background: 'var(--line-soft)', borderRadius: 'var(--r1)', margin: 'var(--s2) 0' }}>
+      <span style={{ flex: 1, fontSize: 14 }}>
+        <b>{count}</b> label{count > 1 ? 's' : ''} held, waiting to pair.
+      </span>
+      <button disabled={flushing} onClick={async () => {
+        setFlushing(true)
+        try { await printer.flush() } finally { setFlushing(false); refresh() }
+      }}>
+        {flushing ? 'Printing…' : 'Print pending now'}
+      </button>
     </div>
   )
 }
@@ -264,11 +298,12 @@ function PriceForm({
 }
 
 function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: () => void }) {
-  const [state, setState] = useState<'ask' | 'printing' | 'done' | 'failed'>('ask')
+  const [state, setState] = useState<'ask' | 'queued' | 'failed'>('ask')
   const [message, setMessage] = useState('')
 
+  // Queuing a label holds it for pairing — it prints when a second label joins it, or on flush.
+  // So this confirms "queued", not "printed"; the pending banner tracks it from there.
   const print = async () => {
-    setState('printing')
     try {
       const job = await printer.queueLabel({
         barcode: product.barcode,
@@ -279,12 +314,8 @@ function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: (
         productId: product.productId,
       })
       if (!job) throw new Error('Could not queue the label.')
-      const poll = setInterval(async () => {
-        const s = await printer.getJobStatus(job.jobId)
-        if (!s) return
-        if (s.status === 'done') { clearInterval(poll); setState('done'); setMessage('Label printed.') }
-        else if (s.status === 'failed') { clearInterval(poll); setState('failed'); setMessage(s.error || 'Print failed.') }
-      }, 500)
+      setState('queued')
+      setMessage('Label queued — it prints when a second label pairs with it (or press “Print pending now”).')
     } catch (e) {
       setState('failed')
       setMessage(e instanceof BackendError ? e.message : 'Could not queue the label.')
@@ -297,11 +328,12 @@ function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: (
       <div style={{ fontSize: 14, marginTop: 4 }}>
         {rupees(product.sellingPricePaise)}{product.mrpPaise ? ` · MRP ${rupees(product.mrpPaise)}` : ''}
       </div>
-      {message && <div style={{ marginTop: 'var(--s2)' }}>{message}</div>}
+      {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Print label</button>}
-        {state === 'printing' && <button disabled style={{ flex: 1, opacity: 0.6 }}>Printing…</button>}
-        <button style={{ flex: 1 }} onClick={onDone}>{state === 'ask' ? 'Skip (print later)' : 'Next product'}</button>
+        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue label</button>}
+        <button className={state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
+          {state === 'ask' ? 'Skip (print later)' : 'Next product'}
+        </button>
       </div>
     </div>
   )

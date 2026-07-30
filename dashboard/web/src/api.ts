@@ -382,6 +382,11 @@ export const printer = {
   getJobStatus: (jobId: string) =>
     get<_PrintJob>(`/api/print-jobs/${jobId}`),
 
+  // Labels print two to a row, so a lone label is held until a second pairs with it. This is how
+  // many are held, and the flush that prints a leftover (as a duplicate pair) on demand.
+  pendingCount: () => get<{ count: number }>('/api/print-jobs/pending-count'),
+  flush: () => post<{ printed: number }>('/api/print-jobs/flush'),
+
   getConfig: () =>
     get<_PrinterConfig>('/api/admin/printer-config'),
 

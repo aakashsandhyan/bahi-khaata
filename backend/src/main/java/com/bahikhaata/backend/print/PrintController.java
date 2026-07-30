@@ -40,9 +40,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/print-jobs")
 public class PrintController {
     private final PrintJobRepository printJobRepository;
+    private final PrintExecutorService executor;
 
-    public PrintController(PrintJobRepository printJobRepository) {
+    public PrintController(PrintJobRepository printJobRepository, PrintExecutorService executor) {
         this.printJobRepository = printJobRepository;
+        this.executor = executor;
+    }
+
+    /** How many labels are held, waiting for a partner to pair with — shown on the pricing screen. */
+    @GetMapping("/pending-count")
+    public java.util.Map<String, Long> pendingCount() {
+        return java.util.Map.of("count", executor.pendingCount());
+    }
+
+    /** Print the held labels now — a lone leftover goes out as a duplicate pair. */
+    @PostMapping("/flush")
+    public java.util.Map<String, Long> flush() {
+        return java.util.Map.of("printed", executor.flushPending());
     }
 
     @PostMapping
