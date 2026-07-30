@@ -25,7 +25,6 @@ import com.bahikhaata.contracts.ShelfLot;
 import com.bahikhaata.contracts.ShelfPricedProduct;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,12 +57,12 @@ public class ShelfPricingController {
         return shelfPricing.categoriesForLot(lotId);
     }
 
+    // A list of zero or one: a hit is a single-element list, a miss an empty one. The client reads
+    // it as a list (a scan that resolves nothing is "nothing here", not an error), so this stays a
+    // 200 with [] rather than a 404.
     @GetMapping("/scan")
-    public ResponseEntity<ScannedItem> scan(
-            @RequestParam UUID lotId, @RequestParam String code) {
-        return shelfPricing.resolveScanned(lotId, code)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public List<ScannedItem> scan(@RequestParam UUID lotId, @RequestParam String code) {
+        return shelfPricing.resolveScanned(lotId, code).map(List::of).orElse(List.of());
     }
 
     @GetMapping("/suggest")
