@@ -50,9 +50,13 @@ public class LabelTemplateService {
 
     /** The web and columns as measured with a ruler on the actual roll (203 dpi, 8 dots/mm). */
     private static final int WEB_WIDTH_MM = 82;
-    private static final int LABEL_HEIGHT_MM = 24;
+    /** Declared one millimetre taller than the measured 24mm sticker: the frame registers with
+     * usable slack at the foot, and the price's below-baseline pixels (curved digits dip under
+     * their line) need rows past 192 to print instead of being clipped flat. The gap sensor still
+     * registers each row, so the over-declaration rides on that slack. */
+    private static final int LABEL_HEIGHT_MM = 25;
     private static final int LABEL_W = 304;      // rendered width, padded to a byte boundary
-    private static final int LABEL_H = 192;
+    private static final int LABEL_H = 200;
     private static final int LEFT_ORIGIN = 16;   // 2mm edge
     private static final int RIGHT_ORIGIN = 340; // the right label starts at 42.5mm
     private static final int MARGIN = 8;         // 1mm inner margin
@@ -155,7 +159,10 @@ public class LabelTemplateService {
         g.setFont(priceFont);
         FontMetrics pm = g.getFontMetrics();
         String price = rupee + rupees(req.pricePaise());
-        g.drawString(price, MARGIN, 190);
+        // Baseline 187, not 190: round digits and the rupee sign overshoot the baseline by a few
+        // pixels (curves dip below the line to look level), and at 190 those pixels fell past the
+        // 192-row canvas — printed prices came out with flat-trimmed bottoms.
+        g.drawString(price, MARGIN, 187);
 
         if (req.mrpPaise() != null && req.mrpPaise() > req.pricePaise()) {
             int clusterLeft = MARGIN + pm.stringWidth(price) + 10;

@@ -40,7 +40,7 @@ class LabelTemplateServiceTest {
     void rendersOneRowWithBitmapBodyAndNativeBarcode() {
         String tspl = service.renderLabel(WITH_MRP);
 
-        assertTrue(tspl.contains("SIZE 82mm,24mm"), "declares the measured 2-up web");
+        assertTrue(tspl.contains("SIZE 82mm,25mm"), "declares the measured 2-up web");
         assertTrue(tspl.contains("GAP 3mm,0mm"), "declares the measured row gap");
         assertTrue(tspl.contains("CLS"), "clears the buffer before drawing");
         assertTrue(tspl.contains("PRINT 1,1"), "fires the print at the end");
