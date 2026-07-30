@@ -59,35 +59,33 @@ The system SHALL report, for a lot, which boxes are untouched, which are part co
 - **THEN** it is reported as finished
 - **AND** any shortfall or surplus within it remains visible
 
-### Requirement: Lot cost is apportioned when the lot is closed, over what actually arrived
+### Requirement: Reconciliation reconciles quantities and cross-checks the amount paid
 
-The amount paid for a lot SHALL be apportioned only when the lot is closed, and SHALL be apportioned across the quantities actually counted rather than those expected. The apportioned amounts SHALL sum exactly to the amount paid.
+Reconciliation SHALL compare the quantities counted against those expected, reporting shortfalls and surpluses. It SHALL NOT apportion the amount paid across the goods — each product's cost is already pinned from its manifest line at receipt (see the stock-ledger spec), so there is nothing to divide. The lot's amount paid SHALL be reconciled against the sum of its received lines' pinned per-unit costs times their counted quantities, and a material difference SHALL be reported.
 
-The lot amount was paid regardless of what turned up, so the goods that genuinely arrived must carry all of it. A share cannot be final while boxes remain unopened, because every share depends on every other line.
+#### Scenario: Reconciliation reports shortfalls and surpluses
 
-#### Scenario: Closing a lot apportions its cost
+- **WHEN** a lot is reconciled
+- **THEN** each line's counted quantity is compared to its expected quantity
+- **AND** shortfalls and surpluses are reported
 
-- **WHEN** a lot is closed
-- **THEN** each batch receives a share of the amount paid
-- **AND** the shares sum exactly to the amount paid
+#### Scenario: Cost is not apportioned at reconciliation
 
-#### Scenario: A shortfall raises the cost of the units that arrived
+- **WHEN** a lot is reconciled
+- **THEN** no product's cost is derived by dividing the amount paid
+- **AND** each product keeps the per-unit cost pinned from its manifest line
 
-- **WHEN** a line is counted short and the lot is closed
-- **THEN** the units that arrived carry that line's whole share between them
-- **AND** each unit therefore costs more than it would have at the expected quantity
+#### Scenario: The amount paid is cross-checked against the pinned costs
 
-#### Scenario: Cost is apportioned by stated value, not by unit count
+- **WHEN** a lot is reconciled
+- **THEN** the sum of its received lines' pinned costs times their counted quantities is compared to the amount paid
+- **AND** a material difference is reported rather than absorbed into the goods
 
-- **WHEN** a lot containing goods of differing value is closed
-- **THEN** each line's share is proportional to its own stated value
-- **AND** two lines of equal per-unit value receive equal per-unit cost whatever their quantities
+#### Scenario: A shortfall does not change the cost of the units that arrived
 
-#### Scenario: An open lot has no apportioned cost
-
-- **WHEN** a lot has not been closed
-- **THEN** its batches carry stock with no allocated cost
-- **AND** that state is distinguishable from a cost of zero
+- **WHEN** a line is counted short
+- **THEN** the units that arrived each keep their stated per-unit cost
+- **AND** the missing units' cost is simply not incurred
 
 ### Requirement: A lot cannot be closed silently over unopened boxes
 
@@ -99,45 +97,31 @@ Closing a lot while boxes remain uncounted SHALL require explicit confirmation, 
 - **THEN** those boxes are reported before the lot closes
 - **AND** closing proceeds only on explicit confirmation
 
-#### Scenario: Uncounted expected lines receive no cost
+#### Scenario: An uncounted expected line has no stock and no cost
 
 - **WHEN** a lot is closed with expected lines never counted
-- **THEN** those lines receive no share of the amount paid
-- **AND** the full amount is carried by the goods that did arrive
+- **THEN** those lines have no batch and no cost, having brought in no stock
 
-### Requirement: Goods not on the manifest are weighted at the lot's average unit value
+### Requirement: A surplus with no stated cost is left uncosted
 
-Goods found in a lot that no expected line names SHALL still receive a share of the amount paid, because the money bought whatever arrived. Having no stated value of their own, they SHALL be weighted at the average per-unit stated value of the lot's named lines, and that weight SHALL be recorded as an estimate rather than as a stated value.
+Goods found in a lot that no expected line names — a surplus — carry no stated cost, because the manifest never named them. They SHALL be left uncosted, an explicit state distinct from a cost of zero, rather than weighted at any lot average. A cost for them SHALL be a later, deliberate decision, not an automatic apportionment. This is the rare exception; the manifest states a cost for every product it does name.
 
-Excluding them would give them a cost of zero and make every margin computed from them meaningless.
+#### Scenario: An unlisted surplus is left uncosted
 
-#### Scenario: Unlisted goods receive a share of the lot
+- **WHEN** goods with no expected line are found in a lot
+- **THEN** their batch is uncosted, reported as not yet determined rather than as zero
 
-- **WHEN** a lot containing goods with no expected line is closed
-- **THEN** those goods receive a share of the amount paid
-- **AND** their cost is not zero
+#### Scenario: A surplus takes no automatic cost
 
-#### Scenario: The weight is the average unit value of the named lines
-
-- **WHEN** an unlisted line is weighted
-- **THEN** its per-unit weight is the total stated value of the lot's named lines divided by their total quantity
-
-#### Scenario: A derived weight is marked an estimate
-
-- **WHEN** an unlisted line has been weighted from the lot average
-- **THEN** its cost basis records that the weight was estimated rather than stated
-
-#### Scenario: A lot with no stated values at all cannot derive an average
-
-- **WHEN** a lot is closed in which no line carries a stated value
-- **THEN** closing is refused, reporting that a value must be supplied
-- **AND** no cost is apportioned
+- **WHEN** a lot with an unlisted surplus is reconciled
+- **THEN** the surplus receives no apportioned or averaged cost
+- **AND** any cost it is later given is a deliberate, recorded decision
 
 ### Requirement: A closed lot does not silently reopen
 
-Once a lot has been closed and its costs apportioned, recording further counts against it SHALL be refused. Correcting a closed lot SHALL be a deliberate, recorded act rather than a side effect of scanning.
+Once a lot has been closed, recording further counts against it SHALL be refused. Correcting a closed lot SHALL be a deliberate, recorded act rather than a side effect of scanning.
 
-Costs from a closed lot may already have been used to set prices, so changing them quietly would leave prices resting on figures that no longer exist.
+A closed lot's pinned costs may already have been used to set prices, so changing them quietly would leave prices resting on figures that no longer exist.
 
 #### Scenario: Counting against a closed lot is refused
 

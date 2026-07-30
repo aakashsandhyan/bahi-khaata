@@ -21,7 +21,7 @@ The operator constraint is the sharpest one, in the user's words: *"The UX shoul
 - Record a manifest as an expectation that puts nothing on hand.
 - Let a person open a box, say what is actually inside, and have the system believe them over the manifest.
 - Capture MRP from the goods, since it exists nowhere else and nothing may be sold without it.
-- Apportion the lot's cost across what actually arrived, not what was promised.
+- Pin each product's stated manifest cost onto its batch at receipt, and cross-check the pinned costs against the amount paid.
 - Make shortfalls and surpluses fall out of ordinary work rather than needing a separate audit.
 - Keep a scan-driven screen operable by staff who have never heard of a batch.
 
@@ -45,17 +45,19 @@ Products are created because a product is a catalogue entry, not a claim about s
 
 **Rejected: create products at unpack time instead**, from the scanned code. Rejected because the manifest already names them, and making staff type product names off packaging is exactly the data-entry burden this screen exists to avoid.
 
-### 2. Cost is apportioned when the lot is closed, not at import and not per box
+### 2. Cost is the manifest's stated per-product cost, pinned at receipt
 
-A lot's shares depend on every line in it, so no share can be final while boxes remain unopened. Batches therefore carry stock with no cost until the lot is closed, at which point the amount paid is apportioned across the quantities actually received.
+Each manifest line states what its product cost. That figure is pinned onto the batch as the stock is counted in (`CostBasis.PINNED`) — the batch is costed the moment it is received, not at lot close. There is no lot-total apportionment: the manifest already says what each product cost, so there is nothing to divide.
 
-This follows from what was actually paid: the lot amount was paid whatever turned up, so the goods that genuinely arrived must carry all of it. Eleven units that arrive where twelve were promised carry the whole line's cost between them, and cost a little more each. That is not an error to correct — it is what the shortfall cost.
+The consequence is the reverse of the earlier design: a product can be priced as soon as it is received, which is what the shop needs and what the pricing workbench expects. This is deliberate — liquidation margins are large, so absorbing a shortfall's or a damaged unit's cost into the surviving good units buys a precision that is not worth its complexity here. Eleven units arriving where twelve were promised each keep their stated cost; the missing unit's cost is simply not incurred against the goods.
 
-A consequence worth stating: a product cannot be priced until its lot is closed, because a margin needs a cost. This aligns with the label gate rather than fighting it.
+The lot's amount paid is kept as a recorded cross-check, useful in reporting: the sum of the pinned line costs should reconcile to it, and a mismatch is flagged rather than silently apportioned away.
 
-**Rejected: apportion per box as it closes**, so cost is known earlier. Rejected because every later box would change every earlier share, meaning continuous rewriting of costs that other records already reference.
+**Rejected: apportion the lot total across received quantities at close** (the earlier decision). Rejected because the manifest states per-product cost directly, so apportionment invents a division the data does not need, and it blocks pricing until close for no gain at these margins.
 
-**Rejected: apportion over expected quantities at import**, then adjust. Rejected because the adjustment is the hard part and would be owed on every lot.
+**Rejected: apportion per box as it closes**, so cost is known earlier. Rejected because every later box would change every earlier share — moot now that cost is stated per line and never apportioned.
+
+A stated cost may still be absent for a genuine surplus — goods that arrived but appear on no manifest line. Those keep no pinned cost and stay an explicit uncosted state (decision 7), the rare exception rather than the rule.
 
 ### 3. A box is the tracking number, and it is the scan unit
 
@@ -85,17 +87,13 @@ MRP is read off the goods and recorded against the batch, since successive deliv
 
 An observed online price exists on the product and must never substitute for it — MRP is the printed legal ceiling and selling above it is unlawful, while a marketplace price is one seller's asking price on one day. This is already held by a test and this change does not weaken it.
 
-### 7. A lot may close over unopened boxes, and unlisted goods are weighted at the lot average
+### 7. A lot may close over unopened boxes, and an unlisted surplus is left uncosted
 
 Closing reports any uncounted boxes and proceeds on explicit confirmation. It is not prevented: goods that never arrive would otherwise hold a lot open forever, and nothing in that lot could be priced or sold.
 
-Goods found that no line names are weighted at the average per-unit stated value of the lot's named lines, recorded as an estimate.
+Goods found that no line names — a surplus — carry no stated cost. They are left uncosted, an explicit state distinct from zero; a cost is a later, deliberate decision, not an automatic figure. The label gate already keeps an uncosted surplus off the floor until someone prices it, so nothing that could otherwise sell is stranded.
 
-**Rejected: holding unlisted goods uncosted** until someone assigns a value. Rejected because it leaves stock on the shelf that cannot be priced, and the decision would be deferred to whoever is least equipped to make it — the person unpacking a box.
-
-**Rejected: excluding them from the apportionment**, giving them zero cost. Rejected because a zero cost makes every margin computed from those goods meaningless, and they would look like pure profit.
-
-The lot average is a genuine estimate, not a measurement. It is right on average and wrong on any particular item — a surplus carton of something dear is undercosted, something cheap overcosted. Accepted because the alternative is worse and because surpluses are the rare case.
+**Rejected: weighting a surplus at the lot's average stated value**, so it is costed at once. Rejected because there is no lot cost pool to average from once cost is stated per product, and an average is right on aggregate but wrong on any particular surplus item — a surplus of something dear undercosted, something cheap overcosted. A surplus is the rare case and deserves a deliberate value, not a fabricated one.
 
 ### 8. The screen speaks the shop's language, not the schema's
 
@@ -107,13 +105,13 @@ Two states need to be obvious without being read: an item that does not match an
 
 ## Risks / Trade-offs
 
-- **Stock exists before its cost does** → A batch carries units with no cost between counting and lot close. Valuation and margin must treat an uncosted batch as an explicit state rather than as zero. Pricing is already blocked by the label gate, so nothing can be sold at a wrong margin in the meantime.
+- **Only a surplus is uncosted** → Manifest-named stock is costed at receipt from its pinned cost, so it is priceable at once. Only a surplus that no line names carries no cost; valuation and margin must treat that as an explicit uncosted state rather than zero, and the label gate keeps it off the floor until someone prices it.
 
 - **The already-imported consignment is in the wrong model** → 1,878 products and 3,583 units were imported as on-hand receipts. Nothing has been sold, so this is fixable by re-import today and only today. The ledger is append-only and immutable by trigger; once sales exist, changing this needs reversing entries against live history.
 
 - **A scan cannot say which batch is in the hand** → Accepted with decision 4. FIFO attributes it. Per-item margin is an attribution, not a measurement; per-lot margin remains exact.
 
-- **Surpluses have no cost basis** → Goods that arrive but appear nowhere in the manifest still take a share of the lot, since the lot amount bought whatever came. They need a weighing value, and the manifest gives none. Recorded as an open question below.
+- **A surplus has no manifest cost** → Goods that appear on no manifest line carry no stated cost. They are left uncosted until someone assigns a value deliberately — not averaged from the lot, since there is no cost pool to average once cost is per product. The rare case; the label gate holds it off the floor meanwhile.
 
 - **533 boxes is a lot of scanning** → Mitigated by the shape: half are one line. The risk is a design tuned for the 60-line box making the one-line box tedious. The screen should be built against the median, not the maximum.
 

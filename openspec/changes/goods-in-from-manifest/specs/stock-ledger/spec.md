@@ -1,65 +1,57 @@
 ## MODIFIED Requirements
 
-### Requirement: Lot cost is allocated across its products by relative retail value
+### Requirement: A product's cost is the manifest's stated per-unit cost, pinned at receipt
 
-The cost of a lot SHALL be allocated across the products it contains in proportion to a stated value supplied per line, so that products of different worth carry proportionally different costs. That value SHALL be an input to allocation rather than read from any particular field, because a manifest may state a marketplace selling price, a supplier's cost, or nothing at all.
+The cost of each product SHALL be the per-unit cost its manifest line states, pinned onto its batch as the stock is received (`CostBasis.PINNED`). Cost SHALL NOT be apportioned from a lot total across the products it contains — the manifest states each product's cost directly, so there is nothing to divide.
 
-Where a line's stated value is unknown, an estimated value SHALL be supplied and used in its place.
+A stated cost SHALL be expressed per unit; a line total SHALL NOT be used, because applying quantity twice would inflate multi-unit lines and squeeze single-unit ones.
 
-A line's stated value SHALL be expressed per unit, and quantity SHALL be applied by the allocation itself. Supplying a line total instead applies quantity twice, which inflates the share of multi-unit lines and squeezes single-unit lines while leaving the lot total correct.
+Where a manifest line states no cost — a genuine surplus that appears on no line — the batch SHALL remain uncosted, an explicit state distinct from a cost of zero, rather than take an invented share of anything.
 
-Allocation by unit count SHALL NOT be used for mixed lots, because it assigns the same cost to items of wildly different value and renders per-product margin meaningless.
+#### Scenario: Cost is the stated per-unit figure
 
-#### Scenario: Cost is allocated in proportion to stated value
+- **WHEN** a product is received against a manifest line stating a per-unit cost
+- **THEN** its batch's per-unit cost is that stated figure, pinned to the batch
 
-- **WHEN** a lot containing several products is allocated
-- **THEN** each line receives a share of the lot amount in proportion to its quantity multiplied by its per-unit stated value
+#### Scenario: No apportionment across the lot
 
-#### Scenario: An unknown value uses an estimate
+- **WHEN** the products of a lot are received
+- **THEN** each carries its own stated per-unit cost
+- **AND** no lot total is divided among them
 
-- **WHEN** a line has no stated value
-- **THEN** an estimated value is required for that line
-- **AND** allocation uses that estimate
+#### Scenario: A surplus with no stated cost stays uncosted
 
-#### Scenario: Per-unit cost derives from the line allocation
-
-- **WHEN** a line has been allocated its share of the lot amount
-- **THEN** the batch's per-unit cost is that share divided by the sellable quantity received
-
-#### Scenario: Quantity is applied once
-
-- **WHEN** two lines carry equal per-unit stated values and differing quantities
-- **THEN** each line's per-unit cost is equal
-- **AND** the line with the greater quantity receives proportionally more of the lot amount in total
-
-#### Scenario: A uniform proportion of stated value reaches every line
-
-- **WHEN** the amount paid for a lot is a fixed fraction of the total stated value of its lines
-- **THEN** every line's allocated cost is that same fraction of its own stated value
-
-#### Scenario: A correct total does not imply a correct split
-
-- **WHEN** allocated shares sum exactly to the amount paid
-- **THEN** that alone does not establish that the shares are correctly proportioned
-- **AND** correctness of the split is established by comparing lines against one another
+- **WHEN** goods arrive that no manifest line names, so no cost is stated for them
+- **THEN** their batch is uncosted — reported as not yet determined, never as zero
 
 ## ADDED Requirements
 
-### Requirement: Allocation runs against received quantities, at a defined point
+### Requirement: A batch is costed at receipt, not at lot close
 
-Allocation SHALL take the quantities actually received as its input, and SHALL run at the point a lot is closed rather than when its manifest is imported. Before that point a batch SHALL carry stock with no allocated cost, and that state SHALL be distinguishable from a cost of zero.
+A batch SHALL be costed the moment its stock is received, from its pinned cost, and SHALL NOT wait for the lot to be closed. A product with a costed batch MAY therefore be priced as soon as it is received. Only an uncosted batch — a surplus with no stated cost — carries no cost, and that state SHALL be distinguishable from a cost of zero.
 
-#### Scenario: An uncosted batch is distinguishable from a free one
+#### Scenario: Costed at receipt, priceable before close
 
-- **WHEN** a batch belongs to a lot that has not been closed
-- **THEN** its allocated cost is reported as not yet determined rather than as zero
+- **WHEN** stock is received against a manifest line with a stated cost
+- **THEN** its batch is costed immediately
+- **AND** the product can be priced without the lot being closed
 
-#### Scenario: Valuation excludes uncosted stock rather than valuing it at zero
+#### Scenario: An uncosted surplus is distinguishable from a free one
 
-- **WHEN** stock is valued while some of it belongs to an open lot
-- **THEN** the uncosted stock is reported separately rather than counted at zero
+- **WHEN** a batch has no pinned cost because its goods were a surplus
+- **THEN** its cost is reported as not yet determined rather than as zero
 
-#### Scenario: Expected but unreceived quantities take no share
+### Requirement: The amount paid is reconciled against the pinned line costs
 
-- **WHEN** a lot is closed and some expected lines were never received
-- **THEN** those lines receive no share of the amount paid
+A lot's amount paid SHALL be kept as a recorded fact and reconciled against the sum of its received lines' pinned per-unit costs times their received quantities. A material difference SHALL be reported — for reporting and audit — rather than apportioned into the goods. The amount paid SHALL NOT be the source of any product's cost.
+
+#### Scenario: The pinned costs reconcile to the amount paid
+
+- **WHEN** a lot's received line costs sum to its amount paid
+- **THEN** the lot reconciles cleanly and no discrepancy is raised
+
+#### Scenario: A mismatch is flagged, not absorbed
+
+- **WHEN** the sum of a lot's received pinned costs differs materially from its amount paid
+- **THEN** the difference is reported as a discrepancy
+- **AND** no product's cost is silently adjusted to make the totals agree

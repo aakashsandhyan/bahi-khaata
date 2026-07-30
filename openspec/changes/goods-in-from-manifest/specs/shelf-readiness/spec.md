@@ -41,19 +41,19 @@ MRP is the printed legal ceiling and selling above it is unlawful. A marketplace
 - **WHEN** goods carry no printed MRP and none has been supplied
 - **THEN** the product is not sellable
 
-### Requirement: A price cannot be set before its cost is known
+### Requirement: A margin price needs the batch's cost, which is known at receipt
 
-Setting a selling price SHALL require the batch's cost to be known, which means its lot SHALL have been closed. A margin computed against an unknown cost is not a margin.
+Setting a margin-based selling price SHALL require the batch's cost to be known. A batch costed from its pinned manifest cost is known the moment it is received, so its product MAY be priced without the lot being closed. Only an uncosted surplus — goods no manifest line named, carrying no stated cost — lacks a cost to compute a margin against.
 
-#### Scenario: Pricing goods from an open lot is refused
+#### Scenario: A manifest-costed product is priceable at receipt
 
-- **WHEN** a price is set for a product whose only batch belongs to an open lot
-- **THEN** it is refused, reporting that the lot has not been closed
+- **WHEN** a product's batch is costed from its pinned manifest cost
+- **THEN** a margin price may be set for it without the lot being closed
 
-#### Scenario: Pricing becomes possible once the lot closes
+#### Scenario: An uncosted surplus has no cost to price a margin against
 
-- **WHEN** the lot is closed and its costs apportioned
-- **THEN** a price may be set for its products
+- **WHEN** a product's only batch is an uncosted surplus with no stated cost
+- **THEN** a margin cannot be computed for it until a cost is decided
 
 ### Requirement: A label shows the MRP, our price, and the saving
 
