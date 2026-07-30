@@ -89,7 +89,9 @@ An observed online price exists on the product and must never substitute for it 
 
 ### 7. A lot may close over unopened boxes, and an unlisted surplus is left uncosted
 
-Closing reports any uncounted boxes and proceeds on explicit confirmation. It is not prevented: goods that never arrive would otherwise hold a lot open forever, and nothing in that lot could be priced or sold.
+Closing a lot now means only that receiving is done — a completeness marker, not a costing event. Cost is already pinned per product at receipt (decision 2), so close no longer apportions anything; it records that the boxes have been dealt with. A product is priceable before its lot closes, since its cost was known when it was received.
+
+Closing reports any uncounted boxes and proceeds on explicit confirmation. It is not prevented: goods that never arrive would otherwise hold a lot open forever, and there is no longer any costing reason to keep it open at all.
 
 Goods found that no line names — a surplus — carry no stated cost. They are left uncosted, an explicit state distinct from zero; a cost is a later, deliberate decision, not an automatic figure. The label gate already keeps an uncosted surplus off the floor until someone prices it, so nothing that could otherwise sell is stranded.
 
