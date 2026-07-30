@@ -122,14 +122,9 @@ public class LabelTemplateService {
     }
 
     private void column(StringBuilder t, PrintLabelRequest req, int origin) {
-        // The composed image first, then the native barcode over its reserved blank band.
+        // Everything, bars included, is the composed image — see the class note on why nothing is
+        // left to the firmware's own rendering any more.
         appendBitmap(t, origin, composeColumn(req));
-
-        int barsWidth = (req.barcode().length() * 11 + 35) * 2;
-        int barsX = origin + Math.max(0, (300 - barsWidth) / 2);
-        t.append("BARCODE ").append(barsX).append(',').append(BARS_Y)
-                .append(",\"128\",").append(BARS_H).append(",0,0,2,2,\"")
-                .append(sanitizeBarcode(req.barcode())).append("\"\r\n");
     }
 
     /**
@@ -147,7 +142,27 @@ public class LabelTemplateService {
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 
         // Wordmark, centred at the top.
-        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 10, null);
+        g.drawImage(wordmark, (300 - wordmark.getWidth()) / 2, 14, null);
+
+        // The barcode, encoded here rather than by the firmware: the printer's Code 128 encoder
+        // compresses digit runs, so its rendered width never matched a width estimated outside it,
+        // and the bars sat visibly off-centre. Encoding in-process makes the module count exact —
+        // centring is arithmetic again, and the narrower subset-C bars buy real quiet zones.
+        int[] widths = code128Widths(req.barcode() == null ? "" : req.barcode());
+        int modules = 0;
+        for (int w : widths) {
+            modules += w;
+        }
+        int barsW = modules * 2;
+        int bx = (300 - barsW) / 2;
+        boolean bar = true;
+        for (int w : widths) {
+            if (bar) {
+                g.fillRect(bx, BARS_Y, w * 2, BARS_H);
+            }
+            bx += w * 2;
+            bar = !bar;
+        }
 
         // Name: real metrics, truncated to what actually fits between the margins.
         g.setFont(nameFont);
@@ -260,11 +275,76 @@ public class LabelTemplateService {
         return head + "," + out;
     }
 
-    /** A barcode value rides inside the BARCODE command's quotes — keep it to safe characters. */
-    private static String sanitizeBarcode(String value) {
-        if (value == null) {
-            return "";
+    // --- Code 128, encoded in-process ---------------------------------------------------------
+
+    /** The Code 128 module-width table: six widths per symbol, the stop pattern's seven last. */
+    private static final String[] CODE128 = {
+        "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+        "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+        "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+        "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+        "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+        "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+        "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+        "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+        "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+        "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+        "114131","311141","411131","211412","211214","211232","2331112"
+    };
+
+    /**
+     * Encodes to bar/space widths: subset B, switching to subset C for even runs of four or more
+     * digits — the same compression the firmware applies, which is why an outside width estimate
+     * never matched. Characters outside Code 128 B are replaced with '-' rather than corrupting
+     * the symbol.
+     */
+    private static int[] code128Widths(String value) {
+        java.util.List<Integer> vals = new java.util.ArrayList<>();
+        vals.add(104); // start B
+        int i = 0;
+        boolean inC = false;
+        while (i < value.length()) {
+            int run = 0;
+            while (i + run < value.length() && Character.isDigit(value.charAt(i + run))) {
+                run++;
+            }
+            if (run >= 4) {
+                int pairs = run / 2;
+                vals.add(inC ? -1 : 99); // switch to C (never already in C here)
+                inC = true;
+                for (int p = 0; p < pairs; p++) {
+                    vals.add(Integer.parseInt(value.substring(i, i + 2)));
+                    i += 2;
+                }
+                if (i < value.length() && !Character.isDigit(value.charAt(i)) || run % 2 == 1) {
+                    vals.add(100); // back to B for the leftover
+                    inC = false;
+                }
+            } else {
+                char c = value.charAt(i++);
+                if (c < 32 || c > 126) {
+                    c = '-';
+                }
+                vals.add(c - 32);
+            }
         }
-        return value.replace("\"", "'").replace("\r", " ").replace("\n", " ");
+        if (inC) {
+            // ended in C: fine — checksum and stop follow directly
+        }
+        vals.removeIf(v -> v == -1);
+        int checksum = vals.get(0);
+        for (int k = 1; k < vals.size(); k++) {
+            checksum += k * vals.get(k);
+        }
+        vals.add(checksum % 103);
+        vals.add(106); // stop
+
+        java.util.List<Integer> widths = new java.util.ArrayList<>();
+        for (int v : vals) {
+            for (char w : CODE128[v].toCharArray()) {
+                widths.add(w - '0');
+            }
+        }
+        return widths.stream().mapToInt(Integer::intValue).toArray();
     }
 }

@@ -45,19 +45,19 @@ class LabelTemplateServiceTest {
         assertTrue(tspl.contains("CLS"), "clears the buffer before drawing");
         assertTrue(tspl.contains("PRINT 1,1"), "fires the print at the end");
         assertEquals(2, countOf(tspl, "BITMAP "), "the composed body prints once per column");
-        assertEquals(2, countOf(tspl, "BARCODE "), "the native barcode prints once per column");
-        assertTrue(tspl.contains("BBZ-100042"), "barcode value present");
-        assertTrue(tspl.contains("\"128\""), "Code 128");
+        assertEquals(0, countOf(tspl, "BARCODE "),
+            "no native barcode — the bars are encoded in-process and live in the bitmap");
     }
 
     @Test
     void aRowCanCarryTwoDifferentLabels() {
         String tspl = service.renderRow(WITH_MRP, WITHOUT_MRP);
 
-        assertTrue(tspl.contains("BBZ-100042") && tspl.contains("BBZ-100043"),
-                "each column carries its own product's barcode");
-        assertEquals(2, countOf(tspl, "BITMAP "));
-        assertEquals(2, countOf(tspl, "BARCODE "));
+        assertEquals(2, countOf(tspl, "BITMAP "), "one composed image per column");
+        // The two columns carry different content, so their bitmap payloads must differ.
+        int first = tspl.indexOf("BITMAP ");
+        int second = tspl.indexOf("BITMAP ", first + 1);
+        assertNotEquals(tspl.substring(first, second), tspl.substring(second), "columns differ");
     }
 
     @Test
@@ -79,10 +79,11 @@ class LabelTemplateServiceTest {
     }
 
     @Test
-    void aQuoteInABarcodeCannotBreakTheCommand() {
-        PrintLabelRequest quoted = new PrintLabelRequest("BB\"Z", "Thing", null, 99_00L);
+    void anyBarcodeTextEncodesWithoutBreakingTheStream() {
+        // The bars are pixels now; even a quote or an odd character cannot break a command.
+        PrintLabelRequest quoted = new PrintLabelRequest("BB\"Z-99", "Thing", null, 99_00L);
         String tspl = service.renderLabel(quoted);
-        assertFalse(tspl.contains("BB\"Z"), "a literal quote must not reach the command");
+        assertTrue(tspl.contains("PRINT 1,1"), "renders cleanly whatever the code contains");
     }
 
     @Test
