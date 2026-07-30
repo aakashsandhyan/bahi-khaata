@@ -10,8 +10,8 @@
 - [x] 2.1 Reshape `QueuePrintJobRequest` to self-contained fields: `barcode`, `productName`, `sellingPricePaise`, `mrpPaise` (null), `copies`, optional `productId`.
 - [x] 2.2 Update `QueuePrintJobResponse`/`PrintJobStatusResponse` to drop item-type/id, reflect new fields.
 - [x] 2.3 New pricing contracts: `LotSummary`, `PriceableProduct` (with unit cost, costed flag), `LotCategory`, `PriceSuggestion`, `ShelfPricingSaveRequest` (lot, product-or-manual, category, mrp?, quantity, condition, price), `ShelfPricingSaveResult`.
-- [ ] 2.4 New reconciliation contracts: `LotReconciliation` (counted vs priced/shelved per product), `WriteOffResult`.
-- [ ] 2.5 New capture contracts: `CaptureRequest`, `CaptureSummary`, `ReviewQueueItem`, `ApproveCaptureRequest`.
+- [x] 2.4 New reconciliation contracts: `LotReconciliation` (counted vs priced/shelved per product), `WriteOffResult`.
+- [x] 2.5 New capture contracts: `CaptureRequest`, `CaptureSummary`, `ReviewQueueItem`, `ApproveCaptureRequest`.
 
 ## 3. Print executor — self-contained
 
@@ -19,7 +19,7 @@
 - [x] 3.2 `PrintExecutorService`: remove `buildLabelRequest` stub; build `PrintLabelRequest` from the job's own fields; render via `LabelTemplateService`, send via driver.
 - [x] 3.3 On successful print of a job with a `productId`, stamp that product's `label_printed_at`.
 - [x] 3.4 `PrintController` POST `/api/print-jobs`: accept the self-contained request; validate copies 1..100.
-- [ ] 3.5 Bulk pairing: an endpoint/service that queues N self-contained jobs and pairs consecutive labels into `renderRow` rows; lone leftover prints as a duplicate pair (`renderLabel`). No blank stickers.
+- [x] 3.5 Bulk pairing: an endpoint/service that queues N self-contained jobs and pairs consecutive labels into `renderRow` rows; lone leftover prints as a duplicate pair (`renderLabel`). No blank stickers.
 - [x] 3.6 Update/rewrite `PrintExecutorServiceTest` for the new path (no DB lookup to render; product marked on success; failure leaves it unmarked).
 
 ## 4. Shelf pricing service
@@ -34,24 +34,24 @@
 
 ## 5. Lot reconciliation write-off
 
-- [ ] 5.1 `LotReconciliation` service: compute per-product phantom = counted − (priced & shelved) for a lot.
-- [ ] 5.2 `writeOff(lotId)`: one append-only negative `StockLedgerEntry` for the phantom total, recorded as shrinkage/loss on the lot; no existing row edited; no-op when phantom is zero.
-- [ ] 5.3 Endpoint `/api/pricing/lots/{lotId}/reconcile` (preview) and `.../write-off` (apply).
-- [ ] 5.4 Tests: phantom computed correctly; write-off nets stock to physical; zero-phantom → no movement; append-only preserved.
+- [x] 5.1 `LotReconciliation` service: compute per-product phantom = counted − (priced & shelved) for a lot.
+- [x] 5.2 `writeOff(lotId)`: one append-only negative `StockLedgerEntry` for the phantom total, recorded as shrinkage/loss on the lot; no existing row edited; no-op when phantom is zero.
+- [x] 5.3 Endpoint `/api/pricing/lots/{lotId}/reconcile` (preview) and `.../write-off` (apply).
+- [x] 5.4 Tests: phantom computed correctly; write-off nets stock to physical; zero-phantom → no movement; append-only preserved.
 
 ## 6. Mobile capture & review queue
 
-- [ ] 6.1 `ProductCapture` entity + repository (pending/approved/rejected, oldest-first query).
-- [ ] 6.2 `CaptureService`: create (pricing-free), list pending, reject.
-- [ ] 6.3 Approve path: reuse `ShelfPricing.save*` with reviewer-supplied lot/category/price; mark capture approved. A capture reaches the shelf only via approve.
-- [ ] 6.4 `CaptureController` `/api/capture` (create — LAN, no auth) and review endpoints `/api/pricing/review-queue` (list, approve, reject).
-- [ ] 6.5 Tests: capture carries no price; pending not on shelf; approve creates the same shelf product as a workbench save; reject creates nothing.
+- [x] 6.1 `ProductCapture` entity + repository (pending/approved/rejected, oldest-first query).
+- [x] 6.2 `CaptureService`: create (pricing-free), list pending, reject.
+- [x] 6.3 Approve path: reuse `ShelfPricing.save*` with reviewer-supplied lot/category/price; mark capture approved. A capture reaches the shelf only via approve.
+- [x] 6.4 `CaptureController` `/api/capture` (create — LAN, no auth) and review endpoints `/api/pricing/review-queue` (list, approve, reject).
+- [x] 6.5 Tests: capture carries no price; pending not on shelf; approve creates the same shelf product as a workbench save; reject creates nothing.
 
 ## 7. Product catalog — label-printed marker
 
 - [x] 7.1 `Product`: add `labelPrintedAt` (Instant, converter+text), `markLabelPrinted(at)`, `isLabelPrinted()`.
-- [ ] 7.2 `ProductCatalog`: query for shelf products awaiting a label (on shelf, `label_printed_at` null) for the bulk screen.
-- [ ] 7.3 Tests: unlabelled after price-without-print; marked once a label prints; reprint keeps marker set.
+- [x] 7.2 `ProductCatalog`: query for shelf products awaiting a label (on shelf, `label_printed_at` null) for the bulk screen.
+- [x] 7.3 Tests: unlabelled after price-without-print; marked once a label prints; reprint keeps marker set.
 
 ## 8. Frontend — pricing workbench
 
