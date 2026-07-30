@@ -172,12 +172,20 @@ public class GoodsInCounting {
                         line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
                         remark, issueType, at);
 
-        // Pin the manifest's stated per-unit cost onto the batch as it is received, so it is costed
-        // at once and its product is priceable without the lot being closed. A line that states no
-        // cost leaves the batch uncosted. Unusable scrap is never stock — it is excluded from the
-        // ledger and from pricing — so it carries no inventory cost even when its line states one.
+        // Pin the product's cost onto the batch as it is received, so it is costed at once and its
+        // product is priceable without the lot being closed. The manifest does not state the cost
+        // outright: it states each product's value (its selling price on a returns sheet, the
+        // supplier's own cost on a supply sheet) and, per category, the fraction of that value the
+        // lot was bought at. The cost is that value scaled by the fraction — a quarter of the price
+        // on one delivery, ten per cent over the supplier's cost on another — computed once here,
+        // over what was expected, and never re-settled at close. A line that states no value leaves
+        // the batch uncosted. Unusable scrap is never stock — excluded from the ledger and from
+        // pricing — so it carries no inventory cost even when its line states one.
         if (line.getStatedValue() != null && condition != StockCondition.UNUSABLE) {
-            batch.pinUnitCost(line.getStatedValue());
+            Long unitCostPaise = pinnedUnitCostFor(line, ratePaidFor(line.getLot()));
+            if (unitCostPaise != null) {
+                batch.pinUnitCost(Money.ofPaise(unitCostPaise));
+            }
         }
 
         return new CountOutcome(
@@ -528,7 +536,7 @@ public class GoodsInCounting {
                                         line.getProduct().getOnlinePrice() == null
                                                 ? null
                                                 : line.getProduct().getOnlinePrice().paise(),
-                                        indicativeCost(line, rate),
+                                        pinnedUnitCostFor(line, rate),
                                         recordedMrp(line)))
                 .toList();
     }
@@ -566,14 +574,15 @@ public class GoodsInCounting {
     }
 
     /**
-     * What fraction of its stated value a delivery was bought at.
+     * What fraction of its stated value a delivery was bought at — one figure per lot.
      *
      * <p>The amount paid over the total the sheet says the goods are worth: a quarter of the
-     * online price on one delivery, ten per cent above the supplier's own cost on another. It
-     * is the same figure the apportionment will arrive at, computed here from what was expected
-     * rather than from what turned up.
+     * online price on one delivery, ten per cent above the supplier's own cost on another. Each
+     * category is its own lot, so this fraction is that category's single rate exactly, not an
+     * average smeared across differently-priced goods. Computed from what was expected, so a
+     * shortfall does not move it.
      *
-     * <p>Null when the sheet states no values at all, in which case nothing can be indicated.
+     * <p>Null when the sheet states no values at all, in which case cost cannot be pinned.
      */
     private java.math.BigDecimal ratePaidFor(Lot lot) {
         long stated = 0;
@@ -590,14 +599,16 @@ public class GoodsInCounting {
     }
 
     /**
-     * Roughly what a unit of this line will have cost.
+     * What a unit of this line costs: its stated value scaled by the fraction the lot was bought
+     * at. This is the cost pinned onto the batch at receipt, not an estimate — the same figure
+     * whether shown while unpacking or written onto the goods when counted. Settled once, over
+     * what was expected, and not re-computed at close, so a line that turns up short carries the
+     * cost it was pinned at rather than more.
      *
-     * <p>An indication, not the cost. The real figure is settled when the delivery closes and is
-     * spread across the goods that actually arrived — so a line that turns up short carries the
-     * same money over fewer units and costs more each than this says. Shown anyway because a
-     * rough figure while the goods are in hand beats an exact one nobody will look up later.
+     * <p>Null when the rate or the line's stated value is missing, in which case the batch is
+     * left uncosted.
      */
-    private Long indicativeCost(ExpectedLine line, java.math.BigDecimal rate) {
+    private Long pinnedUnitCostFor(ExpectedLine line, java.math.BigDecimal rate) {
         if (rate == null || line.getStatedValue() == null) {
             return null;
         }

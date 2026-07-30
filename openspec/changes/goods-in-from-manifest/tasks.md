@@ -75,9 +75,10 @@
 ## 8. Cost pinned at receipt (overturns section 4 — apportion-at-close)
 
 - [x] 8.1 `Batch`: add a costed-at-receipt path that sets `allocatedUnitCost`, `costBasis = PINNED`, and `allocatedTotal` when a batch is created with a known per-unit cost. Keep the uncosted path for a surplus.
-- [x] 8.2 `countExpected` pins the expected line's stated per-unit cost onto the batch it creates (`CostBasis.PINNED`). Test the batch is `isCosted()` at receipt, no lot close needed.
+- [x] 8.2 `countExpected` pins the product's cost — its stated value scaled by the lot's paid-to-stated rate — onto the batch it creates (`CostBasis.PINNED`). Test the batch is `isCosted()` at receipt, no lot close needed.
 - [x] 8.3 `countUnlisted` (surplus, no stated cost) leaves the batch uncosted. Test `isCosted()` is false and distinguishable from a zero cost.
-- [ ] 8.4 `ConsignmentImporter` reads the manifest's per-product cost into the expected line, so counting can pin it. Test import populates it; extend `tools/consignment.py` to read the cost column.
+- [x] 8.4 Cost is the stated value scaled by the lot's rate (`ratePaidFor` × `stated_value`), computed at receipt over expected quantities — the rate is `(amountPaid+freight) ÷ Σ(statedValue×expectedQty)`, one category per lot so it is that category's exact rate. No import-tool change: the tool already ships the stated value and the amount paid, and already costs off the amount paid (not the display-only `% DIS`), so pinning the unscaled stated value would over/understate by the discount/markup. Test a returns line pins below its ASP and a supply line pins above the supplier cost.
+- [x] 8.11 Backfill migration (`V37`) re-pins batches counted before this change: uncosted, received, non-scrap batches whose product's line states a value get `statedValue × rate` pinned in place, so the already-imported lots become priceable without re-import. Lots stating no value stay uncosted. Test the backfill costs an old batch and skips a valueless lot.
 - [x] 8.5 `LotClosing`: closing marks the lot `CLOSED` (receiving done) without apportioning — remove the `CostAllocator` call, keep the unopened-boxes confirmation. Test close changes no batch's cost.
 - [x] 8.6 Remove the `CostBasis.ESTIMATED` lot-average weighting of a surplus; a surplus stays uncosted.
 - [x] 8.7 Amount-paid cross-check: sum of pinned costs × received quantity vs amount paid; report a material mismatch. Test clean and mismatch.

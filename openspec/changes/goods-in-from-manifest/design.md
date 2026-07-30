@@ -45,19 +45,23 @@ Products are created because a product is a catalogue entry, not a claim about s
 
 **Rejected: create products at unpack time instead**, from the scanned code. Rejected because the manifest already names them, and making staff type product names off packaging is exactly the data-entry burden this screen exists to avoid.
 
-### 2. Cost is the manifest's stated per-product cost, pinned at receipt
+### 2. Cost is the product's stated value scaled by its category's rate, pinned at receipt
 
-Each manifest line states what its product cost. That figure is pinned onto the batch as the stock is counted in (`CostBasis.PINNED`) — the batch is costed the moment it is received, not at lot close. There is no lot-total apportionment: the manifest already says what each product cost, so there is nothing to divide.
+The manifest does not state a product's cost outright. It states each product's **value** — its selling price on a returns sheet, the supplier's own cost on a supply sheet — and, per category, the **fraction of that value the lot was bought at**: a discount off the online price on one, a markup over the supplier's cost on another (kitchen and footwear come in at 110% of the supplier's cost). A product's cost is its stated value scaled by that fraction.
 
-The consequence is the reverse of the earlier design: a product can be priced as soon as it is received, which is what the shop needs and what the pricing workbench expects. This is deliberate — liquidation margins are large, so absorbing a shortfall's or a damaged unit's cost into the surviving good units buys a precision that is not worth its complexity here. Eleven units arriving where twelve were promised each keep their stated cost; the missing unit's cost is simply not incurred against the goods.
+Each category is its own lot, so a lot has exactly one rate. The rate is derivable from what is already stored — the amount paid (with freight) over the total value the lot's lines were expected to hold — and equals that category's stated rate exactly; it is not an average smeared across differently-priced goods. It is computed once, over the **expected** quantities, as the stock is counted in, and the resulting per-unit cost is pinned onto the batch (`CostBasis.PINNED`). The batch is costed the moment it is received, not at lot close, and never re-settled there.
 
-The lot's amount paid is kept as a recorded cross-check, useful in reporting: the sum of the pinned line costs should reconcile to it, and a mismatch is flagged rather than silently apportioned away.
+The consequence is the reverse of the earlier design: a product can be priced as soon as it is received, which is what the shop needs and what the pricing workbench expects. Deliberately so — liquidation margins are large, so absorbing a shortfall's or a damaged unit's cost into the surviving good units buys a precision not worth its complexity here. Eleven units arriving where twelve were promised each keep their pinned cost; the missing unit's cost is simply not incurred against the goods.
 
-**Rejected: apportion the lot total across received quantities at close** (the earlier decision). Rejected because the manifest states per-product cost directly, so apportionment invents a division the data does not need, and it blocks pricing until close for no gain at these margins.
+The lot's amount paid is kept as a recorded cross-check, useful in reporting: the sum of the pinned line costs should reconcile to it (to within per-unit rounding), and a mismatch is flagged rather than silently apportioned away.
 
-**Rejected: apportion per box as it closes**, so cost is known earlier. Rejected because every later box would change every earlier share — moot now that cost is stated per line and never apportioned.
+**Rejected: pin the manifest's stated value as the cost, unscaled.** Rejected because the stated value is not the cost — pinning the supplier's own cost understates every supply line by the markup we paid over it, and pinning a returns line's online price overstates it by the discount. The rate is what turns the stated value into a cost.
 
-A stated cost may still be absent for a genuine surplus — goods that arrived but appear on no manifest line. Those keep no pinned cost and stay an explicit uncosted state (decision 7), the rare exception rather than the rule.
+**Rejected: apportion the lot total across received quantities at close** (the earlier decision). Rejected because the rate is known per category at receipt, so the cost can be pinned up front; deferring to close invents nothing and blocks pricing for no gain at these margins. Computing over expected rather than received quantities is what lets the rate be fixed before all the goods are in.
+
+**Rejected: apportion per box as it closes**, so cost is known earlier. Rejected because every later box would change every earlier share — moot now that the rate is per category and the cost is fixed at receipt.
+
+A stated value may still be absent for a genuine surplus — goods that arrived but appear on no manifest line — or a lot may state no values at all. Those keep no pinned cost and stay an explicit uncosted state (decision 7), to be hand-priced: the rare exception rather than the rule.
 
 ### 3. A box is the tracking number, and it is the scan unit
 
