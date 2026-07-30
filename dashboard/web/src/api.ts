@@ -303,9 +303,9 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
-  createManualLot: (supplier: string, receivedOn: string, amountPaidPaise: number) =>
+  createManualLot: (supplierId: string, receivedOn: string, amountPaidPaise: number) =>
     post<_LotSummary>('/api/lots/manual', {
-      supplier,
+      supplierId,
       receivedOn,
       amountPaidPaise,
       allocationMethod: 'RELATIVE_MRP',
@@ -325,6 +325,29 @@ export const receiving = {
       categoryCode,
       estimatedCostPaise,
     }),
+}
+
+// --- suppliers ---
+// The supplier master: list (all, or active-only for the receipt pick-list), search, create, edit,
+// deactivate/reactivate, and the lots received from one supplier.
+
+import type {
+  Supplier as _Supplier,
+  SupplierInput as _SupplierInput,
+  SupplierLot as _SupplierLot,
+} from './types'
+
+export const suppliers = {
+  list: (activeOnly = false, search = '') =>
+    getList<_Supplier>(
+      `/api/suppliers?active=${activeOnly}&search=${encodeURIComponent(search)}`,
+    ),
+  get: (id: string) => get<_Supplier>(`/api/suppliers/${id}`),
+  create: (body: _SupplierInput) => post<_Supplier>('/api/suppliers', body),
+  update: (id: string, body: _SupplierInput) => put<_Supplier>(`/api/suppliers/${id}`, body),
+  deactivate: (id: string) => post<_Supplier>(`/api/suppliers/${id}/deactivate`),
+  reactivate: (id: string) => post<_Supplier>(`/api/suppliers/${id}/reactivate`),
+  lots: (id: string) => getList<_SupplierLot>(`/api/suppliers/${id}/lots`),
 }
 
 // --- catalog ---

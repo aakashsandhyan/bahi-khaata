@@ -328,7 +328,7 @@ export interface ReceivingBoxes {
 }
 
 export interface CreateManualLotRequest {
-  supplier: string
+  supplierId: string
   receivedOn: string
   amountPaidPaise: number
   allocationMethod: string
@@ -451,4 +451,37 @@ export interface WriteOffResult {
 export interface BulkPrintResult {
   printed: number
   failed: number
+}
+
+// --- suppliers ---
+// One vendor goods are bought from. GSTIN is the legal identity when present; the name is the
+// fallback identity. A retired vendor is deactivated (active false), never deleted, because lots
+// point at it.
+
+export interface Supplier {
+  id: string
+  name: string
+  gstin: string | null
+  phone: string | null
+  address: string | null
+  contactPerson: string | null
+  notes: string | null
+  active: boolean
+}
+
+export interface SupplierInput {
+  name: string
+  gstin: string | null
+  phone: string | null
+  address: string | null
+  contactPerson: string | null
+  notes: string | null
+}
+
+export interface SupplierLot {
+  id: string
+  receivedOn: string
+  amountPaidPaise: number
+  receivingComplete: boolean
+  isManual: boolean
 }

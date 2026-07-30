@@ -9,11 +9,12 @@ import { BulkPrint } from './BulkPrint'
 import { MobileCapture } from './MobileCapture'
 import { Prep } from './Prep'
 import { Catalog } from './Catalog'
+import { Suppliers } from './Suppliers'
 import { PrinterConfig } from './admin/PrinterConfig'
 
 type View =
   | 'checkout' | 'lots' | 'receiving' | 'unpacking' | 'prep'
-  | 'pricing' | 'review' | 'labels' | 'capture' | 'catalog' | 'printer-config'
+  | 'pricing' | 'review' | 'labels' | 'capture' | 'catalog' | 'suppliers' | 'printer-config'
 
 /**
  * The admin dashboard shell.
@@ -44,6 +45,7 @@ export function App() {
         <button className={view === 'review' ? 'on' : ''} onClick={() => setView('review')}>Review</button>
         <button className={view === 'labels' ? 'on' : ''} onClick={() => setView('labels')}>Labels</button>
         <button className={view === 'catalog' ? 'on' : ''} onClick={() => setView('catalog')}>Catalog</button>
+        <button className={view === 'suppliers' ? 'on' : ''} onClick={() => setView('suppliers')}>Suppliers</button>
         <button className={view === 'printer-config' ? 'on' : ''} onClick={() => setView('printer-config')}>Printer</button>
       </nav>
       <main>
@@ -57,6 +59,7 @@ export function App() {
           : view === 'labels' ? <BulkPrint />
           : view === 'capture' ? <MobileCapture />
           : view === 'catalog' ? <Catalog />
+          : view === 'suppliers' ? <Suppliers />
           : <PrinterConfig />}
       </main>
     </>
