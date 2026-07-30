@@ -17,29 +17,14 @@
  */
 package com.bahikhaata.contracts;
 
-import java.util.HashMap;
-import java.util.Map;
-
+/**
+ * What one printed label carries — the shop's single label per product: wordmark, barcode, name,
+ * and the price story.
+ *
+ * <p>{@code mrpPaise} is null when no confirmed MRP exists; the label then shows the price alone,
+ * with no strike-through and no saving claimed — an estimate never prints as the legal figure. The
+ * saving percentage is derived from the two figures at render time, not carried separately, so the
+ * label can never claim a discount that disagrees with its own numbers.
+ */
 public record PrintLabelRequest(
-    String barcode,
-    String productName,
-    String category,
-    String costPerUnit,
-    String mrpPaise,
-    String lotId,
-    String expiryDate,
-    String receivedDate) {
-
-    public Map<String, Object> toMap() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("barcode", barcode);
-        map.put("productName", productName);
-        map.put("category", category);
-        map.put("costPerUnit", costPerUnit);
-        map.put("mrpPaise", mrpPaise);
-        map.put("lotId", lotId);
-        map.put("expiryDate", expiryDate);
-        map.put("receivedDate", receivedDate);
-        return map;
-    }
-}
+        String barcode, String productName, Long mrpPaise, long pricePaise) {}

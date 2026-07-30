@@ -38,6 +38,7 @@ class PrinterConnectionTesterTest {
         PrinterConnectionTester.TestResult result = tester.testConnection("192.168.1.1:99999", 9600);
 
         assertNotEquals("OK", result.status());
+        assertEquals("ERROR", result.status(), "a port outside 0-65535 should be a clean ERROR, not an uncaught exception");
     }
 
     @Test
@@ -62,5 +63,17 @@ class PrinterConnectionTesterTest {
 
         assertNotNull(result.message());
         assertFalse(result.message().isEmpty());
+    }
+
+    @Test
+    void addressWithNoColonAndNoDevPrefixIsTreatedAsAnOsPrinterName() {
+        // No machine running this test has a printer literally named this — the deterministic,
+        // hardware-free case. A printer that IS installed (e.g. "TSC TE244" on the shop's Windows
+        // box) is a manual check, since it depends on what is actually installed there.
+        PrinterConnectionTester.TestResult result =
+                tester.testConnection("Definitely-Not-An-Installed-Printer-42", 9600);
+
+        assertEquals("UNREACHABLE", result.status());
+        assertTrue(result.message().contains("No installed printer"));
     }
 }

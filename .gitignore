@@ -25,3 +25,9 @@ data/
 
 # macOS
 .DS_Store
+
+# staged frontend bundle for release builds (see deploy/build-release.sh)
+backend/src/main/resources/static/
+
+# release build artifacts (see deploy/build-release.sh) — rebuilt from source, never committed
+deploy/release/

@@ -21,15 +21,18 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Tests printer connectivity for network and serial connections.
+ * Tests printer connectivity for network, serial, and OS-registered (e.g. Windows USB) printers.
  *
- * <p>Used by the admin config screen to verify printer address before saving.
- * Returns OK, UNREACHABLE, or ERROR status with a diagnostic message.
+ * <p>Used by the admin config screen to verify a printer address before saving. Returns OK,
+ * UNREACHABLE, or ERROR status with a diagnostic message.
  */
 @Service
 public class PrinterConnectionTester {
@@ -41,8 +44,10 @@ public class PrinterConnectionTester {
     public TestResult testConnection(String address, int portSpeed) {
         if (address.startsWith("/dev/")) {
             return testSerialPort(address, portSpeed);
-        } else {
+        } else if (address.contains(":")) {
             return testNetworkPort(address);
+        } else {
+            return testPrintService(address);
         }
     }
 
@@ -72,9 +77,35 @@ public class PrinterConnectionTester {
             return new TestResult(
                 "UNREACHABLE",
                 "Connection failed: " + host + ":" + port + " (" + e.getMessage() + ")");
-        } catch (NumberFormatException e) {
+        } catch (IllegalArgumentException e) {
+            // Covers NumberFormatException (the port segment is not a number at all — it extends
+            // IllegalArgumentException) and InetSocketAddress rejecting a port outside 0-65535.
             log.error("Invalid port number in address: {}", address, e);
             return new TestResult("ERROR", "Invalid port number: " + e.getMessage());
         }
+    }
+
+    /**
+     * Confirms an OS-registered printer of this name is installed — the case for a USB printer on
+     * Windows (or a CUPS queue on macOS/Linux). This only checks the queue exists and is accepting
+     * jobs; it does not send anything, so it cannot detect the printer being out of paper or the
+     * cable unplugged if the OS still reports the queue as ready.
+     */
+    private TestResult testPrintService(String printerName) {
+        PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
+        return Arrays.stream(services)
+            .filter(s -> s.getName().equalsIgnoreCase(printerName))
+            .findFirst()
+            .map(s -> {
+                log.info("Printer test passed: \"{}\" is installed", printerName);
+                return new TestResult("OK", "Found the installed printer \"" + s.getName() + "\".");
+            })
+            .orElseGet(() -> {
+                log.warn("Printer test failed: no installed printer named \"{}\"", printerName);
+                return new TestResult(
+                    "UNREACHABLE",
+                    "No installed printer named \"" + printerName + "\". Check the exact name in "
+                        + "Windows' printer settings (Settings > Printers & scanners).");
+            });
     }
 }
