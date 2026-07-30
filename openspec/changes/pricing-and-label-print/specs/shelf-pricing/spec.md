@@ -7,34 +7,33 @@ lot SHALL be changeable during the session.
 
 #### Scenario: Selecting a lot to price against
 - **WHEN** the user opens the pricing workbench and selects an open lot
-- **THEN** the workbench lists the products already in that lot, each with its unit cost, and
-  offers to add a new product to the lot
+- **THEN** the workbench scopes pricing to that lot and offers both to scan an item into it and
+  to key one in by hand
 
 #### Scenario: Changing the lot mid-session
 - **WHEN** the user selects a different lot
 - **THEN** the workbench rescopes to the new lot without losing any product already saved
 
-### Requirement: Adding a product by picking an existing one or creating one
-The workbench SHALL let the user add a product to the selected lot in two ways: by picking a
-product already counted into the lot (a costed batch), or by creating one manually. Picking an
-existing product SHALL NOT create stock — it prices what is already counted. Manual creation
-SHALL create a product and a batch under the lot and is for stock never counted; the interface
-SHALL indicate that manual creation is only for stock not already counted, to guard against
-double-counting.
+### Requirement: Scanning an identifiable item versus keying one by hand
+The workbench SHALL let the user add a product to the selected lot in two ways, and which path an
+item takes is decided by whether it can be scanned to its record. Scanning an LSN or ASIN that is
+mapped in the barcode table SHALL resolve the already-counted product and batch and open it for
+pricing, creating no stock. Stock that cannot be scanned — its LSN/LPN reference lost, or never
+counted — SHALL be keyed in by hand, which creates a product and a batch under the lot.
 
-#### Scenario: Pricing a product already counted into the lot
-- **WHEN** the user picks a product already counted into the lot
-- **THEN** the workbench opens it for pricing with its unit cost from the lot's batch, creating
-  no new stock
+#### Scenario: Scanning an identifiable counted item
+- **WHEN** the user scans an LSN or ASIN mapped in the barcode table
+- **THEN** the workbench opens the resolved already-counted product for pricing with its unit
+  cost from the lot's batch, creating no new stock
 
-#### Scenario: Re-identifying a unit whose LSN was lost
-- **WHEN** a counted unit's per-unit LSN reference is lost and the user picks its product from
-  the lot's counted list
-- **THEN** the product is priced and a BBZ barcode is minted as its new shelf identity, with no
-  new stock created
+#### Scenario: Keying in a counted item whose LSN reference was lost
+- **WHEN** a counted unit's LSN/LPN reference is lost, so it cannot be scanned, and the user keys
+  it in by hand
+- **THEN** the system creates a product and a batch under the lot for it, and the double-count
+  against its orphaned counted batch is netted later by lot reconciliation
 
-#### Scenario: Manually creating never-counted stock
-- **WHEN** the user manually enters a name, quantity, and condition for stock not already counted
+#### Scenario: Keying in never-counted stock
+- **WHEN** the user keys in a name, quantity, and condition for stock never counted
 - **THEN** the system creates the product and a batch under the selected lot and opens it for
   pricing
 
@@ -96,16 +95,33 @@ product's lot unit cost. MRP SHALL be optional.
 - **WHEN** the user saves a product with no MRP entered
 - **THEN** the product is priced and saved without an MRP
 
-### Requirement: Saving prices the product, barcodes it, and shelves the quantity
-Saving a priced product SHALL set its category and selling price, mint a BBZ barcode if the
-product has none, and move the captured quantity onto the shelf by writing an append-only stock
-ledger movement. Selling price SHALL be set only through the product's sanctioned price
-mutation; receiving stock SHALL never change it.
+### Requirement: MRP is confirmed at pricing
+When the user enters or accepts an MRP at pricing, the batch's MRP SHALL be recorded as confirmed
+(not an estimate), resolving any estimate carried from counting. Only a confirmed MRP allows the
+label to show a struck MRP and a saving; an absent MRP yields a price-only label.
 
-#### Scenario: Saving a priced product
-- **WHEN** the user saves a product with a category, selling price, and quantity
-- **THEN** the product's selling price and category are set, a BBZ barcode is assigned if it had
-  none, and the quantity is moved onto the shelf as a stock ledger movement
+#### Scenario: Confirming an MRP at pricing
+- **WHEN** the user enters or accepts an MRP while pricing a product
+- **THEN** the batch's MRP is recorded as confirmed, so the printed label may strike it and show
+  the saving
+
+### Requirement: Saving prices and barcodes the product; only manual entry moves stock
+Saving a priced product SHALL set its category and selling price and mint a BBZ barcode if the
+product has none. When the product was keyed in by hand (never-counted or lost-reference stock),
+saving SHALL also move the captured quantity onto the shelf with an append-only stock ledger
+receipt. When the product was resolved by scanning an already-counted item, saving SHALL write no
+stock movement, because the stock was already received at counting. Selling price SHALL be set
+only through the product's sanctioned price mutation; receiving stock SHALL never change it.
+
+#### Scenario: Saving a scanned, already-counted product writes no stock movement
+- **WHEN** the user saves a product resolved by scanning an already-counted item
+- **THEN** its selling price and category are set and a BBZ barcode is assigned if it had none,
+  and no stock ledger movement is written
+
+#### Scenario: Saving a hand-keyed product moves its quantity onto the shelf
+- **WHEN** the user saves a hand-keyed product with a category, selling price, and quantity
+- **THEN** the product is priced and barcoded, and the quantity is moved onto the shelf as an
+  append-only stock ledger receipt
 
 #### Scenario: A product that already has a barcode keeps it
 - **WHEN** the user saves a product that already has a BBZ barcode

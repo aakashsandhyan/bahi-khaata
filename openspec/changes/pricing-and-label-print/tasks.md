@@ -24,11 +24,11 @@
 
 ## 4. Shelf pricing service
 
-- [ ] 4.1 `ShelfPricing` service in `pricing`: `lots()` (open lots), `productsInLot(lotId)` (costed batches' products + unit cost), `categoriesForLot(lotId)` (distinct categories, empty → caller falls back to full list).
-- [ ] 4.2 `suggestPrice(lotId, productId, category, customMargin?)` reusing `TargetMargins.resolve` + `Margins.priceForTargetMargin`; return none for uncosted batches (hand-priced case).
-- [ ] 4.3 `saveExisting(...)`: set category + selling price (`Product.setSellingPrice`), mint BBZ via `InternalBarcodeGenerator` if none, write a `StockLedgerEntry` for the quantity onto the shelf. No new stock beyond the shelf movement.
-- [ ] 4.4 `saveManual(...)`: create `Product` + `Batch.counted(product, lot, condition, quantity, mrp, estimate)`, then the same price/barcode/shelf-move path; uncosted batch → price required from caller (no suggestion).
-- [ ] 4.5 Guard: existing product with a BBZ keeps it (no re-mint).
+- [ ] 4.1 `ShelfPricing` service in `pricing`: `lots()` (open lots), `resolveScanned(code)` (LSN/ASIN via barcode resolver → already-counted product + its batch in the lot + unit cost), `categoriesForLot(lotId)` (distinct categories, empty → caller falls back to full list).
+- [ ] 4.2 `suggestPrice(unitCost, category, customMargin?)` reusing `TargetMargins.resolve` + `Margins.priceForTargetMargin`; only for costed stock (uncosted → no suggestion, hand-priced).
+- [ ] 4.3 `saveExisting(...)`: scanned already-counted product — set category + selling price (`Product.setSellingPrice`), confirm the batch MRP (non-estimate), mint BBZ if none. **No** ledger movement (already received at counting).
+- [ ] 4.4 Expose an inventory entry point (`GoodsInCounting.receiveManual(lot, product, condition, qty, mrp, at)` reusing `addToBatch`) that creates the batch + writes the receipt; `saveManual(...)` creates the `Product`, calls it, then sets category/price/confirmed-MRP/BBZ. Uncosted batch → price required from caller.
+- [ ] 4.5 Guard: existing product with a BBZ keeps it (no re-mint). MRP entered at pricing is recorded confirmed.
 - [ ] 4.6 `ShelfPricingController` `/api/pricing/shelf`: lots, products-in-lot, categories-for-lot, suggest, save-existing, save-manual.
 - [ ] 4.7 Tests: costed → suggestion; uncosted → no suggestion + hand price; save sets price/mints BBZ/ledger-moves; manifested-missing product absent from priceable.
 

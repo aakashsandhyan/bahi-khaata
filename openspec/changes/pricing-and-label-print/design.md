@@ -54,34 +54,45 @@ proposal; `print_job` has no production rows yet, so the migration recreates it.
 
 ### 2. Lot-first pricing, reusing the margin machinery
 A new `ShelfPricing` service (in `pricing`, alongside `PricingWorkbench`) drives the flow:
-- `lots()` / `productsInLot(lotId)` — open lots, and the priceable items already in a lot
-  (its batches' products), each with its FIFO unit cost.
+- `lots()` — the open lots to price against.
+- `resolveScanned(code)` — the scanner path: a scanned LSN/ASIN is looked up via the existing
+  barcode resolver; a hit returns the already-counted product and its batch in the lot (with its
+  unit cost), which the workbench opens for pricing without creating stock.
 - `categoriesForLot(lotId)` — the distinct categories present in the lot, for the dropdown.
-  A mixed lot with nothing manifested yet returns empty, and the UI falls back to the full
-  category list.
-- `suggestPrice(lotId, productId, category, customMargin?)` — unit cost from the lot's batch,
-  margin from `TargetMargins.resolve(category, custom)`, price from
-  `Margins.priceForTargetMargin`. Only produced once a category is chosen.
-- `save(...)` — sets the product's category and selling price (`Product.setSellingPrice`,
-  the one sanctioned mutation), mints a BBZ barcode if the product has none
-  (`InternalBarcodeGenerator.generateFor`), and moves the captured quantity onto the shelf.
+  A mixed lot with nothing counted yet returns empty, and the UI falls back to the full list.
+- `suggestPrice(unitCost, category, customMargin?)` — margin from
+  `TargetMargins.resolve(category, custom)`, price from `Margins.priceForTargetMargin`. Only
+  produced once a category is chosen, and only for costed stock (see decision 3).
+- `saveExisting(...)` / `saveManual(...)` — the two save paths of decision 3. Both set the
+  product's category and selling price (`Product.setSellingPrice`, the one sanctioned mutation),
+  confirm the batch's MRP, and mint a BBZ barcode if the product has none
+  (`InternalBarcodeGenerator.generateFor`).
 
-### 3. Two ways in — pick an existing counted product, or manual-create
-The workbench offers two paths, and the split is what guards against double-counting:
-- **Pick existing** (`productsInLot`) — the primary path. Prices a product already counted into
-  the lot (a costed batch). Covers manifested-and-found stock, and stock whose per-unit LSN
-  was lost: the unit is re-identified by picking its product from the lot, not by scanning the
-  dead LSN, and the minted BBZ becomes its new shelf identity. No new stock is created.
-- **Manual-create** — a deliberate, separate action for stock **never counted** (mixed-lot
-  discovery, or a lost-LSN unit that cannot be matched to any existing product). Creates a
-  `Product` and a `Batch.counted(product, lot, condition, quantity, …)` so it has a lot and can
-  be shelved. The UI nudges that manual-create is only for stock not already counted.
+### 3. Two ways in — scan an identifiable item, or key it by hand
+Which path an item takes is decided by whether it can still be scanned to its record, and the
+split is what guards against double-counting:
+- **saveExisting — scan resolves it.** Identifiable stock is stock that still carries an LSN (or
+  ASIN) that is scanned and mapped in the barcode table. Scanning it resolves the already-counted
+  product and batch. Pricing then sets category, price, and a confirmed MRP, and mints the BBZ as
+  the shelf-scannable identity — but writes **nothing to the stock ledger**, because the stock was
+  already received at counting (`GoodsInCounting` writes the receipt then). Pricing makes existing
+  stock *sellable*; it does not move stock.
+- **saveManual — no scan resolves it.** Stock whose LSN/LPN reference is lost, or that was never
+  counted (mixed-lot discovery), is keyed by hand. This creates a `Product` and a
+  `Batch.counted(...)` under the lot **and writes the receipt** — stock enters the ledger now,
+  with the captured quantity. A lost-LSN item re-entered this way double-books against its
+  orphaned counted batch; that is netted at the lot level (decision 3b), never per unit.
+
+MRP is confirmed at pricing on both paths: the operator enters or accepts the printed MRP, and
+because a person sets it deliberately here it is recorded **non-estimate** — which is what lets
+the label show a real struck MRP and saving. A counting-time estimate is thus resolved to a
+confirmed figure at the pricing moment; absent MRP prints a price-only label.
 
 A manual batch created after the lot's cost was allocated is **uncosted** — it has no unit cost.
 Per **option B**, the workbench then shows **no suggested price** for it and the operator types
-the selling price by hand; the margin suggestion appears only for costed (counted-and-allocated)
-stock. This is deliberate: a mixed lot's contents are unknown until entered, so its late manual
-stock genuinely has no allocated cost to derive a margin from.
+the selling price by hand; the margin suggestion appears only for costed stock. This is
+deliberate: a mixed lot's contents are unknown until entered, so its late manual stock genuinely
+has no allocated cost to derive a margin from.
 
 ### 3a. Missing manifested stock is out of scope for pricing
 A manifested item that was never counted has no batch, so `priceable`/`productsInLot` (which
@@ -98,11 +109,19 @@ system stock equals physical reality and the loss is recorded against the lot. N
 edited — the write-off is a reversing entry, consistent with the append-only rule. Per-unit
 reconciliation of a lost LSN is explicitly not attempted.
 
-### 4. Quantity moves to the shelf through the stock ledger
-Saving writes an append-only `StockLedgerEntry` for the captured quantity, the movement that
-makes the units shelf inventory. Costing stays FIFO off the batch; selling price stays the
-product's alone. No new costing rule — this reuses the existing ledger movement, the same one
-counting already writes, at the pricing moment instead of the receiving moment.
+### 4. Only manual entry writes the ledger; existing stock is already received
+The stock ledger is written **only on the `saveManual` path**, and only there because the stock
+is entering the system for the first time. Counted stock already has its receipt — `GoodsInCounting`
+writes `StockLedgerEntry.receipt` for GOOD/DAMAGED units at count time — so `saveExisting` adds
+no movement; a second receipt there would double the on-hand quantity. The captured quantity is a
+`saveManual` concern only; for scanned existing stock the quantity is the batch's counted figure,
+not re-entered.
+
+Materializing manual stock into a batch-plus-receipt is inventory logic — the rule that only
+GOOD/DAMAGED units reach the ledger lives in `GoodsInCounting.addToBatch`. Rather than duplicate
+that rule in `pricing`, `GoodsInCounting` exposes a small entry point that `ShelfPricing` calls,
+keeping the ledger rules in one place. Costing stays FIFO off the batch; selling price stays the
+product's alone.
 
 ### 5. `label_printed_at` on the product; bulk prints the un-marked
 `Product` gains a nullable `label_printed_at` (Instant, ISO-8601 text, per the column
