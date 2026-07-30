@@ -172,6 +172,13 @@ public class GoodsInCounting {
                         line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
                         remark, issueType, at);
 
+        // Pin the manifest's stated per-unit cost onto the batch as it is received, so it is costed
+        // at once and its product is priceable without the lot being closed. A line that states no
+        // cost leaves the batch uncosted.
+        if (line.getStatedValue() != null) {
+            batch.pinUnitCost(line.getStatedValue());
+        }
+
         return new CountOutcome(
                 batch.getId(),
                 line.getQuantityExpected(),

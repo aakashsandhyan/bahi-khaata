@@ -99,7 +99,8 @@ public class LotClosing {
     }
 
     /**
-     * Closes a lot and apportions what was paid across the goods that actually arrived.
+     * Closes a lot — a receiving-completeness marker. Cost was pinned per product at receipt,
+     * so closing apportions nothing; it records that the boxes have been dealt with.
      *
      * <p>Cartons left unopened do not prevent this. Goods that never came would otherwise hold
      * a lot open forever, and nothing in it could be priced or sold — so closing over them is
@@ -122,82 +123,16 @@ public class LotClosing {
             throw new UnopenedCartonsException(unopened);
         }
 
-        List<Batch> uncosted = batches.findByLotId(lotId).stream()
-                .filter(batch -> !batch.isCosted())
-                .toList();
-
-        // Goods fit for nothing take no share. What they would have carried stays with the ones
-        // that can be sold, which is what the delivery really cost to get sellable stock out of.
-        List<Batch> unusable =
-                uncosted.stream().filter(batch -> batch.getCondition() == StockCondition.UNUSABLE)
-                        .toList();
+        // Cost was pinned per product at receipt, so closing apportions nothing — it only records
+        // that receiving is done. The goods actually received (excluding unusable scrap and lines
+        // corrected back to nothing) are summarised for the caller, and any that arrived without a
+        // stated cost — a surplus — are counted so an uncosted tail is visible rather than silent.
         List<Batch> received =
-                uncosted.stream()
+                batches.findByLotId(lotId).stream()
                         .filter(batch -> batch.getCondition() != StockCondition.UNUSABLE)
-                        // A batch corrected back to nothing has nothing to carry a share, and
-                        // asking the allocator to divide by zero would fail rather than say so.
                         .filter(batch -> batch.getQuantityReceived() > 0)
                         .toList();
-        if (received.isEmpty()) {
-            throw new IllegalStateException(
-                    "lot "
-                            + lotId
-                            + (unusable.isEmpty()
-                                    ? " has nothing counted against it, so there is nothing to"
-                                            + " carry what was paid. Count at least one carton"
-                                            + " first."
-                                    : " holds nothing but unusable goods, so there is nothing"
-                                            + " that can carry what was paid. Record the loss"
-                                            + " against the delivery instead of closing it."));
-        }
-
-        Map<UUID, Money> statedByProduct = statedValuePerUnitByProduct(lotId);
-        Money lotAverage = averageUnitValue(statedByProduct, received);
-        if (lotAverage == null) {
-            throw new IllegalArgumentException(
-                    "lot " + lotId + ": no line states a value, so there is nothing to apportion"
-                            + " by and no average to fall back on. Supply a value for at least"
-                            + " one line.");
-        }
-
-        List<AllocationLine> lines = new ArrayList<>();
-        List<Boolean> estimated = new ArrayList<>();
-        for (Batch batch : received) {
-            Money stated = statedByProduct.get(batch.getProduct().getId());
-            boolean isEstimate = stated == null;
-            lines.add(
-                    new AllocationLine(
-                            batch.getId().toString(),
-                            batch.getQuantityReceived(),
-                            batch.getQuantityDamaged(),
-                            isEstimate ? lotAverage : stated,
-                            null));
-            estimated.add(isEstimate);
-        }
-
-        Allocation allocation = allocator.allocate(lot.getAmountPaid(), lot.getFreight(), lines);
-
-        long estimatedCount = 0;
-        for (int i = 0; i < received.size(); i++) {
-            AllocatedLine allocated = allocation.lines().get(i);
-            boolean isEstimate = estimated.get(i);
-            if (isEstimate) {
-                estimatedCount++;
-            }
-            received.get(i)
-                    .applyAllocation(
-                            allocated.allocatedTotal(),
-                            allocated.allocatedUnitCost(),
-                            // Recorded as estimated where the weight was the lot average rather
-                            // than a figure the manifest stated, so a margin resting on it can
-                            // be recognised for what it is.
-                            isEstimate ? CostBasis.ESTIMATED : allocated.basis());
-        }
-
-        // Recorded as absorbed rather than left at a bare zero, which reads like an oversight.
-        for (Batch scrap : unusable) {
-            scrap.applyAllocation(Money.ZERO, Money.ZERO, CostBasis.ABSORBED);
-        }
+        long uncostedSurplus = received.stream().filter(batch -> !batch.isCosted()).count();
 
         lot.close(at);
 
@@ -206,7 +141,7 @@ public class LotClosing {
                 received.size(),
                 received.stream().mapToLong(Batch::getQuantityReceived).sum(),
                 lot.getAmountPaid().plus(lot.getFreight()).paise(),
-                estimatedCount,
+                uncostedSurplus,
                 unopened);
     }
 
