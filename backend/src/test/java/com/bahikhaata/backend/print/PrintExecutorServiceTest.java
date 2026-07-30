@@ -17,7 +17,8 @@
  */
 package com.bahikhaata.backend.print;
 
-import com.bahikhaata.contracts.PrintLabelRequest;
+import com.bahikhaata.backend.catalog.Product;
+import com.bahikhaata.backend.catalog.ProductRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,26 +36,23 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PrintExecutorServiceTest {
 
-    @Mock
-    private PrintJobRepository printJobRepository;
+    @Mock private PrintJobRepository printJobRepository;
+    @Mock private PrinterDriver printerDriver;
+    @Mock private LabelTemplateService labelService;
+    @Mock private ProductRepository productRepository;
 
-    @Mock
-    private PrinterDriver printerDriver;
+    @InjectMocks private PrintExecutorService executor;
 
-    @Mock
-    private LabelTemplateService labelService;
-
-    @InjectMocks
-    private PrintExecutorService executor;
+    private static PrintJob queued(UUID productId) {
+        PrintJob job = PrintJob.create("BBZ-100001", "Test Product", 19900L, 49900L, 1, productId);
+        job.setStatus("queued");
+        return job;
+    }
 
     @Test
     void pollsQueuedJobs() {
-        UUID jobId = UUID.randomUUID();
-        PrintJob job = PrintJob.create("box", UUID.randomUUID(), 1);
-        job.setStatus("queued");
-
         when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(List.of(job))
+            .thenReturn(List.of(queued(null)))
             .thenReturn(List.of());
 
         executor.executePrintQueue();
@@ -63,32 +61,62 @@ class PrintExecutorServiceTest {
     }
 
     @Test
-    void marksJobAsFailedAfterMaxRetries() {
-        PrintJob job = PrintJob.create("box", UUID.randomUUID(), 1);
-        job.setStatus("queued");
-        job.setRetryCount(10);
-
+    void rendersFromTheJobsOwnFieldsWithoutADatabaseRead() throws Exception {
+        PrintJob job = queued(null);
         when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(List.of(job))
-            .thenReturn(List.of());
+            .thenReturn(List.of(job)).thenReturn(List.of());
+        when(labelService.renderLabel(any())).thenReturn("SIZE ...");
+
+        executor.executePrintQueue();
+
+        assertEquals("done", job.getStatus());
+        // The label came from the job's fields, nothing was looked up beyond the queue itself.
+        verify(labelService).renderLabel(argThat(r ->
+            r.barcode().equals("BBZ-100001") && r.productName().equals("Test Product")
+                && r.pricePaise() == 19900L && r.mrpPaise() == 49900L));
+    }
+
+    @Test
+    void marksTheProductLabelledOnSuccess() throws Exception {
+        UUID productId = UUID.randomUUID();
+        PrintJob job = queued(productId);
+        Product product = mock(Product.class);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
+            .thenReturn(List.of(job)).thenReturn(List.of());
+        when(labelService.renderLabel(any())).thenReturn("SIZE ...");
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+        executor.executePrintQueue();
+
+        verify(product).markLabelPrinted(any());
+        verify(productRepository).save(product);
+    }
+
+    @Test
+    void aFailedPrintLeavesTheProductUnmarked() throws Exception {
+        UUID productId = UUID.randomUUID();
+        PrintJob job = queued(productId);
+        job.setRetryCount(10);
+        when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
+            .thenReturn(List.of(job)).thenReturn(List.of());
+        when(labelService.renderLabel(any())).thenReturn("SIZE ...");
+        doThrow(new PrinterDriver.PrinterException("Printer unreachable"))
+            .when(printerDriver).sendLabel(any(), anyInt());
 
         executor.executePrintQueue();
 
         assertEquals("failed", job.getStatus());
-        assertNotNull(job.getError());
+        verify(productRepository, never()).save(any());
     }
 
     @Test
-    void queuesJobForRetryOnPrinterOffline() throws PrinterDriver.PrinterException {
-        PrintJob job = PrintJob.create("box", UUID.randomUUID(), 1);
-        job.setStatus("queued");
-        job.setRetryCount(0);
-
+    void queuesJobForRetryOnPrinterOffline() throws Exception {
+        PrintJob job = queued(null);
         when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(List.of(job))
-            .thenReturn(List.of());
-        when(labelService.renderLabel(any()))
-            .thenThrow(new PrinterDriver.PrinterException("Printer unreachable"));
+            .thenReturn(List.of(job)).thenReturn(List.of());
+        when(labelService.renderLabel(any())).thenReturn("SIZE ...");
+        doThrow(new PrinterDriver.PrinterException("Printer unreachable"))
+            .when(printerDriver).sendLabel(any(), anyInt());
 
         executor.executePrintQueue();
 
@@ -96,23 +124,18 @@ class PrintExecutorServiceTest {
     }
 
     @Test
-    void batchProcessesUpTo5Jobs() {
-        List<PrintJob> jobs = List.of(
-            PrintJob.create("box", UUID.randomUUID(), 1),
-            PrintJob.create("box", UUID.randomUUID(), 1),
-            PrintJob.create("box", UUID.randomUUID(), 1)
-        );
-
-        for (PrintJob job : jobs) {
-            job.setStatus("queued");
-        }
-
+    void marksJobAsFailedAfterMaxRetries() throws Exception {
+        PrintJob job = queued(null);
+        job.setRetryCount(10);
         when(printJobRepository.findByStatusOrderByCreatedAtAsc("queued"))
-            .thenReturn(jobs)
-            .thenReturn(List.of());
+            .thenReturn(List.of(job)).thenReturn(List.of());
+        when(labelService.renderLabel(any())).thenReturn("SIZE ...");
+        doThrow(new PrinterDriver.PrinterException("Printer unreachable"))
+            .when(printerDriver).sendLabel(any(), anyInt());
 
         executor.executePrintQueue();
 
-        verify(printJobRepository).findByStatusOrderByCreatedAtAsc("queued");
+        assertEquals("failed", job.getStatus());
+        assertNotNull(job.getError());
     }
 }

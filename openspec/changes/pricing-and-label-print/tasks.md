@@ -1,26 +1,26 @@
 ## 1. Schema & migrations
 
-- [ ] 1.1 Migration: recreate `print_job` self-contained — drop `item_type`/`item_id`, add `barcode` (text), `product_name` (text), `selling_price_paise` (int), `mrp_paise` (int, null), keep `copies`/`status`/`error`/`retry_count`/timestamps, add nullable `product_id` (CHAR(36)) back-reference. No prod rows, so recreate is safe.
-- [ ] 1.2 Migration: add `product.label_printed_at` (text, nullable, ISO-8601 per convention).
-- [ ] 1.3 Migration: create `product_capture` — id (CHAR(36)), name (text), mrp_paise (int, null), description (text, null), lot_id (CHAR(36), null), status (text), created_at/updated_at (text).
-- [ ] 1.4 Verify all three under `ddl-auto=validate` (launch backend, confirm no SchemaManagementException).
+- [x] 1.1 Migration: recreate `print_job` self-contained — drop `item_type`/`item_id`, add `barcode` (text), `product_name` (text), `selling_price_paise` (int), `mrp_paise` (int, null), keep `copies`/`status`/`error`/`retry_count`/timestamps, add nullable `product_id` (CHAR(36)) back-reference. No prod rows, so recreate is safe.
+- [x] 1.2 Migration: add `product.label_printed_at` (text, nullable, ISO-8601 per convention).
+- [x] 1.3 Migration: create `product_capture` — id (CHAR(36)), name (text), mrp_paise (int, null), description (text, null), lot_id (CHAR(36), null), status (text), created_at/updated_at (text).
+- [x] 1.4 Verify all three under `ddl-auto=validate` (launch backend, confirm no SchemaManagementException).
 
 ## 2. Contracts
 
-- [ ] 2.1 Reshape `QueuePrintJobRequest` to self-contained fields: `barcode`, `productName`, `sellingPricePaise`, `mrpPaise` (null), `copies`, optional `productId`.
-- [ ] 2.2 Update `QueuePrintJobResponse`/`PrintJobStatusResponse` to drop item-type/id, reflect new fields.
+- [x] 2.1 Reshape `QueuePrintJobRequest` to self-contained fields: `barcode`, `productName`, `sellingPricePaise`, `mrpPaise` (null), `copies`, optional `productId`.
+- [x] 2.2 Update `QueuePrintJobResponse`/`PrintJobStatusResponse` to drop item-type/id, reflect new fields.
 - [ ] 2.3 New pricing contracts: `LotSummary`, `PriceableProduct` (with unit cost, costed flag), `LotCategory`, `PriceSuggestion`, `ShelfPricingSaveRequest` (lot, product-or-manual, category, mrp?, quantity, condition, price), `ShelfPricingSaveResult`.
 - [ ] 2.4 New reconciliation contracts: `LotReconciliation` (counted vs priced/shelved per product), `WriteOffResult`.
 - [ ] 2.5 New capture contracts: `CaptureRequest`, `CaptureSummary`, `ReviewQueueItem`, `ApproveCaptureRequest`.
 
 ## 3. Print executor — self-contained
 
-- [ ] 3.1 `PrintJob`: replace item-type/id with the denormalized label fields + nullable `productId`; update `create(...)` factory.
-- [ ] 3.2 `PrintExecutorService`: remove `buildLabelRequest` stub; build `PrintLabelRequest` from the job's own fields; render via `LabelTemplateService`, send via driver.
-- [ ] 3.3 On successful print of a job with a `productId`, stamp that product's `label_printed_at`.
-- [ ] 3.4 `PrintController` POST `/api/print-jobs`: accept the self-contained request; validate copies 1..100.
+- [x] 3.1 `PrintJob`: replace item-type/id with the denormalized label fields + nullable `productId`; update `create(...)` factory.
+- [x] 3.2 `PrintExecutorService`: remove `buildLabelRequest` stub; build `PrintLabelRequest` from the job's own fields; render via `LabelTemplateService`, send via driver.
+- [x] 3.3 On successful print of a job with a `productId`, stamp that product's `label_printed_at`.
+- [x] 3.4 `PrintController` POST `/api/print-jobs`: accept the self-contained request; validate copies 1..100.
 - [ ] 3.5 Bulk pairing: an endpoint/service that queues N self-contained jobs and pairs consecutive labels into `renderRow` rows; lone leftover prints as a duplicate pair (`renderLabel`). No blank stickers.
-- [ ] 3.6 Update/rewrite `PrintExecutorServiceTest` for the new path (no DB lookup to render; product marked on success; failure leaves it unmarked).
+- [x] 3.6 Update/rewrite `PrintExecutorServiceTest` for the new path (no DB lookup to render; product marked on success; failure leaves it unmarked).
 
 ## 4. Shelf pricing service
 
@@ -49,7 +49,7 @@
 
 ## 7. Product catalog — label-printed marker
 
-- [ ] 7.1 `Product`: add `labelPrintedAt` (Instant, converter+text), `markLabelPrinted(at)`, `isLabelPrinted()`.
+- [x] 7.1 `Product`: add `labelPrintedAt` (Instant, converter+text), `markLabelPrinted(at)`, `isLabelPrinted()`.
 - [ ] 7.2 `ProductCatalog`: query for shelf products awaiting a label (on shelf, `label_printed_at` null) for the bulk screen.
 - [ ] 7.3 Tests: unlabelled after price-without-print; marked once a label prints; reprint keeps marker set.
 

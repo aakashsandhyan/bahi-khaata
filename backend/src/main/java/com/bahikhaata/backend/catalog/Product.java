@@ -127,6 +127,14 @@ public class Product extends UuidEntity {
     @Column(name = "mrp_lookup_attempted_at", columnDefinition = "text")
     private Instant mrpLookupAttemptedAt;
 
+    /**
+     * When a label for this product last printed, or null if never. Lets the bulk-print screen
+     * find shelf products still awaiting a label; a reprint leaves it set.
+     */
+    @Convert(converter = InstantIso8601Converter.class)
+    @Column(name = "label_printed_at", columnDefinition = "text")
+    private Instant labelPrintedAt;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -203,6 +211,21 @@ public class Product extends UuidEntity {
      */
     public void clearMrpLookupAttempted() {
         this.mrpLookupAttemptedAt = null;
+    }
+
+    /** Whether a label for this product has printed. */
+    public boolean isLabelPrinted() {
+        return labelPrintedAt != null;
+    }
+
+    /** When a label last printed, or null if never. */
+    public Instant getLabelPrintedAt() {
+        return labelPrintedAt;
+    }
+
+    /** Records that a label printed, at the given instant. A reprint simply re-stamps it. */
+    public void markLabelPrinted(Instant at) {
+        this.labelPrintedAt = Objects.requireNonNull(at, "at");
     }
 
     /**

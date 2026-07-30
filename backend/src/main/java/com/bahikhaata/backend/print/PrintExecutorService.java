@@ -17,7 +17,10 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.backend.catalog.Product;
+import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.PrintLabelRequest;
+import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,10 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Polls the print job queue every 500ms and executes queued jobs.
  *
- * <p>For each queued job: renders the label (FreeMarker → ZPL), sends to printer via
- * PrinterDriver. On success, marks as "done". On printer unreachable, retries up to 10
- * times (~5 seconds); after 10 retries, marks as "failed" with error message.
- * On other errors (template, item not found), marks "failed" immediately.
+ * <p>Each job is self-contained: its label is rendered from the fields it carries, with no
+ * database read. On success the job is marked "done" and — if it references a product — that
+ * product's label is marked printed. On printer unreachable, retries up to 10 times (~5 seconds);
+ * after 10 retries, marks "failed". On other errors, marks "failed" immediately.
  */
 @Service
 public class PrintExecutorService {
@@ -42,14 +45,17 @@ public class PrintExecutorService {
     private final PrintJobRepository printJobRepository;
     private final PrinterDriver printerDriver;
     private final LabelTemplateService labelService;
+    private final ProductRepository productRepository;
 
     public PrintExecutorService(
         PrintJobRepository printJobRepository,
         PrinterDriver printerDriver,
-        LabelTemplateService labelService) {
+        LabelTemplateService labelService,
+        ProductRepository productRepository) {
         this.printJobRepository = printJobRepository;
         this.printerDriver = printerDriver;
         this.labelService = labelService;
+        this.productRepository = productRepository;
     }
 
     @Scheduled(fixedRate = 500)
@@ -71,19 +77,19 @@ public class PrintExecutorService {
             job.setStatus("printing");
             printJobRepository.save(job);
 
-            // Render label via FreeMarker
-            PrintLabelRequest labelReq = buildLabelRequest(job);
-            String zpl = labelService.renderLabel(labelReq);
+            // Render straight from the job's own fields — no database read.
+            String tspl = labelService.renderLabel(labelRequestFrom(job));
 
             // Send to printer. The stock is 2-up — one rendered document is a row of two identical
             // stickers — so the asked-for copies convert to rows, rounded up: an odd ask yields one
             // extra usable sticker, never a blank one.
-            printerDriver.sendLabel(zpl, LabelTemplateService.rowsFor(job.getCopies()));
+            printerDriver.sendLabel(tspl, LabelTemplateService.rowsFor(job.getCopies()));
 
             // Success
             job.setStatus("done");
             job.setError(null);
             job.setRetryCount(0);
+            markProductLabelled(job);
             log.info("Job {} printed successfully", job.getId());
 
         } catch (PrinterDriver.PrinterException e) {
@@ -113,10 +119,21 @@ public class PrintExecutorService {
         }
     }
 
-    private PrintLabelRequest buildLabelRequest(PrintJob job) throws PrinterDriver.PrinterException {
-        // TODO: fetch item (Box, Batch, Product) by job.itemId and build label data
-        // For now, return a placeholder; real implementation loads from repositories
-        throw new PrinterDriver.PrinterException("Label data building not yet implemented");
+    /** The label data the job carries — the whole point of a self-contained job. */
+    private PrintLabelRequest labelRequestFrom(PrintJob job) {
+        return new PrintLabelRequest(
+                job.getBarcode(), job.getProductName(), job.getMrpPaise(), job.getSellingPricePaise());
+    }
+
+    /** Stamp the product's label-printed marker, if this job references one. */
+    private void markProductLabelled(PrintJob job) {
+        if (job.getProductId() == null) {
+            return;
+        }
+        productRepository.findById(job.getProductId()).ifPresent(product -> {
+            product.markLabelPrinted(Instant.now());
+            productRepository.save(product);
+        });
     }
 
     private boolean isPrinterOfflineError(PrinterDriver.PrinterException e) {
