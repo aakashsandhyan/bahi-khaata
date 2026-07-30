@@ -51,6 +51,13 @@ import org.springframework.transaction.annotation.Transactional;
  * shares add up. A quantity fault once survived a 2,000-lot property test and a real import of
  * 3,583 units precisely because the totals were always right. Under pinning each line stands on
  * its own stated value, so the split is checked line by line.
+ *
+ * <p>The cost pinned is the product's stated value scaled by the rate the lot was bought at —
+ * amount paid over the total stated value, one rate per category-lot. Most fixtures here buy the
+ * lot at exactly its stated total, so that rate is 1.0 and the pinned cost equals the stated
+ * value, which keeps the independence, shortfall and quantity checks readable. {@link
+ * #costScalesByTheLotRate} exercises a rate below one (a returns discount) and above one (a
+ * supply markup) on its own.
  */
 @SpringBootTest(properties = "bahikhaata.db.path=build/test-lot-closing.db")
 @Transactional
@@ -135,9 +142,9 @@ class LotClosingTest {
     @Test
     @DisplayName("Each line is costed at its own stated per-unit value")
     void eachLineKeepsItsStatedUnitCost() {
-        // The stated per-unit value IS the cost now: no fraction of the amount paid is spread
-        // across the lines. A dear line stays dear and a cheap one stays cheap.
-        UUID lot = importLot(150_000, List.of(
+        // Bought at exactly its stated total (rate 1.0), so each line's cost is its own stated
+        // value: no averaging across the lines. A dear line stays dear and a cheap one cheap.
+        UUID lot = importLot(600_000, List.of(
                 line("BOX-1", "DEAR", 1, 400_000),
                 line("BOX-1", "MANY", 4, 50_000)));
         count(lot, "DEAR", 1);
@@ -148,9 +155,35 @@ class LotClosingTest {
     }
 
     @Test
+    @DisplayName("Cost is the stated value scaled by the rate the lot was bought at")
+    void costScalesByTheLotRate() {
+        // A returns lot bought at a quarter of its stated online value: every unit is costed at
+        // a quarter of its own price, uniformly — the rate is per category, not an average that
+        // smears a dear line into a cheap one.
+        UUID discounted = importLot(50_000, List.of( // paid 50,000 of 200,000 stated -> rate 0.25
+                line("BOX-1", "PRICEY", 1, 120_000),
+                line("BOX-1", "CHEAP", 8, 10_000)));
+        count(discounted, "PRICEY", 1);
+        count(discounted, "CHEAP", 8);
+        assertThat(batchFor(discounted, "PRICEY").getAllocatedUnitCost())
+                .isEqualTo(Money.ofPaise(30_000));
+        assertThat(batchFor(discounted, "CHEAP").getAllocatedUnitCost())
+                .isEqualTo(Money.ofPaise(2_500));
+
+        // Kitchen and footwear arrive the other way: the stated value is the supplier's own cost
+        // and the lot is paid above it — a rate over one, the 110% markup.
+        UUID markedUp = importLot(110_000, List.of( // paid 110,000 of 100,000 stated -> rate 1.10
+                line("BOX-2", "POT", 10, 10_000)));
+        count(markedUp, "POT", 10);
+        assertThat(batchFor(markedUp, "POT").getAllocatedUnitCost())
+                .as("comes in at 110% of the supplier's stated cost")
+                .isEqualTo(Money.ofPaise(11_000));
+    }
+
+    @Test
     @DisplayName("Each batch's total is its stated unit value times its quantity, independently")
     void eachBatchCostedIndependently() {
-        UUID lot = importLot(100_000, List.of(
+        UUID lot = importLot(236_903, List.of( // paid == stated total, so the rate is 1.0
                 line("BOX-1", "A", 3, 7_777),
                 line("BOX-1", "B", 11, 1_234),
                 line("BOX-2", "C", 2, 99_999)));
@@ -167,7 +200,7 @@ class LotClosingTest {
     @Test
     @DisplayName("A shortfall changes nothing — each unit keeps its stated cost")
     void shortfallChangesNothing() {
-        UUID lot = importLot(100_000, List.of(
+        UUID lot = importLot(200_000, List.of( // paid == stated total over expected, rate 1.0
                 line("BOX-1", "SHORT", 10, 10_000),
                 line("BOX-1", "FULL", 10, 10_000)));
         count(lot, "SHORT", 5);
@@ -185,7 +218,7 @@ class LotClosingTest {
     @Test
     @DisplayName("Lines never counted receive no batch and no cost")
     void uncountedLinesGetNothing() {
-        UUID lot = importLot(100_000, List.of(
+        UUID lot = importLot(80_000, List.of( // paid == stated total over expected, rate 1.0
                 line("BOX-1", "CAME", 4, 10_000),
                 line("BOX-2", "NEVER", 4, 10_000)));
         count(lot, "CAME", 4);
@@ -204,7 +237,7 @@ class LotClosingTest {
     @Test
     @DisplayName("Goods nobody listed stay uncosted — no lot-average estimate is invented")
     void unlistedGoodsStayUncosted() {
-        UUID lot = importLot(100_000, List.of(line("BOX-1", "KNOWN", 4, 10_000)));
+        UUID lot = importLot(40_000, List.of(line("BOX-1", "KNOWN", 4, 10_000)));
         count(lot, "KNOWN", 4);
         UUID boxId = lineFor(lot, "KNOWN").getBox().getId();
         counting.countUnlisted(boxId, "SURPRISE", "Surprise", "KITCHEN", 1, null, false, AT);
@@ -284,7 +317,7 @@ class LotClosingTest {
     @Test
     @DisplayName("Valuation values pinned stock at once and reports uncosted surplus apart")
     void valuationSeparatesUncostedStock() {
-        UUID lot = importLot(100_000, List.of(
+        UUID lot = importLot(40_000, List.of( // paid == stated total of the costed line, rate 1.0
                 line("BOX-1", "COSTED", 4, 10_000),
                 line("BOX-1", "HELD", 4, 0)));
         count(lot, "COSTED", 4);

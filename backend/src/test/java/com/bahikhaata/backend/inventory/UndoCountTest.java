@@ -70,7 +70,7 @@ class UndoCountTest {
         importer.importConsignment(
                 new ImportConsignmentRequest(
                         "Sushil", "2026-07-17",
-                        List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
+                        List.of(new ImportLot("KITCHEN", 60_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(
                                         new ImportLine("RIGHT", "Right thing", 3, 10_000, null,
                                                 "BOX-A", null, null),
