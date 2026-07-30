@@ -73,6 +73,7 @@ public class ConsignmentImporter {
     private final BoxRepository boxes;
     private final BoxReceiptRepository boxReceipts;
     private final ExpectedLineRepository expectedLines;
+    private final SupplierService suppliers;
     private final JdbcTemplate jdbc;
 
     ConsignmentImporter(
@@ -82,6 +83,7 @@ public class ConsignmentImporter {
             BoxRepository boxes,
             BoxReceiptRepository boxReceipts,
             ExpectedLineRepository expectedLines,
+            SupplierService suppliers,
             JdbcTemplate jdbc) {
         this.products = products;
         this.barcodes = barcodes;
@@ -89,12 +91,15 @@ public class ConsignmentImporter {
         this.boxes = boxes;
         this.boxReceipts = boxReceipts;
         this.expectedLines = expectedLines;
+        this.suppliers = suppliers;
         this.jdbc = jdbc;
     }
 
     @Transactional
     public ImportResult importConsignment(ImportConsignmentRequest request) {
         LocalDate receivedOn = LocalDate.parse(request.receivedOn());
+        // Resolved once for the whole consignment: every lot it creates links this supplier.
+        Supplier supplier = suppliers.resolveActiveSupplier(request.supplierId());
         List<String> warnings = new ArrayList<>();
 
         int lotsCreated = 0;
@@ -114,7 +119,7 @@ public class ConsignmentImporter {
             Lot lot =
                     lots.save(
                             new Lot(
-                                    request.supplier(),
+                                    supplier,
                                     receivedOn,
                                     Money.ofPaise(importLot.amountPaidPaise()),
                                     Money.ZERO,
@@ -146,7 +151,7 @@ public class ConsignmentImporter {
                                     new Product(
                                             line.name,
                                             Category.of(importLot.categoryCode()),
-                                            Map.of("importedFrom", request.supplier())));
+                                            Map.of("importedFrom", supplier.getName())));
                     // The supplier's code becomes the product's barcode. It is already on the
                     // goods and already unique, so minting an internal one would mean two
                     // codes for the same thing.

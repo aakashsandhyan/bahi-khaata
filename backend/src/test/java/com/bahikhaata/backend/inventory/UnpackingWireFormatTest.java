@@ -60,14 +60,22 @@ class UnpackingWireFormatTest {
     @Autowired private GoodsInCounting counting;
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
 
     private UUID lineId;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     @BeforeEach
     void importAndCount() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 10_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("WIRE", "Wire test", 2, 1_000, null,
                                         "BOX-W", null, null))))));

@@ -15,18 +15,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.contracts;
+package com.bahikhaata.backend.inventory;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-/**
- * A supplier's consignment, parsed from their workbook and ready to record.
- *
- * <p>One category per lot, because that is how a consignment is priced: each category has its
- * own amount and its own basis, so each is costed separately.
- *
- * @param supplierId the vendor it came from — an existing, active supplier's id
- * @param receivedOn the delivery date, ISO-8601
- * @param lots one per category
- */
-public record ImportConsignmentRequest(String supplierId, String receivedOn, List<ImportLot> lots) {}
+public interface SupplierRepository extends JpaRepository<Supplier, UUID> {
+
+    /** Identity lookup on the normalised name — the fallback key when a vendor has no GSTIN. */
+    Optional<Supplier> findByNameNormalized(String nameNormalized);
+
+    /** Uniqueness guard for a registered vendor's GSTIN. */
+    Optional<Supplier> findByGstin(String gstin);
+
+    /** The pick-list at receipt: active vendors only, alphabetical. */
+    List<Supplier> findByActiveTrueOrderByNameAsc();
+
+    List<Supplier> findAllByOrderByNameAsc();
+}

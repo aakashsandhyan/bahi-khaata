@@ -75,12 +75,20 @@ class LotClosingTest {
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
     @Autowired private StockLevels stock;
+    @Autowired private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     /** Imports one lot and returns its id. Each line is (box, code, quantity, unit value). */
     private UUID importLot(long paidPaise, List<ImportLine> lines) {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", paidPaise,
                                 AllocationMethod.RELATIVE_MRP, lines))));
         return lots.findAll().stream()

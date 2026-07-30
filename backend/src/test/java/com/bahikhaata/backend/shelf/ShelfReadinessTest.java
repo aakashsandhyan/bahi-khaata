@@ -30,6 +30,8 @@ import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
+import com.bahikhaata.backend.inventory.Supplier;
+import com.bahikhaata.backend.inventory.SupplierRepository;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
@@ -61,12 +63,20 @@ class ShelfReadinessTest {
     @Autowired private BatchRepository batches;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     /** Imports one line, counts it in full, and returns the lot. MRP optional. */
     private UUID receive(String code, long qty, long unitValue, Long mrpPaise) {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine(code, code, qty, unitValue, null,
                                         "BOX-" + code, null, null))))));

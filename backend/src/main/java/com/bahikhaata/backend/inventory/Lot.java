@@ -29,6 +29,9 @@ import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -54,6 +57,17 @@ public class Lot extends UuidEntity {
 
     @Column(name = "supplier", nullable = false, columnDefinition = "text")
     private String supplier;
+
+    /**
+     * The vendor this lot came from. Nullable at the mapping because SQLite cannot retrofit a
+     * NOT NULL constraint without a table rebuild; in practice every lot has one — existing rows
+     * were backfilled by migration V37, and new lots are only created through the receipt path,
+     * which resolves an existing active supplier first. The legacy {@link #supplier} text above
+     * is kept as a denormalised snapshot of this supplier's name at receipt time.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplierRef;
 
     /**
      * The business delivery date, not a system stamp. FIFO consumes by this, so a delivery
@@ -131,6 +145,33 @@ public class Lot extends UuidEntity {
         this.isManual = isManual;
     }
 
+    /** The receipt path's constructor: links the supplier entity and snapshots its name. */
+    public Lot(
+            Supplier supplierRef,
+            LocalDate receivedOn,
+            Money amountPaid,
+            Money freight,
+            AllocationMethod allocationMethod) {
+        this(supplierRef, receivedOn, amountPaid, freight, allocationMethod, false);
+    }
+
+    public Lot(
+            Supplier supplierRef,
+            LocalDate receivedOn,
+            Money amountPaid,
+            Money freight,
+            AllocationMethod allocationMethod,
+            boolean isManual) {
+        this(
+                Objects.requireNonNull(supplierRef, "supplierRef").getName(),
+                receivedOn,
+                amountPaid,
+                freight,
+                allocationMethod,
+                isManual);
+        this.supplierRef = supplierRef;
+    }
+
     /**
      * The amount spread across this lot's batches: what was paid plus the freight to get it
      * here. Freight is part of landed cost, so leaving it out would understate every unit.
@@ -141,6 +182,11 @@ public class Lot extends UuidEntity {
 
     public String getSupplier() {
         return supplier;
+    }
+
+    /** The linked supplier entity, or null for a legacy/test lot created before the link existed. */
+    public Supplier getSupplierRef() {
+        return supplierRef;
     }
 
     public LocalDate getReceivedOn() {

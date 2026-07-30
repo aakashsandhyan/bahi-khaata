@@ -55,6 +55,14 @@ class ConsignmentImporterTest {
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private StockLedgerRepository ledger;
     @Autowired private StockLevels stock;
+    @Autowired private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     private static ImportLine line(String box, String code, long quantity, long unitValuePaise) {
         return new ImportLine(code, code, quantity, unitValuePaise, null, box, null, null);
@@ -63,7 +71,7 @@ class ConsignmentImporterTest {
     private ImportResult imported(List<ImportLine> lines, long paidPaise) {
         return importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Test supplier",
+                        supplierId("Test supplier"),
                         "2026-07-17",
                         List.of(
                                 new ImportLot(
@@ -186,7 +194,7 @@ class ConsignmentImporterTest {
                         () ->
                                 importer.importConsignment(
                                         new ImportConsignmentRequest(
-                                                "Test supplier",
+                                                supplierId("Test supplier"),
                                                 "2026-07-17",
                                                 List.of(
                                                         new ImportLot(
@@ -212,7 +220,7 @@ class ConsignmentImporterTest {
     void onlinePriceIsAveragedNotTakenFromTheLastRow() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Test supplier",
+                        supplierId("Test supplier"),
                         "2026-07-17",
                         List.of(
                                 new ImportLot(
@@ -240,7 +248,7 @@ class ConsignmentImporterTest {
                         () ->
                                 importer.importConsignment(
                                         new ImportConsignmentRequest(
-                                                "Test supplier",
+                                                supplierId("Test supplier"),
                                                 "2026-07-17",
                                                 List.of(
                                                         new ImportLot(

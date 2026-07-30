@@ -27,6 +27,8 @@ import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
+import com.bahikhaata.backend.inventory.Supplier;
+import com.bahikhaata.backend.inventory.SupplierRepository;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
@@ -64,6 +66,14 @@ class PricingWorkbenchTest {
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     /**
      * Receives one HOME_ESSENTIALS product, online at the given price, bought at a quarter of it,
@@ -74,7 +84,7 @@ class PricingWorkbenchTest {
         long costPaise = onlinePaise / 4; // the 0.25 factor of a real off-market sheet
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("HOME_ESSENTIALS", costPaise,
                                 AllocationMethod.RELATIVE_MRP,
                                 // The stated per-unit value IS the pinned cost; the online price is
@@ -107,7 +117,7 @@ class PricingWorkbenchTest {
     void uncostedGoodsAreNotPriceable() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("HOME_ESSENTIALS", 10_000,
                                 AllocationMethod.RELATIVE_MRP,
                                 // No stated value: the batch is an uncosted surplus.

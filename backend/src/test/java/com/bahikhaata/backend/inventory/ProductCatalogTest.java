@@ -58,15 +58,23 @@ class ProductCatalogTest {
     @Autowired private ExpectedLineRepository expectedLines;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
 
     private UUID lotId;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     @BeforeEach
     void importThreeProducts() {
         // Codes AAA/BBB/CCC so findByLotIdOrderByCode returns them in a known order.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(
                                         new ImportLine("AAA", "Alpha Kettle", 4, 10_000, null, "BOX-A", null, null),
@@ -158,7 +166,7 @@ class ProductCatalogTest {
         // A second consignment in another department, so category actually discriminates.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("WIRELESS", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("WWW", "Delta Cable", 4, 10_000, null,
                                         "BOX-B", null, null))))));
@@ -204,7 +212,7 @@ class ProductCatalogTest {
         // A second box's sheet lists the same product again (same code AAA), 4 more expected.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("AAA", "Alpha Kettle", 4, 10_000, null,
                                         "BOX-C", null, null))))));
@@ -224,7 +232,7 @@ class ProductCatalogTest {
         // The same product (AAA) arrives again on a second delivery, 6 more expected.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Other", "2026-07-20",
+                        supplierId("Other"), "2026-07-20",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("AAA", "Alpha Kettle", 6, 10_000, null, "BOX-Z", null, null))))));
         UUID lotTwo = lots.findAll().stream().filter(Lot::isOpen)

@@ -54,16 +54,24 @@ class ProductCountingTest {
     @Autowired private BatchRepository batches;
     @Autowired private LotRepository lots;
     @Autowired private BoxReceiptRepository boxReceipts;
+    @Autowired private SupplierRepository suppliers;
 
     private UUID lotId;
     private UUID productId;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     @BeforeEach
     void importOneProductAcrossThreeBoxes() {
         // The same product (code AAA) on three boxes: 2 + 3 + 1 expected.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(
                                         new ImportLine("AAA", "Alpha Kettle", 2, 10_000, null, "BOX-A", null, null),
@@ -183,7 +191,7 @@ class ProductCountingTest {
         // A different product's line in the same lot.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("ZZZ", "Other Thing", 1, 10_000, null, "BOX-Z", null, null))))));
         UUID otherLotId = lots.findAll().stream().filter(Lot::isOpen)

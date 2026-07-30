@@ -24,6 +24,8 @@ import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.GoodsInService;
+import com.bahikhaata.backend.inventory.Supplier;
+import com.bahikhaata.backend.inventory.SupplierRepository;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.Money;
@@ -59,6 +61,16 @@ class AllocationMethodChangeTest {
     @Autowired
     private GoodsInService goodsIn;
 
+    @Autowired
+    private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
+
     private Product newProduct(String name) {
         return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
@@ -75,7 +87,7 @@ class AllocationMethodChangeTest {
 
         return goodsIn.receive(
                 new ReceiveLotRequest(
-                        "Liquidator A",
+                        supplierId("Liquidator A"),
                         "2026-07-20",
                         40_000_00,
                         0,
