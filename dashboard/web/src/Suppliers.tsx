@@ -166,7 +166,9 @@ export function Suppliers() {
             {selectedLots.map((lot) => (
               <div key={lot.id} className="ov">
                 <div style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)' }}>
-                  <div style={{ fontWeight: 600 }}>{rupees(lot.amountPaidPaise)}</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {lot.categoryCode ? `${lot.categoryCode} · ` : ''}{rupees(lot.amountPaidPaise)}
+                  </div>
                   <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>{lot.receivedOn}</div>
                   <div style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '2px' }}>
                     {lot.isManual ? 'Manual' : 'Manifest'} · {lot.receivingComplete ? 'Complete' : 'In progress'}

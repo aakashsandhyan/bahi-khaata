@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface ExpectedLineRepository extends JpaRepository<ExpectedLine, UUID> {
 
@@ -34,4 +35,11 @@ public interface ExpectedLineRepository extends JpaRepository<ExpectedLine, UUID
 
     /** Every line for a product within one delivery, across its boxes — the product-centric grid. */
     List<ExpectedLine> findByLotIdAndProductIdOrderByCode(UUID lotId, UUID productId);
+
+    /**
+     * Each lot paired with a category one of its manifest lines carries. A lot holds one category —
+     * a consignment is imported as a lot per category — so any line's category labels the whole lot.
+     */
+    @Query("SELECT DISTINCT el.lot.id, el.product.categoryCode FROM ExpectedLine el")
+    List<Object[]> categoryCodeByLot();
 }

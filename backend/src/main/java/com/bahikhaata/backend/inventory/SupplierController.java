@@ -22,6 +22,7 @@ import com.bahikhaata.contracts.SupplierResponse;
 import com.bahikhaata.contracts.UpdateSupplierRequest;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,10 +43,12 @@ class SupplierController {
 
     private final SupplierService suppliers;
     private final LotRepository lots;
+    private final LotCategoryResolver lotCategories;
 
-    SupplierController(SupplierService suppliers, LotRepository lots) {
+    SupplierController(SupplierService suppliers, LotRepository lots, LotCategoryResolver lotCategories) {
         this.suppliers = suppliers;
         this.lots = lots;
+        this.lotCategories = lotCategories;
     }
 
     @GetMapping
@@ -85,6 +88,7 @@ class SupplierController {
     @GetMapping("/{id}/lots")
     ResponseEntity<List<SupplierLotDto>> lotsFor(@PathVariable UUID id) {
         suppliers.require(id); // 400 rather than an empty list for an id that names no supplier
+        Map<UUID, String> categoryByLot = lotCategories.categoryByLot();
         List<SupplierLotDto> result =
                 lots.findBySupplierRefIdOrderByReceivedOnDesc(id).stream()
                         .map(
@@ -94,7 +98,8 @@ class SupplierController {
                                                 lot.getReceivedOn(),
                                                 lot.getAmountPaid().paise(),
                                                 lot.isReceivingComplete(),
-                                                lot.isManual()))
+                                                lot.isManual(),
+                                                categoryByLot.get(lot.getId())))
                         .toList();
         return ResponseEntity.ok(result);
     }
@@ -118,4 +123,5 @@ class SupplierController {
 }
 
 record SupplierLotDto(
-        UUID id, LocalDate receivedOn, long amountPaidPaise, boolean receivingComplete, boolean isManual) {}
+        UUID id, LocalDate receivedOn, long amountPaidPaise, boolean receivingComplete,
+        boolean isManual, String categoryCode) {}
