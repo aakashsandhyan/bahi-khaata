@@ -59,6 +59,7 @@ class BackfillPinnedCostMigrationTest {
     @Autowired private BatchRepository batches;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private EntityManager em;
 
@@ -66,10 +67,17 @@ class BackfillPinnedCostMigrationTest {
         return new ImportLine(code, code, qty, unitValuePaise, null, box, null, null);
     }
 
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
+
     private UUID importLot(String category, long paidPaise, List<ImportLine> lines) {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot(category, paidPaise, AllocationMethod.RELATIVE_MRP, lines))));
         return lots.findAll().stream().filter(Lot::isOpen).reduce((a, b) -> b).orElseThrow().getId();
     }

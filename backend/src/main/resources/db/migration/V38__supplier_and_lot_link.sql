@@ -1,4 +1,4 @@
--- V37 — Supplier becomes a first-class entity, and every lot points at one.
+-- V38 — Supplier becomes a first-class entity, and every lot points at one.
 --
 -- Until now a supplier was a free-typed string repeated on each lot, so the same vendor
 -- fragmented across casing and spacing and had nowhere to hold a GSTIN, phone, or address.

@@ -33,12 +33,12 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Task 7.3 — the V37 backfill collapses distinct normalised supplier strings into one supplier
+ * Task 7.3 — the V38 backfill collapses distinct normalised supplier strings into one supplier
  * each and links every lot.
  *
- * <p>V37 runs at startup against an empty lot table, so there is nothing to back-fill then. To
+ * <p>V38 runs at startup against an empty lot table, so there is nothing to back-fill then. To
  * exercise the real backfill this test seeds legacy-style lot rows — a supplier string, a null
- * {@code supplier_id} — and re-runs V37's two backfill statements (reproduced verbatim below)
+ * {@code supplier_id} — and re-runs V38's two backfill statements (reproduced verbatim below)
  * against real SQLite, then asserts the outcome.
  */
 @SpringBootTest
@@ -56,7 +56,7 @@ class SupplierBackfillMigrationTest {
 
     @Autowired private JdbcTemplate jdbc;
 
-    // Reproduced verbatim from V37__supplier_and_lot_link.sql.
+    // Reproduced verbatim from V38__supplier_and_lot_link.sql.
     private static final String BACKFILL_INSERT =
             "INSERT INTO supplier (id, name, name_normalized, gstin, phone, address, contact_person, notes, active, created_at, updated_at) "
                     + "SELECT lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || "

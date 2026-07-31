@@ -65,7 +65,7 @@ codebase already enforces comparable invariants in application logic. *Alternati
 considered:* full table rebuild to get a hard DB constraint — rejected as
 disproportionate for a single-writer local database.
 
-### Backfill (migration V37)
+### Backfill (migration V38)
 Ordered steps in one migration:
 1. `CREATE TABLE supplier (...)` plus the `name_normalized` unique index and the partial
    GSTIN unique index.
@@ -113,7 +113,7 @@ Dashboard gains a Suppliers page; `types.ts` and `api.ts` are extended.
 
 ## Migration Plan
 
-- Forward: deploy V37; it creates the table, backfills suppliers, adds and populates
+- Forward: deploy V38; it creates the table, backfills suppliers, adds and populates
   `supplier_id`. No manual step.
 - Rollback: the change is additive at the DB level (legacy `lot.supplier` retained), so
   reverting the application code restores prior behavior; the new table and column can be

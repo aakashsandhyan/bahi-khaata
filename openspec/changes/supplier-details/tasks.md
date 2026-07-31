@@ -9,8 +9,8 @@
 - [x] 2.1 Create `Supplier` entity extending `UuidEntity`: fields name, `name_normalized`, gstin, phone, address, contactPerson, notes, active (default true), created/updated timestamps; annotations match existing entities (CHAR(36) id, text columns).
 - [x] 2.2 Add a normalization helper (trim + collapse internal whitespace + lowercase) and populate `name_normalized` on every write.
 - [x] 2.3 Add `supplierRef` `@ManyToOne` on `Lot` → column `supplier_id` (nullable at mapping; non-null enforced by backfill + receipt service), keeping the legacy `supplier` String field, its `getSupplier()`, and the `Lot(String, …)` constructor untouched so existing tests compile. Add a `Lot(Supplier, …)` constructor that sets both the ref and the denormalized name.
-- [x] 2.4 Write migration `V37__supplier_and_lot_link.sql`: create `supplier` table; unique index on `name_normalized`; partial unique index on `gstin WHERE gstin IS NOT NULL`.
-- [x] 2.5 In V37, backfill one supplier per distinct `lower(trim(lot.supplier))`; add `lot.supplier_id CHAR(36)`; `UPDATE` it by matching `name_normalized`; add FK + index for `supplier_id`.
+- [x] 2.4 Write migration `V38__supplier_and_lot_link.sql`: create `supplier` table; unique index on `name_normalized`; partial unique index on `gstin WHERE gstin IS NOT NULL`.
+- [x] 2.5 In V38, backfill one supplier per distinct `lower(trim(lot.supplier))`; add `lot.supplier_id CHAR(36)`; `UPDATE` it by matching `name_normalized`; add FK + index for `supplier_id`.
 - [x] 2.6 Verify Hibernate schema validation passes at startup (column types line up with entity declarations).
 
 ## 3. Repository and service
@@ -39,6 +39,6 @@
 
 - [x] 7.1 Backend unit tests: supplier create/dedupe on normalized name, GSTIN format + uniqueness (present and null), soft-delete/reactivate, lots-for-supplier.
 - [x] 7.2 Backend test: receipt rejects missing/unknown/inactive `supplierId`; accepts valid; stores both fields.
-- [x] 7.3 Migration test: seed messy supplier strings on lots, run V37, assert distinct normalized values collapse correctly and no lot has a null `supplier_id`.
+- [x] 7.3 Migration test: seed messy supplier strings on lots, run V38, assert distinct normalized values collapse correctly and no lot has a null `supplier_id`.
 - [x] 7.4 Descoped — the dashboard has no test runner (no vitest/jest); the type-check via `npm run build` is the existing frontend gate and passes. Adding a harness would introduce a new pattern.
-- [x] 7.5 Backend suite green (`./gradlew :backend:test`); dashboard builds green (`npm run build`, tsc + vite). App boots in every `@SpringBootTest` with `ddl-auto=validate`, so Hibernate schema validation passes against V37.
+- [x] 7.5 Backend suite green (`./gradlew :backend:test`); dashboard builds green (`npm run build`, tsc + vite). App boots in every `@SpringBootTest` with `ddl-auto=validate`, so Hibernate schema validation passes against V38.

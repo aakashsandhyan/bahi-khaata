@@ -61,7 +61,7 @@ public class Lot extends UuidEntity {
     /**
      * The vendor this lot came from. Nullable at the mapping because SQLite cannot retrofit a
      * NOT NULL constraint without a table rebuild; in practice every lot has one — existing rows
-     * were backfilled by migration V37, and new lots are only created through the receipt path,
+     * were backfilled by migration V38, and new lots are only created through the receipt path,
      * which resolves an existing active supplier first. The legacy {@link #supplier} text above
      * is kept as a denormalised snapshot of this supplier's name at receipt time.
      */
