@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: MRP is recorded against the goods received
 
@@ -38,8 +38,6 @@ MRP SHALL NOT be used as the weight for apportioning a lot's cost. A manifest ma
 
 - **WHEN** a batch has no recorded MRP
 - **THEN** the product is not sellable from that batch, however certain anyone is of its price
-
-## ADDED Requirements
 
 ### Requirement: A product records what it last sold for online
 

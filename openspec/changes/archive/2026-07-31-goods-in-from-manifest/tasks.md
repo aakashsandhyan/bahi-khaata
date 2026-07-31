@@ -84,4 +84,4 @@
 - [x] 8.7 Amount-paid cross-check: sum of pinned costs × received quantity vs amount paid; report a material mismatch. Test clean and mismatch.
 - [x] 8.8 Update the section-4 tests (apportion-at-close, uncosted-until-close, lot-average) to the pinned model; confirm the pre-existing "boxes pending / can't price an open lot" failures clear.
 - [x] 8.9 Frontend: the manual add-product path pins its entered per-unit cost; manifest import pins per line.
-- [ ] 8.10 Verify: boots under `ddl-auto=validate`; full suite green; price a real product from an open lot and see the margin suggestion fire.
+- [x] 8.10 Verify: boots under `ddl-auto=validate`; full suite green; price a real product from an open lot and see the margin suggestion fire. Done locally on a real dev DB (V33, all 1292 batches uncosted): V34–V37 applied clean, V37 backfilled 1240/1292 (52 valueless left uncosted), per-lot rate exact (KITCHEN/FOOTWEAR 1.10, returns 0.20–0.67), scan returns `costed:true` and the suggestion fires. Shop-machine deploy (back up DB → push jar → restart) is the remaining operational step, tracked apart.
