@@ -17,24 +17,13 @@
  */
 package com.bahikhaata.contracts;
 
-public record CreateManualLotRequest(
-        String supplierId,
-        String receivedOn,
-        long amountPaidPaise,
-        AllocationMethod allocationMethod) {
-
-    public CreateManualLotRequest {
-        if (supplierId == null || supplierId.isBlank()) {
-            throw new IllegalArgumentException("supplierId required");
-        }
-        if (receivedOn == null || receivedOn.isBlank()) {
-            throw new IllegalArgumentException("receivedOn required");
-        }
-        if (amountPaidPaise <= 0) {
-            throw new IllegalArgumentException("amountPaidPaise must be greater than 0");
-        }
-        if (allocationMethod == null) {
-            throw new IllegalArgumentException("allocationMethod required");
-        }
-    }
-}
+/** A supplier as the dashboard sees it. */
+public record SupplierResponse(
+        String id,
+        String name,
+        String gstin,
+        String phone,
+        String address,
+        String contactPerson,
+        String notes,
+        boolean active) {}

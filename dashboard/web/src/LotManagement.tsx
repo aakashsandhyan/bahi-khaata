@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { receiving, BackendError } from './api'
-import type { LotSummary } from './types'
+import { receiving, suppliers as suppliersApi, BackendError } from './api'
+import type { LotSummary, Supplier } from './types'
 
 export function LotManagement() {
   const [lots, setLots] = useState<LotSummary[] | null>(null)
+  const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([])
   const [state, setState] = useState<'in-progress' | 'complete'>('in-progress')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
   const [formData, setFormData] = useState({
-    supplier: '',
+    supplierId: '',
     receivedOn: new Date().toISOString().split('T')[0],
     amountPaidPaise: '',
     type: 'manifest',
@@ -16,7 +17,20 @@ export function LotManagement() {
 
   useEffect(() => {
     loadLots()
+    loadSuppliers()
   }, [])
+
+  const loadSuppliers = async () => {
+    try {
+      // Only active suppliers can receive stock, so the pick-list offers just those.
+      setSupplierOptions(await suppliersApi.list(true))
+    } catch (err) {
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Cannot load suppliers.',
+        tone: 'stop',
+      })
+    }
+  }
 
   const loadLots = async () => {
     try {
@@ -31,7 +45,7 @@ export function LotManagement() {
   }
 
   const handleCreateLot = async () => {
-    if (!formData.supplier || !formData.receivedOn || !formData.amountPaidPaise) {
+    if (!formData.supplierId || !formData.receivedOn || !formData.amountPaidPaise) {
       setMessage({ text: 'Fill all fields', tone: 'stop' })
       return
     }
@@ -41,11 +55,12 @@ export function LotManagement() {
       return
     }
 
+    const supplierName = supplierOptions.find((s) => s.id === formData.supplierId)?.name ?? 'Lot'
     try {
-      await receiving.createManualLot(formData.supplier, formData.receivedOn, parseInt(formData.amountPaidPaise))
-      setMessage({ text: `✓ ${formData.supplier} created`, tone: 'ok' })
+      await receiving.createManualLot(formData.supplierId, formData.receivedOn, parseInt(formData.amountPaidPaise))
+      setMessage({ text: `✓ ${supplierName} created`, tone: 'ok' })
       setShowCreateModal(false)
-      setFormData({ supplier: '', receivedOn: new Date().toISOString().split('T')[0], amountPaidPaise: '', type: 'manifest' })
+      setFormData({ supplierId: '', receivedOn: new Date().toISOString().split('T')[0], amountPaidPaise: '', type: 'manifest' })
       await loadLots()
     } catch (err) {
       setMessage({
@@ -174,11 +189,9 @@ export function LotManagement() {
             <div className="modal-body">
               <div style={{ marginBottom: 'var(--s3)' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Supplier</label>
-                <input
-                  type="text"
-                  value={formData.supplier}
-                  onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                  placeholder="Supplier name"
+                <select
+                  value={formData.supplierId}
+                  onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -187,7 +200,14 @@ export function LotManagement() {
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
-                />
+                >
+                  <option value="">
+                    {supplierOptions.length === 0 ? 'No active suppliers — add one first' : 'Select a supplier…'}
+                  </option>
+                  {supplierOptions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ marginBottom: 'var(--s3)' }}>

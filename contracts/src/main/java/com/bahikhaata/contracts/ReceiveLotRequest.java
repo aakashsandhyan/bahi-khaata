@@ -26,7 +26,7 @@ import java.util.List;
  * derived by allocating the lot amount, which is what keeps them reconciling back to what was
  * actually paid.
  *
- * @param supplier who it came from
+ * @param supplierId the vendor it came from — an existing, active supplier's id
  * @param receivedOn the delivery date, ISO-8601. FIFO consumes by this, so a late-entered
  *     delivery still consumes in true arrival order
  * @param amountPaidPaise what was paid for the lot
@@ -34,7 +34,7 @@ import java.util.List;
  * @param lines what arrived
  */
 public record ReceiveLotRequest(
-        String supplier,
+        String supplierId,
         String receivedOn,
         long amountPaidPaise,
         long freightPaise,

@@ -26,4 +26,7 @@ public interface LotRepository extends JpaRepository<Lot, UUID> {
 
     /** Lots in a given state, newest received first — the pricing workbench lists the open ones. */
     List<Lot> findByStateOrderByReceivedOnDesc(LotState state);
+
+    /** The lots received from one supplier, newest first — the supplier detail view. */
+    List<Lot> findBySupplierRefIdOrderByReceivedOnDesc(UUID supplierId);
 }

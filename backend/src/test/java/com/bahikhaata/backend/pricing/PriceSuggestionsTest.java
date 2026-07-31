@@ -22,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.inventory.GoodsInService;
+import com.bahikhaata.backend.inventory.Supplier;
+import com.bahikhaata.backend.inventory.SupplierRepository;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.ReceiveLotLine;
@@ -48,6 +50,16 @@ class PriceSuggestionsTest {
     @Autowired
     private PriceSuggestions suggestions;
 
+    @Autowired
+    private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
+
     private Product newProduct(String name, Category category) {
         return products.save(new Product(name, category, Map.of()));
     }
@@ -56,7 +68,7 @@ class PriceSuggestionsTest {
     private void receive(Product product, long quantity, long lotPaise, long mrpPaise) {
         goodsIn.receive(
                 new ReceiveLotRequest(
-                        "Liquidator A",
+                        supplierId("Liquidator A"),
                         "2026-07-20",
                         lotPaise,
                         0,
@@ -143,11 +155,11 @@ class PriceSuggestionsTest {
         // An old cheap delivery, then a recent dearer one.
         goodsIn.receive(
                 new ReceiveLotRequest(
-                        "Liquidator A", "2026-05-01", 1_000_00, 0,
+                        supplierId("Liquidator A"), "2026-05-01", 1_000_00, 0,
                         List.of(new ReceiveLotLine(bottle.getId().toString(), 100, 0, 40_00, false, null))));
         goodsIn.receive(
                 new ReceiveLotRequest(
-                        "Liquidator A", "2026-07-20", 2_000_00, 0,
+                        supplierId("Liquidator A"), "2026-07-20", 2_000_00, 0,
                         List.of(new ReceiveLotLine(bottle.getId().toString(), 100, 0, 40_00, false, null))));
 
         var suggestion = suggestions.suggestFor(bottle.getId(), null).orElseThrow();

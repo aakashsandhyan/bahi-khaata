@@ -58,6 +58,7 @@ class LotController {
     private final ExpectedLineRepository expectedLineRepository;
     private final ProductRepository productRepository;
     private final BoxRepository boxRepository;
+    private final SupplierService supplierService;
 
     LotController(
             GoodsInService goodsIn,
@@ -65,13 +66,15 @@ class LotController {
             BoxReceiptRepository boxReceiptRepository,
             ExpectedLineRepository expectedLineRepository,
             ProductRepository productRepository,
-            BoxRepository boxRepository) {
+            BoxRepository boxRepository,
+            SupplierService supplierService) {
         this.goodsIn = goodsIn;
         this.lotRepository = lotRepository;
         this.boxReceiptRepository = boxReceiptRepository;
         this.expectedLineRepository = expectedLineRepository;
         this.productRepository = productRepository;
         this.boxRepository = boxRepository;
+        this.supplierService = supplierService;
     }
 
     @GetMapping
@@ -129,8 +132,9 @@ class LotController {
     @PostMapping("/manual")
     ResponseEntity<LotSummaryDto> createManualLot(@RequestBody CreateManualLotRequest request) {
         LocalDate receivedOn = LocalDate.parse(request.receivedOn());
+        Supplier supplier = supplierService.resolveActiveSupplier(request.supplierId());
         Lot lot = new Lot(
-                request.supplier(),
+                supplier,
                 receivedOn,
                 com.bahikhaata.contracts.Money.ofPaise(request.amountPaidPaise()),
                 com.bahikhaata.contracts.Money.ZERO,

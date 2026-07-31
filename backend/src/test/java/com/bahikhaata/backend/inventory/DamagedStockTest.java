@@ -60,14 +60,22 @@ class DamagedStockTest {
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
     @Autowired private StockLevels stock;
+    @Autowired private SupplierRepository suppliers;
 
     private UUID lotId;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     @BeforeEach
     void importAManifest() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("KITCHEN", 100_000, AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("KETTLE", "Kettle", 10, 10_000, null,
                                         "BOX-A", null, null))))));

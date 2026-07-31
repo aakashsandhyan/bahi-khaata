@@ -53,6 +53,16 @@ class GoodsInServiceTest {
     @Autowired
     private GoodsInService goodsIn;
 
+    @Autowired
+    private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
+
     private Product newProduct(String name) {
         return products.save(new Product(name, Category.of("KITCHEN"), Map.of()));
     }
@@ -72,7 +82,7 @@ class GoodsInServiceTest {
         var received =
                 goodsIn.receive(
                         new ReceiveLotRequest(
-                                "Liquidator A",
+                                supplierId("Liquidator A"),
                                 "2026-07-20",
                                 50_000_00,
                                 0,
@@ -103,7 +113,7 @@ class GoodsInServiceTest {
         var received =
                 goodsIn.receive(
                         new ReceiveLotRequest(
-                                "Liquidator A",
+                                supplierId("Liquidator A"),
                                 "2026-07-20",
                                 33_333_33,
                                 1_234_56,
@@ -124,7 +134,7 @@ class GoodsInServiceTest {
 
         goodsIn.receive(
                 new ReceiveLotRequest(
-                        "Liquidator A", "2026-06-01", 10_000_00, 0, List.of(line(product, 10, 100))));
+                        supplierId("Liquidator A"), "2026-06-01", 10_000_00, 0, List.of(line(product, 10, 100))));
 
         // Entered today, effective in June — so FIFO consumes it in true arrival order and a
         // June valuation sees it.
@@ -140,7 +150,7 @@ class GoodsInServiceTest {
         var received =
                 goodsIn.receive(
                         new ReceiveLotRequest(
-                                "Liquidator A",
+                                supplierId("Liquidator A"),
                                 "2026-07-20",
                                 10_000_00,
                                 0,
@@ -166,7 +176,7 @@ class GoodsInServiceTest {
         var received =
                 goodsIn.receive(
                         new ReceiveLotRequest(
-                                "Liquidator A",
+                                supplierId("Liquidator A"),
                                 "2026-07-20",
                                 50_000_00,
                                 0,
@@ -192,7 +202,7 @@ class GoodsInServiceTest {
                         () ->
                                 goodsIn.receive(
                                         new ReceiveLotRequest(
-                                                "Liquidator A",
+                                                supplierId("Liquidator A"),
                                                 "2026-07-20",
                                                 10_000_00,
                                                 0,
@@ -217,7 +227,7 @@ class GoodsInServiceTest {
                         () ->
                                 goodsIn.receive(
                                         new ReceiveLotRequest(
-                                                "Liquidator A",
+                                                supplierId("Liquidator A"),
                                                 "2026-07-20",
                                                 10_000_00,
                                                 0,
@@ -236,7 +246,7 @@ class GoodsInServiceTest {
                         () ->
                                 goodsIn.receive(
                                         new ReceiveLotRequest(
-                                                "Liquidator A",
+                                                supplierId("Liquidator A"),
                                                 "2026-07-20",
                                                 1_000_00,
                                                 0,

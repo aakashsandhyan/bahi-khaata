@@ -17,24 +17,22 @@
  */
 package com.bahikhaata.contracts;
 
-public record CreateManualLotRequest(
-        String supplierId,
-        String receivedOn,
-        long amountPaidPaise,
-        AllocationMethod allocationMethod) {
+/**
+ * Editing an existing supplier's details. Activation state is changed through its own
+ * deactivate/reactivate endpoints, not here, so an edit never silently retires a vendor.
+ */
+public record UpdateSupplierRequest(
+        String name,
+        String gstin,
+        String phone,
+        String address,
+        String contactPerson,
+        String notes) {
 
-    public CreateManualLotRequest {
-        if (supplierId == null || supplierId.isBlank()) {
-            throw new IllegalArgumentException("supplierId required");
+    public UpdateSupplierRequest {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("supplier name required");
         }
-        if (receivedOn == null || receivedOn.isBlank()) {
-            throw new IllegalArgumentException("receivedOn required");
-        }
-        if (amountPaidPaise <= 0) {
-            throw new IllegalArgumentException("amountPaidPaise must be greater than 0");
-        }
-        if (allocationMethod == null) {
-            throw new IllegalArgumentException("allocationMethod required");
-        }
+        Gstin.requireValidOrAbsent(gstin);
     }
 }

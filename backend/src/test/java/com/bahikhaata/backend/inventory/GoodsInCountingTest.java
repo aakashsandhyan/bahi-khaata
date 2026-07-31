@@ -52,14 +52,22 @@ class GoodsInCountingTest {
     @Autowired private BarcodeRepository barcodes;
     @Autowired private StockLevels stock;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
 
     private UUID lotId;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     @BeforeEach
     void importAManifest() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil",
+                        supplierId("Sushil"),
                         "2026-07-17",
                         List.of(
                                 new ImportLot(
@@ -148,7 +156,7 @@ class GoodsInCountingTest {
     void productAcrossCartonsIsOneBatch() {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil",
+                        supplierId("Sushil"),
                         "2026-07-17",
                         List.of(
                                 new ImportLot(

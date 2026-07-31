@@ -29,6 +29,8 @@ import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
+import com.bahikhaata.backend.inventory.Supplier;
+import com.bahikhaata.backend.inventory.SupplierRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.backend.shelf.ShelfReadiness;
 import com.bahikhaata.contracts.AllocationMethod;
@@ -63,6 +65,14 @@ class CheckoutTest {
     @Autowired private BatchRepository batches;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
+    @Autowired private SupplierRepository suppliers;
+
+    private String supplierId(String name) {
+        return suppliers.findByNameNormalized(Supplier.normalize(name))
+                .map(Supplier::getId)
+                .orElseGet(() -> suppliers.save(new Supplier(name, null, null, null, null, null)).getId())
+                .toString();
+    }
 
     /**
      * Brings one product all the way to the shelf: received, counted with an MRP, costed, priced,
@@ -71,7 +81,7 @@ class CheckoutTest {
     private String onTheShelf(String code, long onlinePaise, long mrpPaise, long pricePaise) {
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("HOME_ESSENTIALS", onlinePaise / 4,
                                 AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine(code, code, 5, onlinePaise, null,
@@ -128,7 +138,7 @@ class CheckoutTest {
         // Received and labelled would still need a price; here it never gets one.
         importer.importConsignment(
                 new ImportConsignmentRequest(
-                        "Sushil", "2026-07-17",
+                        supplierId("Sushil"), "2026-07-17",
                         List.of(new ImportLot("HOME_ESSENTIALS", 10_000,
                                 AllocationMethod.RELATIVE_MRP,
                                 List.of(new ImportLine("NOPRICE", "No price", 1, 40_000, null,

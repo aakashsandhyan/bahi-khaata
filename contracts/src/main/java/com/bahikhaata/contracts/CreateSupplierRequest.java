@@ -17,24 +17,22 @@
  */
 package com.bahikhaata.contracts;
 
-public record CreateManualLotRequest(
-        String supplierId,
-        String receivedOn,
-        long amountPaidPaise,
-        AllocationMethod allocationMethod) {
+/**
+ * Registering a new supplier from the dashboard. Name is required; everything else is optional,
+ * because many small vendors have nothing more than a name.
+ */
+public record CreateSupplierRequest(
+        String name,
+        String gstin,
+        String phone,
+        String address,
+        String contactPerson,
+        String notes) {
 
-    public CreateManualLotRequest {
-        if (supplierId == null || supplierId.isBlank()) {
-            throw new IllegalArgumentException("supplierId required");
+    public CreateSupplierRequest {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("supplier name required");
         }
-        if (receivedOn == null || receivedOn.isBlank()) {
-            throw new IllegalArgumentException("receivedOn required");
-        }
-        if (amountPaidPaise <= 0) {
-            throw new IllegalArgumentException("amountPaidPaise must be greater than 0");
-        }
-        if (allocationMethod == null) {
-            throw new IllegalArgumentException("allocationMethod required");
-        }
+        Gstin.requireValidOrAbsent(gstin);
     }
 }

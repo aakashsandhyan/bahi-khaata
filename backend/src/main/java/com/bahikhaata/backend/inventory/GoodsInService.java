@@ -61,18 +61,21 @@ public class GoodsInService {
     private final BatchRepository batches;
     private final StockLedgerRepository ledger;
     private final CostAllocator allocator;
+    private final SupplierService suppliers;
 
     GoodsInService(
             ProductRepository products,
             LotRepository lots,
             BatchRepository batches,
             StockLedgerRepository ledger,
-            CostAllocator allocator) {
+            CostAllocator allocator,
+            SupplierService suppliers) {
         this.products = products;
         this.lots = lots;
         this.batches = batches;
         this.ledger = ledger;
         this.allocator = allocator;
+        this.suppliers = suppliers;
     }
 
     /**
@@ -85,6 +88,9 @@ public class GoodsInService {
         if (request.lines() == null || request.lines().isEmpty()) {
             throw new IllegalArgumentException("a delivery must have at least one line");
         }
+
+        // Resolved first: an unknown or retired supplier fails before any allocation work.
+        Supplier supplier = suppliers.resolveActiveSupplier(request.supplierId());
 
         // Resolved up front so an unknown product fails before anything is written, and so a
         // product appearing twice is caught rather than silently splitting its allocation.
@@ -113,7 +119,7 @@ public class GoodsInService {
         Lot lot =
                 lots.save(
                         new Lot(
-                                request.supplier(),
+                                supplier,
                                 LocalDate.parse(request.receivedOn()),
                                 Money.ofPaise(request.amountPaidPaise()),
                                 Money.ofPaise(request.freightPaise()),

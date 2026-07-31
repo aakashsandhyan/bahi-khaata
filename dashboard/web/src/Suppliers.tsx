@@ -1,0 +1,336 @@
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { suppliers as api, BackendError } from './api'
+import { rupees } from './money'
+import type { Supplier, SupplierInput, SupplierLot } from './types'
+
+// The Indian GSTIN format, mirrored from the backend so a malformed one is caught before the
+// round-trip. Empty is allowed — many small vendors are unregistered.
+const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+
+const EMPTY_FORM = {
+  name: '',
+  gstin: '',
+  phone: '',
+  address: '',
+  contactPerson: '',
+  notes: '',
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px',
+  border: '1px solid var(--line)',
+  borderRadius: 'var(--r1)',
+  fontSize: '14px',
+  fontFamily: 'inherit',
+} as const
+
+export function Suppliers() {
+  const [list, setList] = useState<Supplier[] | null>(null)
+  const [search, setSearch] = useState('')
+  const [activeOnly, setActiveOnly] = useState(false)
+  const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
+
+  const [selected, setSelected] = useState<Supplier | null>(null)
+  const [selectedLots, setSelectedLots] = useState<SupplierLot[] | null>(null)
+
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState({ ...EMPTY_FORM })
+
+  useEffect(() => {
+    load()
+    // Re-fetch when the filter changes; search filters the loaded list client-side below.
+  }, [activeOnly])
+
+  const load = async () => {
+    try {
+      setList(await api.list(activeOnly))
+    } catch (err) {
+      setMessage({ text: reason(err, 'Cannot reach the system.'), tone: 'stop' })
+    }
+  }
+
+  const openDetail = async (s: Supplier) => {
+    setSelected(s)
+    setSelectedLots(null)
+    try {
+      setSelectedLots(await api.lots(s.id))
+    } catch (err) {
+      setMessage({ text: reason(err, 'Cannot load lots.'), tone: 'stop' })
+    }
+  }
+
+  const openCreate = () => {
+    setEditingId(null)
+    setForm({ ...EMPTY_FORM })
+    setShowForm(true)
+  }
+
+  const openEdit = (s: Supplier) => {
+    setEditingId(s.id)
+    setForm({
+      name: s.name,
+      gstin: s.gstin ?? '',
+      phone: s.phone ?? '',
+      address: s.address ?? '',
+      contactPerson: s.contactPerson ?? '',
+      notes: s.notes ?? '',
+    })
+    setShowForm(true)
+  }
+
+  const save = async () => {
+    if (!form.name.trim()) {
+      setMessage({ text: 'Name is required', tone: 'stop' })
+      return
+    }
+    if (form.gstin.trim() && !GSTIN.test(form.gstin.trim())) {
+      setMessage({ text: 'GSTIN is not a valid 15-character GSTIN', tone: 'stop' })
+      return
+    }
+    const body: SupplierInput = {
+      name: form.name.trim(),
+      gstin: blankToNull(form.gstin),
+      phone: blankToNull(form.phone),
+      address: blankToNull(form.address),
+      contactPerson: blankToNull(form.contactPerson),
+      notes: blankToNull(form.notes),
+    }
+    try {
+      const saved = editingId ? await api.update(editingId, body) : await api.create(body)
+      setMessage({ text: `✓ ${body.name} ${editingId ? 'updated' : 'created'}`, tone: 'ok' })
+      setShowForm(false)
+      await load()
+      if (saved && selected && selected.id === saved.id) setSelected(saved)
+    } catch (err) {
+      setMessage({ text: reason(err, 'Could not save supplier.'), tone: 'stop' })
+    }
+  }
+
+  const toggleActive = async (s: Supplier) => {
+    try {
+      const updated = s.active ? await api.deactivate(s.id) : await api.reactivate(s.id)
+      setMessage({ text: `✓ ${s.name} ${s.active ? 'deactivated' : 'reactivated'}`, tone: 'ok' })
+      await load()
+      if (updated && selected && selected.id === updated.id) setSelected(updated)
+    } catch (err) {
+      setMessage({ text: reason(err, 'Could not change status.'), tone: 'stop' })
+    }
+  }
+
+  const needle = search.trim().toLowerCase()
+  const filtered = (list ?? []).filter(
+    (s) =>
+      !needle ||
+      s.name.toLowerCase().includes(needle) ||
+      (s.gstin?.toLowerCase().includes(needle) ?? false),
+  )
+
+  // --- detail view ---
+  if (selected) {
+    return (
+      <div className="suppliers">
+        <button onClick={() => setSelected(null)} style={linkButton}>← All suppliers</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'var(--s3) 0' }}>
+          <h1 style={{ margin: 0 }}>
+            {selected.name}
+            {!selected.active && <span style={{ marginLeft: 'var(--s2)', fontSize: '13px', color: 'var(--ink-faint)' }}>(inactive)</span>}
+          </h1>
+          <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+            <button onClick={() => openEdit(selected)} style={secondaryButton}>Edit</button>
+            <button onClick={() => toggleActive(selected)} style={secondaryButton}>
+              {selected.active ? 'Deactivate' : 'Reactivate'}
+            </button>
+          </div>
+        </div>
+
+        {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
+
+        <div style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)', marginBottom: 'var(--s4)' }}>
+          <Field label="GSTIN" value={selected.gstin} />
+          <Field label="Phone" value={selected.phone} />
+          <Field label="Address" value={selected.address} />
+          <Field label="Contact person" value={selected.contactPerson} />
+          <Field label="Notes" value={selected.notes} />
+        </div>
+
+        <h2 style={{ fontSize: '16px' }}>Lots received</h2>
+        {selectedLots === null ? (
+          <p>Loading lots…</p>
+        ) : selectedLots.length === 0 ? (
+          <p style={{ color: 'var(--ink-faint)' }}>No lots from this supplier yet.</p>
+        ) : (
+          <div className="overview-cards">
+            {selectedLots.map((lot) => (
+              <div key={lot.id} className="ov">
+                <div style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)' }}>
+                  <div style={{ fontWeight: 600 }}>{rupees(lot.amountPaidPaise)}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>{lot.receivedOn}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '2px' }}>
+                    {lot.isManual ? 'Manual' : 'Manifest'} · {lot.receivingComplete ? 'Complete' : 'In progress'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showForm && renderForm()}
+      </div>
+    )
+  }
+
+  // --- list view ---
+  return (
+    <div className="suppliers">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s4)' }}>
+        <h1>Suppliers</h1>
+        <button onClick={openCreate} style={primaryButton}>+ Add Supplier</button>
+      </div>
+
+      {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
+
+      <div style={{ display: 'flex', gap: 'var(--s3)', alignItems: 'center', marginBottom: 'var(--s3)' }}>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name or GSTIN"
+          style={{ ...inputStyle, maxWidth: '320px' }}
+        />
+        <label style={{ display: 'flex', gap: 'var(--s1)', alignItems: 'center', fontSize: '14px', color: 'var(--ink-soft)' }}>
+          <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
+          Active only
+        </label>
+      </div>
+
+      {list === null ? (
+        <p>Loading suppliers…</p>
+      ) : filtered.length === 0 ? (
+        <p style={{ color: 'var(--ink-faint)' }}>No suppliers{needle ? ' match that search' : ' yet'}.</p>
+      ) : (
+        <div className="overview-cards">
+          {filtered.map((s) => (
+            <div key={s.id} className="ov">
+              <div
+                onClick={() => openDetail(s)}
+                style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: '2px' }}>
+                  {s.name}
+                  {!s.active && <span style={{ marginLeft: 'var(--s2)', fontSize: '12px', color: 'var(--ink-faint)' }}>(inactive)</span>}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>{s.gstin ?? 'No GSTIN'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && renderForm()}
+    </div>
+  )
+
+  function renderForm() {
+    return (
+      <div className="modal-overlay" onClick={() => setShowForm(false)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">{editingId ? 'Edit Supplier' : 'Add Supplier'}</div>
+          <div className="modal-body">
+            <FormRow label="Name" required>
+              <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Supplier name" style={inputStyle} />
+            </FormRow>
+            <FormRow label="GSTIN">
+              <input type="text" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} placeholder="15-character GSTIN (optional)" style={inputStyle} />
+            </FormRow>
+            <FormRow label="Phone">
+              <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Optional" style={inputStyle} />
+            </FormRow>
+            <FormRow label="Address">
+              <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Optional" style={inputStyle} />
+            </FormRow>
+            <FormRow label="Contact person">
+              <input type="text" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Optional" style={inputStyle} />
+            </FormRow>
+            <FormRow label="Notes">
+              <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional" style={inputStyle} />
+            </FormRow>
+          </div>
+          <div className="modal-footer">
+            <button onClick={() => setShowForm(false)} style={cancelButton}>Cancel</button>
+            <button onClick={save} style={primaryButton}>{editingId ? 'Save' : 'Create'}</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+}
+
+function Field({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div style={{ marginBottom: 'var(--s2)' }}>
+      <span style={{ fontSize: '12px', color: 'var(--ink-faint)' }}>{label}: </span>
+      <span style={{ fontSize: '14px' }}>{value ?? '—'}</span>
+    </div>
+  )
+}
+
+function FormRow({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 'var(--s3)' }}>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>
+        {label}{required && <span style={{ color: 'var(--stop, #c0392b)' }}> *</span>}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+function blankToNull(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
+
+function reason(err: unknown, fallback: string): string {
+  return err instanceof BackendError ? err.message : fallback
+}
+
+const primaryButton = {
+  padding: '8px 16px',
+  background: 'var(--brand)',
+  color: 'white',
+  border: 'none',
+  borderRadius: 'var(--r2)',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: '14px',
+} as const
+
+const secondaryButton = {
+  padding: '8px 16px',
+  background: 'var(--card)',
+  border: '1px solid var(--line)',
+  borderRadius: 'var(--r1)',
+  cursor: 'pointer',
+  fontSize: '14px',
+} as const
+
+const cancelButton = {
+  padding: '8px 16px',
+  background: 'var(--line-soft)',
+  border: 'none',
+  borderRadius: 'var(--r1)',
+  cursor: 'pointer',
+  fontSize: '14px',
+} as const
+
+const linkButton = {
+  background: 'transparent',
+  border: 'none',
+  color: 'var(--brand)',
+  cursor: 'pointer',
+  fontSize: '14px',
+  padding: 0,
+} as const
