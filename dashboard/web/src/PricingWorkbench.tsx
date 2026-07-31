@@ -382,11 +382,12 @@ function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; c
         productId: product.productId,
       })
       if (!job) throw new Error('Could not queue the label.')
-      // Print this batch now, self-contained: N labels come out as ceil(N/2) rows straight away,
-      // rather than a lone one waiting to pair with the next product (which surprised the count).
-      await printer.flush()
+      // Held, not flushed: labels print two to a row, so an even count prints in full and a lone
+      // one waits to pair with the next product's label rather than wasting a sticker. So N=5
+      // prints 4 and holds 1. The pending banner tracks the held one; “Print pending now” forces
+      // a leftover out as a duplicate when the operator is done.
       setState('queued')
-      setMessage(`${copies} label${copies > 1 ? 's' : ''} sent to the printer${copies % 2 ? ' (an odd one prints a spare of itself)' : ''}.`)
+      setMessage(`${copies} label${copies > 1 ? 's' : ''} queued — printed two to a row; a lone one waits to pair with the next product (or press “Print pending now”).`)
     } catch (e) {
       setState('failed')
       setMessage(e instanceof BackendError ? e.message : 'Could not queue the label.')
@@ -401,7 +402,7 @@ function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; c
       </div>
       {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Print {copies} label{copies > 1 ? 's' : ''}</button>}
+        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
         <button className={state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
           {state === 'ask' ? 'Skip (print later)' : 'Next product'}
         </button>
