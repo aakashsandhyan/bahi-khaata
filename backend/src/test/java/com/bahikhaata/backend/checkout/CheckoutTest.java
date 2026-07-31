@@ -21,8 +21,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.backend.catalog.BarcodeRepository;
-import com.bahikhaata.backend.inventory.Batch;
-import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.ConsignmentImporter;
 import com.bahikhaata.backend.inventory.ExpectedLine;
 import com.bahikhaata.backend.inventory.ExpectedLineRepository;
@@ -32,7 +30,6 @@ import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.inventory.Supplier;
 import com.bahikhaata.backend.inventory.SupplierRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
-import com.bahikhaata.backend.shelf.ShelfReadiness;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.CartView;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
@@ -59,10 +56,8 @@ class CheckoutTest {
     @Autowired private ConsignmentImporter importer;
     @Autowired private GoodsInCounting counting;
     @Autowired private ProductPricing pricing;
-    @Autowired private ShelfReadiness shelf;
     @Autowired private Checkout checkout;
     @Autowired private ExpectedLineRepository expectedLines;
-    @Autowired private BatchRepository batches;
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
     @Autowired private SupplierRepository suppliers;
@@ -75,8 +70,9 @@ class CheckoutTest {
     }
 
     /**
-     * Brings one product all the way to the shelf: received, counted with an MRP, costed, priced,
-     * and labelled. Returns its scannable code.
+     * Brings one product to the shelf the way pricing does: received, counted with an MRP, costed,
+     * and priced. Deliberately does NOT print a label — a product is sellable once priced with a
+     * confirmed MRP, and the till must not depend on the label having printed. Returns its code.
      */
     private String onTheShelf(String code, long onlinePaise, long mrpPaise, long pricePaise) {
         importer.importConsignment(
@@ -94,8 +90,6 @@ class CheckoutTest {
         // Costed at receipt from the manifest line; the lot need not be closed to price or label.
         UUID productId = line.getProduct().getId();
         pricing.setSellingPrice(productId, Money.ofPaise(pricePaise));
-        Batch batch = batches.findByLotId(lotId).get(0);
-        shelf.label(batch.getId(), AT);
         return code;
     }
 
@@ -163,5 +157,43 @@ class CheckoutTest {
         assertThatThrownBy(() -> checkout.scan(cartId, "NEVERSEEN"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Nothing scans");
+    }
+
+    @Test
+    @DisplayName("A priced product sells before its label has printed")
+    void sellsBeforeTheLabelHasPrinted() {
+        // onTheShelf prints no label — it is priced with a confirmed MRP, nothing more. The till
+        // must sell it anyway; a sale cannot depend on the async label print having succeeded.
+        String code = onTheShelf("EARLY", 30_000, 60_000, 25_000);
+
+        CartView cart = checkout.scan(checkout.open().cartId(), code);
+
+        assertThat(cart.lines()).hasSize(1);
+        assertThat(cart.subtotalPaise()).isEqualTo(25_000);
+    }
+
+    @Test
+    @DisplayName("A priced product with no MRP still sells, at its price, with no saving shown")
+    void sellsWithoutAnMrp() {
+        importer.importConsignment(
+                new ImportConsignmentRequest(
+                        supplierId("Sushil"), "2026-07-17",
+                        List.of(new ImportLot("HOME_ESSENTIALS", 10_000,
+                                AllocationMethod.RELATIVE_MRP,
+                                List.of(new ImportLine("NOMRP", "No mrp", 1, 40_000, null,
+                                        "BOX-M", null, null))))));
+        UUID lotId = lots.findAll().stream().filter(Lot::isOpen).reduce((a, b) -> b)
+                .orElseThrow().getId();
+        ExpectedLine line = expectedLines.findByLotIdOrderByCode(lotId).get(0);
+        // Counted with NO MRP, then priced. A sale needs only a price.
+        counting.countExpected(line.getId(), StockCondition.GOOD, 1, null, false, AT);
+        pricing.setSellingPrice(line.getProduct().getId(), Money.ofPaise(29_900));
+
+        CartView cart = checkout.scan(checkout.open().cartId(), "NOMRP");
+
+        assertThat(cart.lines()).hasSize(1);
+        assertThat(cart.lines().get(0).unitPricePaise()).isEqualTo(29_900);
+        assertThat(cart.lines().get(0).savingPaise()).as("no MRP, so no saving").isZero();
+        assertThat(cart.savingPaise()).isZero();
     }
 }

@@ -135,7 +135,8 @@ function Line({
         <div className="till-line-name">{line.name.length > 48 ? line.name.slice(0, 45) + '…' : line.name}</div>
         {line.asin && <div className="till-line-asin">{line.asin}</div>}
         <div className="till-line-price">
-          <span className="mrp">{rupees(line.mrpPaise)}</span>
+          {/* Strike the MRP only when it is a real saving; a product with no MRP just shows its price. */}
+          {line.savingPaise > 0 && <span className="mrp">{rupees(line.mrpPaise)}</span>}
           <span className="now">{rupees(line.unitPricePaise)}</span>
           {line.savingPercent > 0 && <span className="off">{line.savingPercent}% off</span>}
         </div>

@@ -78,8 +78,11 @@ public class Checkout {
     /**
      * Adds what was scanned, or raises its quantity if already on the cart.
      *
-     * <p>Refuses goods that are not sellable, saying which of price, MRP or label is missing — a
-     * scan at the till is the last place to discover that quietly.
+     * <p>The one thing a sale needs is a price — that is set at pricing, where the barcode is also
+     * mapped, so a priced product is on the shelf. An MRP is not required: when present it drives
+     * the saving shown against it, and when absent the item simply sells at its price with no
+     * saving. Printing the label is a separate step (tracked by the product's label-printed flag)
+     * and does not gate a sale either, so a failed or late print never strands sellable stock.
      */
     @Transactional
     public CartView scan(UUID cartId, String code) {
@@ -94,17 +97,16 @@ public class Checkout {
             throw new IllegalStateException(
                     "\"" + product.getName() + "\" has no price yet and cannot be sold.");
         }
-        Money mrp = sellableMrp(product);
-        if (mrp == null) {
-            throw new IllegalStateException(
-                    "\"" + product.getName() + "\" is not on the shelf yet — it needs a printed"
-                            + " label before it can be sold.");
-        }
+        // Optional — not every product carries an MRP. With one, the line strikes it and shows the
+        // saving; without one, the line's MRP is just the price, so the saving is zero and nothing
+        // is struck. The stored line still needs a non-null figure, so the price stands in.
+        Money mrp = mrpForSale(product);
+        Money lineMrp = mrp != null ? mrp : price;
 
         lines.findByCartIdAndProductId(cartId, product.getId())
                 .ifPresentOrElse(
                         CartLine::addOne,
-                        () -> lines.save(new CartLine(cart, product, price, mrp, 1)));
+                        () -> lines.save(new CartLine(cart, product, price, lineMrp, 1)));
         return view(cartId);
     }
 
@@ -180,9 +182,11 @@ public class Checkout {
     }
 
     /** The printed MRP the goods on the shelf carry: the newest labelled batch with one. */
-    private Money sellableMrp(Product product) {
+    /** The MRP to strike on the receipt: the confirmed MRP from the product's stock, newest first,
+     * or null when none was recorded. Null does not block a sale — it just means no saving to show. */
+    private Money mrpForSale(Product product) {
         for (Batch batch : batches.findByProductIdNewestFirst(product.getId())) {
-            if (batch.isLabelled() && batch.getMrp() != null) {
+            if (batch.getMrp() != null) {
                 return batch.getMrp();
             }
         }
