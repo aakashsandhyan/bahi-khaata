@@ -284,6 +284,24 @@ function PriceForm({
           style={{ width: '100%', padding: 8 }} />
       </Field>
 
+      {name.trim() && (
+        // Check the going rate on Amazon. Opens a new tab — Amazon blocks being shown in a frame,
+        // so it cannot be a modal. The title is trimmed to its first segment for a cleaner search.
+        <button
+          type="button"
+          onClick={() =>
+            window.open(
+              `https://www.amazon.in/s?k=${encodeURIComponent((name.split('|')[0].trim() || name).trim())}`,
+              '_blank',
+              'noopener,noreferrer',
+            )
+          }
+          style={{ marginBottom: 'var(--s2)', fontSize: 13 }}
+        >
+          🔍 Check price on Amazon
+        </button>
+      )}
+
       <Field label="Category">
         <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', padding: 8 }}>
           <option value="">Choose…</option>
