@@ -21,9 +21,9 @@ if not exist "%DB%" (
 )
 if not exist "%OUT%" mkdir "%OUT%"
 
-REM Date stamp YYYY-MM-DD (locale-independent, via wmic).
-for /f %%i in ('wmic os get localdatetime ^| find "."') do set DT=%%i
-set STAMP=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%_%DT:~8,2%%DT:~10,2%
+REM Date stamp YYYY-MM-DD_HHMM (locale-independent, via PowerShell). wmic was removed on
+REM current Windows, so the old wmic date stamp produced a garbage name and no backup at all.
+for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HHmm"') do set "STAMP=%%i"
 
 copy /y "%DB%" "%OUT%\bahi-khaata_%STAMP%.db" >nul
 echo Backed up to %OUT%\bahi-khaata_%STAMP%.db
