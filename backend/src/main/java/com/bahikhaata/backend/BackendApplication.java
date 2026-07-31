@@ -23,8 +23,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
+// EnableScheduling makes the @Scheduled label-print poller actually run. Without it the poll never
+// fired, so held labels only ever printed when someone pressed "Print pending now" (a manual flush).
 @SpringBootApplication
+@EnableScheduling
 public class BackendApplication {
 
     public static void main(String[] args) {
