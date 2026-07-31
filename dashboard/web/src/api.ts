@@ -447,6 +447,12 @@ export const shelfPricing = {
       `/api/pricing/shelf/scan?lotId=${lotId}&code=${encodeURIComponent(code)}`,
     ).then((items) => items[0] ?? null),
 
+  // TRANSIENT — direct scan with no lot chosen, resolves already-counted stock in any lot.
+  scanAny: (code: string) =>
+    getList<_ScannedItem>(
+      `/api/pricing/shelf/scan-any?code=${encodeURIComponent(code)}`,
+    ).then((items) => items[0] ?? null),
+
   suggest: (unitCostPaise: number, categoryCode: string, marginPercent?: number) =>
     get<_PriceSuggestion>(
       `/api/pricing/shelf/suggest?unitCostPaise=${unitCostPaise}&categoryCode=${encodeURIComponent(

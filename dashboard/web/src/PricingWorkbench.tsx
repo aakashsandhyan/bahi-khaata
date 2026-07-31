@@ -25,12 +25,18 @@ export function PricingWorkbench() {
   useEffect(() => {
     shelfPricing
       .lots()
-      .then(setLots)
+      .then((ls) => {
+        setLots(ls)
+        // Re-select the last lot worked on, if it is still in the list — the cache is per-browser.
+        const last = localStorage.getItem('pricing.lastLotId')
+        if (last && ls.some((l) => l.lotId === last)) setLotId(last)
+      })
       .catch((e) => setError(e instanceof BackendError ? e.message : 'Cannot reach the backend.'))
   }, [])
 
   useEffect(() => {
     if (!lotId) return
+    localStorage.setItem('pricing.lastLotId', lotId)
     setItem(null)
     setManual(false)
     shelfPricing.categoriesForLot(lotId).then(setCategories).catch(() => setCategories([]))
@@ -51,6 +57,22 @@ export function PricingWorkbench() {
       .catch((e) => setError(e instanceof BackendError ? e.message : 'Scan failed.'))
   }
 
+  // TRANSIENT — direct scan: resolve an already-counted item in any lot, no lot chosen first.
+  const scanDirect = (code: string) => {
+    setError(null)
+    shelfPricing
+      .scanAny(code)
+      .then((found) => {
+        if (found) {
+          setItem(found)
+          setManual(false)
+        } else {
+          setError(`"${code}" is not a counted product in any lot.`)
+        }
+      })
+      .catch((e) => setError(e instanceof BackendError ? e.message : 'Scan failed.'))
+  }
+
   if (error && !lots) return <div className="pad"><p className="stop">{error}</p></div>
   if (!lots) return <div className="pad">Loading…</div>
 
@@ -63,6 +85,25 @@ export function PricingWorkbench() {
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
       <h1>Pricing</h1>
       <PendingLabels />
+
+      {/* TRANSIENT: direct scan of already-manifested, already-counted stock — price it in one
+          scan without picking its lot. Remove this whole block when no longer needed. */}
+      {!item && !manual && (
+        <div
+          style={{
+            marginTop: 'var(--s3)',
+            padding: 'var(--s3)',
+            border: '1px dashed var(--line)',
+            borderRadius: 'var(--r1)',
+            background: 'var(--card)',
+          }}
+        >
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 'var(--s2)' }}>
+            Direct scan <span style={{ color: 'var(--ink-faint)', fontWeight: 400 }}>(temporary — any counted item, no lot needed)</span>
+          </label>
+          <ScanBox onScan={scanDirect} />
+        </div>
+      )}
 
       <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginTop: 'var(--s3)' }}>
         Lot
@@ -91,10 +132,10 @@ export function PricingWorkbench() {
         </div>
       )}
 
-      {lotId && (item || manual) && (
+      {(item || (lotId && manual)) && (
         <PriceForm
           lotId={lotId}
-          categories={categories}
+          categories={item?.categoryCode ? [item.categoryCode] : categories}
           item={item}
           onCancel={done}
           onSaved={done}

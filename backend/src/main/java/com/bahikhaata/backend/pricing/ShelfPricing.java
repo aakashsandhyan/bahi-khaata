@@ -128,6 +128,30 @@ public class ShelfPricing {
                         .map(batch -> toScannedItem(product, batch)));
     }
 
+    /**
+     * TRANSIENT — direct scan, no lot chosen first. Resolves a scanned code to its product and any
+     * batch it was counted into, in whatever lot, so already-manifested, already-scanned stock can
+     * be priced in one scan. Empty when the code is unknown or the product was never counted. This
+     * is a shortcut expected to be removed later; keep it self-contained.
+     */
+    @Transactional(readOnly = true)
+    public Optional<ScannedItem> resolveScannedAnywhere(String code) {
+        return barcodeResolver
+                .resolve(code)
+                .flatMap(product -> batchAnyFor(product.getId())
+                        .map(batch -> toScannedItem(product, batch)));
+    }
+
+    /** Any batch the product was counted into, preferring good stock still on hand. */
+    private Optional<Batch> batchAnyFor(UUID productId) {
+        List<Batch> found = batches.findByProductId(productId);
+        return found.stream()
+                .filter(b -> b.getQuantityReceived() > 0
+                        && b.getCondition() == com.bahikhaata.contracts.StockCondition.GOOD)
+                .findFirst()
+                .or(() -> found.stream().findFirst());
+    }
+
     /** The distinct category codes of products already in the lot, for the dropdown. */
     @Transactional(readOnly = true)
     public List<String> categoriesForLot(UUID lotId) {
