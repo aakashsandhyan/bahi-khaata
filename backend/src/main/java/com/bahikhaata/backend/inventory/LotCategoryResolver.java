@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
  * lot that has stock but no manifest. A lot with neither is absent from the map and left unlabelled.
  */
 @Component
-class LotCategoryResolver {
+public class LotCategoryResolver {
 
     private final ExpectedLineRepository expectedLines;
     private final BatchRepository batches;
@@ -46,7 +46,7 @@ class LotCategoryResolver {
     }
 
     /** Lot id to its category code. A lot with no stock and no manifest line is not present. */
-    Map<UUID, String> categoryByLot() {
+    public Map<UUID, String> categoryByLot() {
         Map<UUID, String> byLot = new HashMap<>();
         // Batches first, then let a manifest line's category win where both exist — they agree for a
         // manifest lot, and this leaves a manual lot labelled from its batches.

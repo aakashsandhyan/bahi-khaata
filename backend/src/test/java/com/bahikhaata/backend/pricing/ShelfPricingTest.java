@@ -64,11 +64,12 @@ class ShelfPricingTest {
     @Mock private GoodsInCounting goodsIn;
     @Mock private TargetMargins targetMargins;
     @Mock private ProductPricing productPricing;
+    @Mock private com.bahikhaata.backend.inventory.LotCategoryResolver lotCategories;
 
     private ShelfPricing shelfPricing() {
         return new ShelfPricing(
                 lots, batches, products, barcodes, barcodeResolver, barcodeGenerator, goodsIn,
-                targetMargins, productPricing);
+                targetMargins, productPricing, lotCategories);
     }
 
     private void stubMintsBbz(String code) {
@@ -158,11 +159,13 @@ class ShelfPricingTest {
         when(lot.getReceivedOn()).thenReturn(java.time.LocalDate.of(2026, 7, 1));
         when(batches.lotIdsWithUnpricedStock()).thenReturn(java.util.List.of(lotId));
         when(lots.findAllById(java.util.List.of(lotId))).thenReturn(java.util.List.of(lot));
+        when(lotCategories.categoryByLot()).thenReturn(Map.of(lotId, "KITCHEN"));
 
         var result = shelfPricing().lots();
 
         assertEquals(1, result.size());
         assertEquals("Acme", result.get(0).supplier());
+        assertEquals("KITCHEN", result.get(0).categoryCode());
     }
 
     @Test
