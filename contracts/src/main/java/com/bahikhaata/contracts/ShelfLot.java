@@ -20,5 +20,5 @@ package com.bahikhaata.contracts;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** An open lot the pricing workbench can be scoped to. */
-public record ShelfLot(UUID lotId, String supplier, LocalDate receivedOn) {}
+/** An open lot the pricing workbench can be scoped to. Its category tells same-day lots apart. */
+public record ShelfLot(UUID lotId, String supplier, LocalDate receivedOn, String categoryCode) {}

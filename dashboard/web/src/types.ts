@@ -387,6 +387,7 @@ export interface ShelfLot {
   lotId: string
   supplier: string
   receivedOn: string | null
+  categoryCode: string | null
 }
 
 export interface ScannedItem {

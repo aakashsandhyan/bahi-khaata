@@ -27,6 +27,7 @@ import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
+import com.bahikhaata.backend.inventory.LotCategoryResolver;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Category;
@@ -71,6 +72,7 @@ public class ShelfPricing {
     private final GoodsInCounting goodsIn;
     private final TargetMargins targetMargins;
     private final ProductPricing productPricing;
+    private final LotCategoryResolver lotCategories;
 
     public ShelfPricing(
             LotRepository lots,
@@ -81,7 +83,8 @@ public class ShelfPricing {
             InternalBarcodeGenerator barcodeGenerator,
             GoodsInCounting goodsIn,
             TargetMargins targetMargins,
-            ProductPricing productPricing) {
+            ProductPricing productPricing,
+            LotCategoryResolver lotCategories) {
         this.lots = lots;
         this.batches = batches;
         this.products = products;
@@ -91,6 +94,7 @@ public class ShelfPricing {
         this.goodsIn = goodsIn;
         this.targetMargins = targetMargins;
         this.productPricing = productPricing;
+        this.lotCategories = lotCategories;
     }
 
     /**
@@ -101,10 +105,12 @@ public class ShelfPricing {
      */
     @Transactional(readOnly = true)
     public List<ShelfLot> lots() {
+        java.util.Map<UUID, String> categoryByLot = lotCategories.categoryByLot();
         return lots.findAllById(batches.lotIdsWithUnpricedStock()).stream()
                 .sorted(Comparator.comparing(
                         Lot::getReceivedOn, Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(l -> new ShelfLot(l.getId(), l.getSupplier(), l.getReceivedOn()))
+                .map(l -> new ShelfLot(
+                        l.getId(), l.getSupplier(), l.getReceivedOn(), categoryByLot.get(l.getId())))
                 .toList();
     }
 

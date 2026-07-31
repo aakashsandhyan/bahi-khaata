@@ -75,7 +75,7 @@ export function PricingWorkbench() {
         <option value="">Choose a lot to price…</option>
         {lots.map((l) => (
           <option key={l.lotId} value={l.lotId}>
-            {l.supplier} · {l.receivedOn ?? '—'}
+            {l.supplier} · {l.receivedOn ?? '—'}{l.categoryCode ? ` · ${l.categoryCode}` : ''}
           </option>
         ))}
       </select>
