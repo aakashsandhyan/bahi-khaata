@@ -65,6 +65,13 @@ public class ShelfPricingController {
         return shelfPricing.resolveScanned(lotId, code).map(List::of).orElse(List.of());
     }
 
+    // TRANSIENT — direct scan without choosing a lot first, for pricing already-manifested,
+    // already-scanned stock in one scan. Zero-or-one, like /scan. Expected to be removed later.
+    @GetMapping("/scan-any")
+    public List<ScannedItem> scanAny(@RequestParam String code) {
+        return shelfPricing.resolveScannedAnywhere(code).map(List::of).orElse(List.of());
+    }
+
     @GetMapping("/suggest")
     public PriceSuggestion suggest(
             @RequestParam long unitCostPaise,

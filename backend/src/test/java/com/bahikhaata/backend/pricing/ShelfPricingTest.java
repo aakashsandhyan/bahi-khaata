@@ -169,6 +169,34 @@ class ShelfPricingTest {
     }
 
     @Test
+    void directScanResolvesACountedProductInAnyLot() {
+        Product product = new Product("Cooker", Category.of("KITCHEN"), Map.of());
+        Batch batch = mock(Batch.class);
+        when(batch.getId()).thenReturn(UUID.randomUUID());
+        when(batch.getQuantityReceived()).thenReturn(3L);
+        when(batch.getCondition()).thenReturn(StockCondition.GOOD);
+        when(batch.isCosted()).thenReturn(true);
+        when(batch.getAllocatedUnitCost()).thenReturn(Money.ofPaise(35_759L));
+        when(batch.getMrp()).thenReturn(null);
+        when(batch.isMrpEstimate()).thenReturn(false);
+        when(barcodeResolver.resolve("B08RWJ5MGW")).thenReturn(Optional.of(product));
+        when(batches.findByProductId(product.getId())).thenReturn(List.of(batch));
+
+        var found = shelfPricing().resolveScannedAnywhere("B08RWJ5MGW");
+
+        assertTrue(found.isPresent());
+        assertEquals("KITCHEN", found.get().categoryCode());
+        assertTrue(found.get().costed());
+        assertEquals(35_759L, found.get().unitCostPaise());
+    }
+
+    @Test
+    void directScanMissesAnUncountedCode() {
+        when(barcodeResolver.resolve("NOPE")).thenReturn(Optional.empty());
+        assertTrue(shelfPricing().resolveScannedAnywhere("NOPE").isEmpty());
+    }
+
+    @Test
     void suggestsPriceFromCategoryMarginAndUnitCost() {
         when(targetMargins.resolve(Category.of("KITCHEN"), null)).thenReturn(40);
 
