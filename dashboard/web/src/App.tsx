@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Checkout } from './Checkout'
 import { LotManagement } from './LotManagement'
 import { Receiving } from './Receiving'
@@ -32,10 +32,27 @@ export function App() {
     typeof window !== 'undefined' && window.location.hash === '#capture' ? 'capture' : 'unpacking'
   const [view, setView] = useState<View>(isPhone ? phoneLanding : 'checkout')
 
+  // Badge the header when this is the sandbox instance (same app, throwaway DB copy), so nobody
+  // mistakes it for the live shop. The flag comes from the backend, set by start-sandbox.bat.
+  const [sandbox, setSandbox] = useState(false)
+  useEffect(() => {
+    fetch('/api/instance')
+      .then((r) => r.json())
+      .then((d) => setSandbox(!!d.sandbox))
+      .catch(() => {})
+  }, [])
+
   return (
     <>
       <nav className="topnav">
-        <span className="brand">Bachat Baazar</span>
+        <span className="brand" style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.1 }}>
+          Bachat Baazar
+          {sandbox && (
+            <small style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: '#b45309' }}>
+              SANDBOX
+            </small>
+          )}
+        </span>
         <button className={view === 'checkout' ? 'on' : ''} onClick={() => setView('checkout')}>Till</button>
         <button className={view === 'lots' ? 'on' : ''} onClick={() => setView('lots')}>Lots</button>
         <button className={view === 'receiving' ? 'on' : ''} onClick={() => setView('receiving')}>Receiving</button>

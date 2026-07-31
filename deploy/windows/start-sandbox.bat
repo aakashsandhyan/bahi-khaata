@@ -54,7 +54,9 @@ set "JAVA=java"
 for /d %%d in ("%ProgramFiles%\Eclipse Adoptium\jdk-21*") do set "JAVA=%%d\bin\java.exe"
 
 REM Only the database path changes - same jar, same everything else, different port.
-"%JAVA%" -Dbahikhaata.db.path="%SBX%" -Dserver.port=%PORT% -jar "%~dp0backend.jar"
+REM bahikhaata.sandbox=true makes the screen badge itself "SANDBOX" so it is never mistaken
+REM for the live shop; the real shop sets no such flag and shows no badge.
+"%JAVA%" -Dbahikhaata.db.path="%SBX%" -Dserver.port=%PORT% -Dbahikhaata.sandbox=true -jar "%~dp0backend.jar"
 
 echo.
 echo Sandbox stopped. Press any key to close.
