@@ -39,6 +39,13 @@ public interface BatchRepository extends JpaRepository<Batch, UUID> {
     List<UUID> lotIdsWithUnpricedStock();
 
     /**
+     * Each lot paired with a category of its stock. Labels a lot that has batches but no manifest
+     * lines — a manual lot — where {@link ExpectedLineRepository#categoryCodeByLot()} finds nothing.
+     */
+    @Query("SELECT DISTINCT b.lot.id, b.product.categoryCode FROM Batch b")
+    List<Object[]> categoryCodeByLot();
+
+    /**
      * The one batch a product has within a lot. Unique by constraint: counting the same
      * product out of several cartons of one delivery accumulates into a single batch, since a
      * batch is one product's arrival in one lot however many boxes it was split between.

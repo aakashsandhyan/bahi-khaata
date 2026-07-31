@@ -31,6 +31,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,7 @@ class LotController {
     private final ProductRepository productRepository;
     private final BoxRepository boxRepository;
     private final SupplierService supplierService;
+    private final LotCategoryResolver lotCategories;
 
     LotController(
             GoodsInService goodsIn,
@@ -67,7 +69,8 @@ class LotController {
             ExpectedLineRepository expectedLineRepository,
             ProductRepository productRepository,
             BoxRepository boxRepository,
-            SupplierService supplierService) {
+            SupplierService supplierService,
+            LotCategoryResolver lotCategories) {
         this.goodsIn = goodsIn;
         this.lotRepository = lotRepository;
         this.boxReceiptRepository = boxReceiptRepository;
@@ -75,10 +78,12 @@ class LotController {
         this.productRepository = productRepository;
         this.boxRepository = boxRepository;
         this.supplierService = supplierService;
+        this.lotCategories = lotCategories;
     }
 
     @GetMapping
     ResponseEntity<List<LotSummaryDto>> listLots() {
+        Map<UUID, String> categoryByLot = lotCategories.categoryByLot();
         List<LotSummaryDto> results = lotRepository.findAll().stream()
             .filter(Lot::isOpen)
             .map(lot -> {
@@ -89,7 +94,7 @@ class LotController {
                 long rejected = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.REJECTED);
                 long notReceived = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.NOT_RECEIVED);
                 return new LotSummaryDto(lot.getId(), lot.getSupplier(), lot.getReceivedOn(), lot.isReceivingComplete(),
-                    lot.isManual(), expected, received, unpacked, rejected, notReceived);
+                    lot.isManual(), categoryByLot.get(lot.getId()), expected, received, unpacked, rejected, notReceived);
             })
             .sorted(Comparator
                 .comparing((LotSummaryDto l) -> l.receivingComplete())
@@ -144,7 +149,7 @@ class LotController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new LotSummaryDto(lot.getId(), lot.getSupplier(), lot.getReceivedOn(),
-                        lot.isReceivingComplete(), lot.isManual(), 0, 0, 0, 0, 0));
+                        lot.isReceivingComplete(), lot.isManual(), null, 0, 0, 0, 0, 0));
     }
 
     @PostMapping("/{lotId}/add-product")
@@ -206,6 +211,7 @@ record LotSummaryDto(
     LocalDate receivedOn,
     boolean receivingComplete,
     boolean isManual,
+    String categoryCode,
     long expected,
     long received,
     long unpacked,

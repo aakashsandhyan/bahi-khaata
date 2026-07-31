@@ -300,6 +300,7 @@ export interface LotSummary {
   receivedOn: string
   receivingComplete: boolean
   isManual: boolean
+  categoryCode: string | null
   expected: number
   received: number
   unpacked: number
@@ -484,4 +485,5 @@ export interface SupplierLot {
   amountPaidPaise: number
   receivingComplete: boolean
   isManual: boolean
+  categoryCode: string | null
 }

@@ -157,7 +157,10 @@ export function LotManagement() {
                             {lot.supplier}
                             {lot.isManual && <span style={{ marginLeft: 'var(--s2)', fontSize: '12px', color: 'var(--ink-faint)' }}>(M)</span>}
                           </div>
-                          <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>{lot.receivedOn}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>
+                            {lot.receivedOn}
+                            {lot.categoryCode && <span> · {lot.categoryCode}</span>}
+                          </div>
                         </div>
                         <div style={{ textAlign: 'right', fontSize: '13px' }}>
                           {lot.isManual ? 'Manual' : 'Manifest'}
