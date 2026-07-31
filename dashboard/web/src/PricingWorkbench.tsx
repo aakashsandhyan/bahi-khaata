@@ -382,8 +382,11 @@ function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; c
         productId: product.productId,
       })
       if (!job) throw new Error('Could not queue the label.')
+      // Print this batch now, self-contained: N labels come out as ceil(N/2) rows straight away,
+      // rather than a lone one waiting to pair with the next product (which surprised the count).
+      await printer.flush()
       setState('queued')
-      setMessage(`${copies} label${copies > 1 ? 's' : ''} queued — they print two to a row (a lone one waits to pair, or press “Print pending now”).`)
+      setMessage(`${copies} label${copies > 1 ? 's' : ''} sent to the printer${copies % 2 ? ' (an odd one prints a spare of itself)' : ''}.`)
     } catch (e) {
       setState('failed')
       setMessage(e instanceof BackendError ? e.message : 'Could not queue the label.')
@@ -398,7 +401,7 @@ function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; c
       </div>
       {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
+        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Print {copies} label{copies > 1 ? 's' : ''}</button>}
         <button className={state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
           {state === 'ask' ? 'Skip (print later)' : 'Next product'}
         </button>
