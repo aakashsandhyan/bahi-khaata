@@ -33,4 +33,5 @@ public record ScannedItem(
         boolean costed,
         Long unitCostPaise,
         Long mrpPaise,
-        boolean mrpIsEstimate) {}
+        boolean mrpIsEstimate,
+        long quantity) {}

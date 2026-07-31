@@ -253,6 +253,7 @@ public class ShelfPricing {
                 costed,
                 costed ? batch.getAllocatedUnitCost().paise() : null,
                 batch.getMrp() != null ? batch.getMrp().paise() : null,
-                batch.isMrpEstimate());
+                batch.isMrpEstimate(),
+                batch.sellableQuantity());
     }
 }

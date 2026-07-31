@@ -399,6 +399,7 @@ export interface ScannedItem {
   unitCostPaise: number | null
   mrpPaise: number | null
   mrpIsEstimate: boolean
+  quantity: number
 }
 
 export interface PriceSuggestion {

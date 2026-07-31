@@ -69,22 +69,31 @@ public class PrintController {
             return ResponseEntity.badRequest().build();
         }
 
-        PrintJob job = PrintJob.create(
-                req.barcode(),
-                req.productName(),
-                req.sellingPricePaise(),
-                req.mrpPaise(),
-                req.copies(),
-                req.productId());
-        printJobRepository.save(job);
+        // One sticker per copy: queue N single-label jobs, not one job of N. The hold-and-pair
+        // executor pairs jobs two-up and ignores a job's copies count, so N jobs are what turn
+        // into N labels (ceil(N/2) rows). Return the first job; the response reports N queued.
+        PrintJob first = null;
+        for (int i = 0; i < req.copies(); i++) {
+            PrintJob job = PrintJob.create(
+                    req.barcode(),
+                    req.productName(),
+                    req.sellingPricePaise(),
+                    req.mrpPaise(),
+                    1,
+                    req.productId());
+            printJobRepository.save(job);
+            if (first == null) {
+                first = job;
+            }
+        }
 
         QueuePrintJobResponse resp = new QueuePrintJobResponse(
-            job.getId(),
-            job.getStatus(),
-            job.getBarcode(),
-            job.getProductName(),
-            job.getCopies(),
-            job.getError());
+            first.getId(),
+            first.getStatus(),
+            first.getBarcode(),
+            first.getProductName(),
+            req.copies(),
+            first.getError());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
