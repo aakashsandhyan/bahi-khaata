@@ -179,6 +179,7 @@ class ShelfPricingTest {
         when(batch.getAllocatedUnitCost()).thenReturn(Money.ofPaise(35_759L));
         when(batch.getMrp()).thenReturn(null);
         when(batch.isMrpEstimate()).thenReturn(false);
+        when(batch.sellableQuantity()).thenReturn(12L);
         when(barcodeResolver.resolve("B08RWJ5MGW")).thenReturn(Optional.of(product));
         when(batches.findByProductId(product.getId())).thenReturn(List.of(batch));
 
@@ -188,6 +189,7 @@ class ShelfPricingTest {
         assertEquals("KITCHEN", found.get().categoryCode());
         assertTrue(found.get().costed());
         assertEquals(35_759L, found.get().unitCostPaise());
+        assertEquals(12L, found.get().quantity(), "the counted stock, so pricing can print one label each");
     }
 
     @Test

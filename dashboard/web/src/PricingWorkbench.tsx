@@ -218,7 +218,8 @@ function PriceForm({
   const [name, setName] = useState(item?.name ?? '')
   const [category, setCategory] = useState(item?.categoryCode ?? '')
   const [condition, setCondition] = useState('GOOD')
-  const [quantity, setQuantity] = useState(1)
+  // Defaults to the counted stock for a scanned item — one label per unit — or 1 for a hand-keyed one.
+  const [quantity, setQuantity] = useState(item?.quantity ?? 1)
   const [mrp, setMrp] = useState<string>(item?.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
   const [price, setPrice] = useState<string>('')
   const [suggested, setSuggested] = useState<number | null>(null)
@@ -273,7 +274,7 @@ function PriceForm({
     req.then(setSaved).catch((e) => setError(e instanceof BackendError ? e.message : 'Save failed.'))
   }
 
-  if (saved) return <SavedCard product={saved} onDone={onSaved} />
+  if (saved) return <SavedCard product={saved} copies={quantity} onDone={onSaved} />
 
   return (
     <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
@@ -326,6 +327,14 @@ function PriceForm({
         </div>
       )}
 
+      {item && (
+        <Field label="Quantity (labels to print)">
+          <input type="number" min={1} value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+            style={{ width: '100%', padding: 8 }} />
+        </Field>
+      )}
+
       <Field label="MRP (optional)">
         <input value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="₹ printed on the pack"
           style={{ width: '100%', padding: 8 }} />
@@ -356,7 +365,7 @@ function PriceForm({
   )
 }
 
-function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: () => void }) {
+function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; copies: number; onDone: () => void }) {
   const [state, setState] = useState<'ask' | 'queued' | 'failed'>('ask')
   const [message, setMessage] = useState('')
 
@@ -369,12 +378,12 @@ function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: (
         productName: product.name,
         sellingPricePaise: product.sellingPricePaise,
         mrpPaise: product.mrpPaise,
-        copies: 1,
+        copies,
         productId: product.productId,
       })
       if (!job) throw new Error('Could not queue the label.')
       setState('queued')
-      setMessage('Label queued — it prints when a second label pairs with it (or press “Print pending now”).')
+      setMessage(`${copies} label${copies > 1 ? 's' : ''} queued — they print two to a row (a lone one waits to pair, or press “Print pending now”).`)
     } catch (e) {
       setState('failed')
       setMessage(e instanceof BackendError ? e.message : 'Could not queue the label.')
@@ -389,7 +398,7 @@ function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: (
       </div>
       {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue label</button>}
+        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
         <button className={state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
           {state === 'ask' ? 'Skip (print later)' : 'Next product'}
         </button>
