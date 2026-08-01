@@ -1,4 +1,4 @@
-    ## ADDED Requirements
+## ADDED Requirements
 
 ### Requirement: Pricing reconciles stock through the ledger
 
