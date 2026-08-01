@@ -65,6 +65,30 @@ class UsbPrinterDriverTest {
     }
 
     @Test
+    void concurrentSendsAreSerializedAndPacedApart() throws Exception {
+        // Regression test: the poller, flush, and bulk paths all share one physical printer, and
+        // concurrent sendLabel calls used to hit the wire together — rows landed back-to-back,
+        // outran the TE-244's feed, and printed with clipped tops. The driver must be the single
+        // gate: one send at a time, with a minimum breather between sends.
+        try (ServerSocket server = new ServerSocket(0)) {
+            PrinterConfig config = enabledConfig("127.0.0.1:" + server.getLocalPort());
+            when(configRepo.getSingleton()).thenReturn(java.util.Optional.of(config));
+            UsbPrinterDriver driver = new UsbPrinterDriver(configRepo);
+
+            CompletableFuture<Long> firstArrival = acceptOnceTimed(server);
+            CompletableFuture<Long> secondArrival = firstArrival.thenCompose(t -> acceptOnceTimed(server));
+
+            CompletableFuture<Void> a = CompletableFuture.runAsync(() -> sendQuietly(driver));
+            CompletableFuture<Void> b = CompletableFuture.runAsync(() -> sendQuietly(driver));
+            CompletableFuture.allOf(a, b).get();
+
+            long gapMs = (secondArrival.get() - firstArrival.get()) / 1_000_000;
+            assertTrue(gapMs >= UsbPrinterDriver.SEND_GAP_MS - 50,
+                "sends arrived " + gapMs + "ms apart; expected at least " + UsbPrinterDriver.SEND_GAP_MS);
+        }
+    }
+
+    @Test
     void disabledPrinterRefusesToSend() {
         PrinterConfig config = enabledConfig("127.0.0.1:9100");
         config.setEnabled(false);
@@ -137,5 +161,26 @@ class UsbPrinterDriverTest {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    /** Accepts one connection, drains it, and returns the nanoTime the connection arrived. */
+    private static CompletableFuture<Long> acceptOnceTimed(ServerSocket server) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Socket client = server.accept()) {
+                long arrived = System.nanoTime();
+                client.getInputStream().readAllBytes();
+                return arrived;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private static void sendQuietly(UsbPrinterDriver driver) {
+        try {
+            driver.sendLabel("^XA^FDrow^FS^XZ\n", 1);
+        } catch (PrinterDriver.PrinterException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
