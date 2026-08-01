@@ -2,11 +2,11 @@
 
 ## 1. In-hand reconciliation (backend)
 
-- [ ] 1.1 `GoodsInCounting.reconcileBatchTo(batch, targetQty, at)` — add or remove to hit `targetQty`: up → `addCounted` + `ledger.receipt`; down → `removeCounted` + `ledger.adjustment`; zero delta → nothing. Reuses the existing count primitives so `quantity_received`, PINNED cost, and the ledger stay in step.
-- [ ] 1.2 `ScannedItem` gains `sellingPricePaise` (nullable). `ShelfPricing.toScannedItem` fills it from `product.getSellingPrice()`; `quantity` still carries the batch's current on-hand.
-- [ ] 1.3 `PriceExistingRequest` gains `inHandQuantity`.
-- [ ] 1.4 `ShelfPricing.saveExisting`: read `product.getSellingPrice()` **before** setting the price. If null (first pricing) → `reconcileBatchTo(batch, inHandQuantity)` (overwrite). If set (later) → add `inHandQuantity` to the batch (plus-only; 0 = no move). Then price/MRP as today.
-- [ ] 1.5 Tests: first pricing up (7→8, +1 receipt), first pricing down (7→5, −2 adjustment), later pricing add (4+3=7), later with 0 added = no ledger move, no-change = no move. Assert on-hand and PINNED cost total after each.
+- [x] 1.1 `GoodsInCounting.reconcileBatchTo(batch, targetQty, at)` — add or remove to hit `targetQty`: up → `addCounted` + `ledger.receipt`; down → `removeCounted` + `ledger.adjustment`; zero delta → nothing. Reuses the existing count primitives so `quantity_received`, PINNED cost, and the ledger stay in step.
+- [x] 1.2 `ScannedItem` gains `sellingPricePaise` (nullable). `ShelfPricing.toScannedItem` fills it from `product.getSellingPrice()`; `quantity` still carries the batch's current on-hand.
+- [x] 1.3 `PriceExistingRequest` gains `inHandQuantity`.
+- [x] 1.4 `ShelfPricing.saveExisting`: read `product.getSellingPrice()` **before** setting the price. If null (first pricing) → `reconcileBatchTo(batch, inHandQuantity)` (overwrite). If set (later) → add `inHandQuantity` to the batch (plus-only; 0 = no move). Then price/MRP as today.
+- [x] 1.5 Tests: first pricing up (7→8, +1 receipt), first pricing down (7→5, −2 adjustment), later pricing add (4+3=7), later with 0 added = no ledger move, no-change = no move. Assert on-hand and PINNED cost total after each.
 
 ## 2. Pricing form — Expected + In-hand (frontend)
 

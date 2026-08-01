@@ -193,22 +193,39 @@ public class ShelfPricing {
 
     /**
      * Prices a scanned, already-counted product: sets category and selling price, confirms the
-     * batch MRP if one is given, and mints the BBZ if the product has none. Writes no stock — the
-     * receipt was already recorded at counting.
+     * batch MRP if one is given, and mints the BBZ if the product has none. Reconciles the in-hand
+     * count taken at pricing — the count of record — into stock: on a first pricing the quantity is
+     * the true total and overwrites; on a later one it is pieces found and is added; absent leaves
+     * stock be (so a re-price that only fixes a figure moves nothing).
      */
     @Transactional
     public ShelfPricedProduct saveExisting(PriceExistingRequest req) {
         Product product = products.findById(req.productId())
                 .orElseThrow(() -> new IllegalArgumentException("no such product: " + req.productId()));
+        // Read before we set the price: no price yet means this is the first pricing.
+        boolean firstPricing = product.getSellingPrice() == null;
         product.setCategory(Category.of(req.categoryCode()));
-        // Confirm the MRP before pricing, so the price is checked against the figure the operator
-        // just set, not a stale estimate.
-        if (req.mrpPaise() != null) {
+
+        // Touch the batch only when there is something to write to it — an MRP to confirm or an
+        // in-hand count to reconcile — so a bare re-price needs no batch loaded.
+        if (req.mrpPaise() != null || req.inHandQuantity() != null) {
             Batch batch = batches.findById(req.batchId())
                     .orElseThrow(() -> new IllegalArgumentException("no such batch: " + req.batchId()));
-            batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
+            // Confirm the MRP before pricing, so the price is checked against the figure the
+            // operator just set, not a stale estimate.
+            if (req.mrpPaise() != null) {
+                batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
+            }
+            if (req.inHandQuantity() != null) {
+                if (firstPricing) {
+                    goodsIn.reconcileBatchTo(batch, req.inHandQuantity(), Instant.now());
+                } else {
+                    goodsIn.addToInHand(batch, req.inHandQuantity(), Instant.now());
+                }
+            }
             batches.save(batch);
         }
+
         // Route through the guarded setter: the MRP ceiling is enforced, and uncosted stock is
         // allowed (the workbench deliberately prices before a lot is costed — decision B-b).
         productPricing.setSellingPrice(product.getId(), Money.ofPaise(req.sellingPricePaise()), true);
@@ -273,6 +290,7 @@ public class ShelfPricing {
                 costed ? batch.getAllocatedUnitCost().paise() : null,
                 batch.getMrp() != null ? batch.getMrp().paise() : null,
                 batch.isMrpEstimate(),
-                batch.sellableQuantity());
+                batch.sellableQuantity(),
+                product.getSellingPrice() != null ? product.getSellingPrice().paise() : null);
     }
 }

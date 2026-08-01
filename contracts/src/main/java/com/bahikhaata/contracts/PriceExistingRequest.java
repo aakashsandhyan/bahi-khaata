@@ -29,4 +29,7 @@ public record PriceExistingRequest(
         UUID batchId,
         String categoryCode,
         long sellingPricePaise,
-        Long mrpPaise) {}
+        Long mrpPaise,
+        // The true in-hand count taken at pricing: the total on a first pricing (overwrites stock),
+        // or the pieces found on a later one (added). Null/absent means leave stock untouched.
+        Long inHandQuantity) {}
