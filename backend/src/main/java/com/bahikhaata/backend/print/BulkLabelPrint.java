@@ -235,9 +235,12 @@ public class BulkLabelPrint {
     private int explodeToQueue(PrintJob entry) {
         int copies = Math.max(0, entry.getCopies());
         for (int i = 0; i < copies; i++) {
-            printJobs.save(PrintJob.create(
+            PrintJob job = PrintJob.create(
                     entry.getBarcode(), entry.getProductName(), entry.getSellingPricePaise(),
-                    entry.getMrpPaise(), 1, entry.getProductId()));
+                    entry.getMrpPaise(), 1, entry.getProductId());
+            // The review row is deleted below, so the queued jobs are where who-priced-it survives.
+            job.setOperatorName(entry.getOperatorName());
+            printJobs.save(job);
         }
         printJobs.delete(entry);
         return copies;
