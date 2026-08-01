@@ -70,6 +70,7 @@ function AwaitingLabels() {
   const [flushing, setFlushing] = useState(false)
   const [message, setMessage] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
 
   const refresh = () => {
     bulkPrint.reviewEntries().then((l) => setEntries(l ?? [])).catch(() => setEntries([]))
@@ -77,13 +78,14 @@ function AwaitingLabels() {
   }
   useEffect(() => {
     refresh()
+    // The full category list, so a reviewer can reclassify a product as any category.
+    shelfPricing.categories().then(setCategories).catch(() => setCategories([]))
     const t = setInterval(refresh, 3000)
     return () => clearInterval(t)
   }, [])
 
   if (!entries) return null
   const totalLabels = entries.reduce((n, e) => n + e.copies, 0)
-  const categories = Array.from(new Set(entries.map((e) => e.categoryCode))).sort()
 
   const sendAll = async () => {
     setSending(true)

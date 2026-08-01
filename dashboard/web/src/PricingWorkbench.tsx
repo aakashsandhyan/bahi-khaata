@@ -33,6 +33,9 @@ export function PricingWorkbench() {
         if (last && ls.some((l) => l.lotId === last)) setLotId(last)
       })
       .catch((e) => setError(e instanceof BackendError ? e.message : 'Cannot reach the backend.'))
+    // The full category list, so any product — scanned or hand-keyed — can be classified as any of
+    // them (a scanned item is no longer locked to its manifest category).
+    shelfPricing.categories().then(setCategories).catch(() => setCategories([]))
   }, [])
 
   useEffect(() => {
@@ -40,7 +43,6 @@ export function PricingWorkbench() {
     localStorage.setItem('pricing.lastLotId', lotId)
     setItem(null)
     setManual(false)
-    shelfPricing.categoriesForLot(lotId).then(setCategories).catch(() => setCategories([]))
   }, [lotId])
 
   const scan = (code: string) => {
@@ -135,7 +137,7 @@ export function PricingWorkbench() {
       {(item || (lotId && manual)) && (
         <PriceForm
           lotId={lotId}
-          categories={item?.categoryCode ? [item.categoryCode] : categories}
+          categories={categories}
           item={item}
           onCancel={done}
           onSaved={done}

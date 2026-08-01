@@ -185,6 +185,12 @@ public class ShelfPricing {
         return fromBatches.isEmpty() ? categoryCatalog.allCodes() : fromBatches;
     }
 
+    /** The shop's whole category list, for pickers that let an item be classified as anything. */
+    @Transactional(readOnly = true)
+    public List<String> allCategoryCodes() {
+        return categoryCatalog.allCodes();
+    }
+
     /**
      * A suggested selling price from a category's target margin against a unit cost. Only
      * meaningful for costed stock; the caller does not ask for uncosted stock, which is hand-priced.

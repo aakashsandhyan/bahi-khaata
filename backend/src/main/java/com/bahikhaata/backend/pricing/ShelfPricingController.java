@@ -60,6 +60,12 @@ public class ShelfPricingController {
         return shelfPricing.categoriesForLot(lotId);
     }
 
+    /** The shop's full category list, so any product can be classified as any category. */
+    @GetMapping("/categories")
+    public List<String> categories() {
+        return shelfPricing.allCategoryCodes();
+    }
+
     // A list of zero or one: a hit is a single-element list, a miss an empty one. The client reads
     // it as a list (a scan that resolves nothing is "nothing here", not an error), so this stays a
     // 200 with [] rather than a 404.

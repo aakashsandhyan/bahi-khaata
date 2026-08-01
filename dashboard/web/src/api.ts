@@ -453,6 +453,9 @@ export const shelfPricing = {
   categoriesForLot: (lotId: string) =>
     get<string[]>(`/api/pricing/shelf/lots/${lotId}/categories`),
 
+  // The shop's full category list, so any product can be classified as any category.
+  categories: () => get<string[]>('/api/pricing/shelf/categories'),
+
   // A scanned code the lot does not hold answers 404 — getList turns that into an empty list, so
   // "no match, key it by hand" is a clean [] rather than a thrown error.
   scan: (lotId: string, code: string) =>
