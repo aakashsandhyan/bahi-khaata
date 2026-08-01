@@ -2,10 +2,10 @@
 
 ## 1. Data model + migrations
 
-- [ ] 1.1 Migrations: `sale` (id, bill_no, payment_method, subtotal_paise, saving_paise, tax_paise, total_paise, operator_name, created_at), `sale_line` (id, sale_id FK, product_id, name, barcode, mrp_paise, unit_price_paise, quantity, line_total_paise, saving_paise), with a CHECK on payment_method (CASH/UPI/CARD) and an index on bill_no.
-- [ ] 1.2 Migrations: `receipt_printer_config` (mirror `printer_config` — address, transport, enabled, test_status, test_error, last_tested_at) and `bill_settings` (single row — shop_name, address, gstin, bill_title, declaration, footer), seeded with sensible blanks/defaults.
-- [ ] 1.3 Entities + repositories: `Sale`, `SaleLine` (immutable — no setters on snapshot fields), `ReceiptPrinterConfig`, `BillSettings`; `ddl-auto=validate` passes.
-- [ ] 1.4 Contracts: `PaymentMethod` enum, `CompleteSaleRequest`, `SaleView`, `SaleLineView`, `SaleSummary`, `ReceiptPrinterConfig`, `BillSettings`.
+- [x] 1.1 Migrations: `sale` (id, bill_no, payment_method, subtotal_paise, saving_paise, tax_paise, total_paise, operator_name, created_at), `sale_line` (id, sale_id FK, product_id, name, barcode, mrp_paise, unit_price_paise, quantity, line_total_paise, saving_paise), with a CHECK on payment_method (CASH/UPI/CARD) and an index on bill_no.
+- [x] 1.2 Migrations: `receipt_printer_config` (mirror `printer_config` — address, transport, enabled, test_status, test_error, last_tested_at) and `bill_settings` (single row — shop_name, address, gstin, bill_title, declaration, footer), seeded with sensible blanks/defaults.
+- [x] 1.3 Entities + repositories: `Sale`, `SaleLine` (immutable — no setters on snapshot fields), `ReceiptPrinterConfig`, `BillSettings`; `ddl-auto=validate` passes.
+- [x] 1.4 Contracts: `PaymentMethod` enum, `CompleteSaleRequest`, `SaleView`, `SaleLineView`, `SaleSummary`, `ReceiptPrinterConfig`, `BillSettings`.
 
 ## 2. SALE ledger + COGS (inventory)
 
