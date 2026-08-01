@@ -443,6 +443,19 @@ export interface QueueAwaitingResult {
   labelsQueued: number
 }
 
+export interface LabelReviewEntry {
+  jobId: string
+  productId: string
+  batchId: string | null
+  barcode: string
+  name: string
+  categoryCode: string
+  sellingPricePaise: number
+  mrpPaise: number | null
+  copies: number
+  onHand: number
+}
+
 export interface PhantomLine {
   productId: string
   name: string

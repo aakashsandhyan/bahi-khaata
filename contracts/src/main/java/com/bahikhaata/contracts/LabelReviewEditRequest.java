@@ -15,19 +15,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.print;
+package com.bahikhaata.contracts;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface PrintJobRepository extends JpaRepository<PrintJob, UUID> {
-    List<PrintJob> findByStatusOrderByCreatedAtAsc(String status);
-
-    List<PrintJob> findByStatusAndUpdatedAtAfter(String status, Instant since);
-
-    /** The one review entry for a product, if any — the review queue keeps a single row per product. */
-    Optional<PrintJob> findFirstByProductIdAndStatus(UUID productId, String status);
-}
+/**
+ * A reviewer's edit of a waiting label entry: the corrected name, category, price and MRP are
+ * written back to the product so the till agrees, and {@code copies} is how many stickers to print
+ * when the entry is sent.
+ */
+public record LabelReviewEditRequest(
+        String name, String categoryCode, long sellingPricePaise, Long mrpPaise, int copies) {}

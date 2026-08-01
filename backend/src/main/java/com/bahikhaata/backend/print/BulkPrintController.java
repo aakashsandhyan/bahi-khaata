@@ -20,10 +20,17 @@ package com.bahikhaata.backend.print;
 import com.bahikhaata.contracts.AwaitingLabelProduct;
 import com.bahikhaata.contracts.BulkPrintRequest;
 import com.bahikhaata.contracts.BulkPrintResult;
+import com.bahikhaata.contracts.LabelReviewEditRequest;
+import com.bahikhaata.contracts.LabelReviewEntry;
 import com.bahikhaata.contracts.QueueAwaitingResult;
 import java.util.List;
+import java.util.UUID;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -53,5 +60,37 @@ public class BulkPrintController {
     @PostMapping
     public BulkPrintResult printBulk(@RequestBody BulkPrintRequest req) {
         return bulkLabelPrint.printBulk(req.productIds());
+    }
+
+    // --- review queue: one entry per product, edited then sent to the print queue ---
+
+    /** The label entries waiting for a reviewer, one row per product. */
+    @GetMapping("/review")
+    public List<LabelReviewEntry> reviewEntries() {
+        return bulkLabelPrint.reviewEntries();
+    }
+
+    /** Apply a reviewer's edit (name/category/price/MRP/copies) to one waiting entry. */
+    @PutMapping("/review/{jobId}")
+    public ResponseEntity<Void> editReview(
+            @PathVariable UUID jobId, @RequestBody LabelReviewEditRequest req) {
+        bulkLabelPrint.editReviewEntry(jobId, req);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Send every review entry to the print queue in one go. */
+    @PostMapping("/review/send")
+    public QueueAwaitingResult sendReview() {
+        return bulkLabelPrint.sendAllForReview();
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<String> badRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<String> conflict(IllegalStateException e) {
+        return ResponseEntity.status(409).body(e.getMessage());
     }
 }

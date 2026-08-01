@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { reviewQueue, shelfPricing, bulkPrint, printer, BackendError } from './api'
-import type { AwaitingLabelProduct, CaptureSummary, ShelfLot } from './types'
+import type { LabelReviewEntry, CaptureSummary, ShelfLot } from './types'
 import { rupees } from './money'
 import { QtyInput } from './QtyInput'
 
@@ -58,13 +58,13 @@ export function ReviewQueue() {
 }
 
 /**
- * Priced products still waiting for a label, and the reviewer's one action: send them all to the
- * print queue at once. Each product prints one sticker per unit on hand — the count set at pricing.
- * Labels go through the spaced queue (two-up, paced), so a big run cannot outrun the printer; the
- * held-leftover banner lets a lone sticker be flushed when the run is done.
+ * The label review queue: one entry per product, the whole pricing command reviewed in one go — not
+ * a row per sticker. The reviewer can edit each entry (name, category, price, MRP, copies), then
+ * send them all to the print queue at once. Labels go through the spaced queue (two-up, paced), so a
+ * big run cannot outrun the printer; the held-leftover banner flushes a lone sticker when done.
  */
 function AwaitingLabels() {
-  const [items, setItems] = useState<AwaitingLabelProduct[] | null>(null)
+  const [entries, setEntries] = useState<LabelReviewEntry[] | null>(null)
   const [held, setHeld] = useState(0)
   const [sending, setSending] = useState(false)
   const [flushing, setFlushing] = useState(false)
@@ -72,7 +72,7 @@ function AwaitingLabels() {
   const [editing, setEditing] = useState<string | null>(null)
 
   const refresh = () => {
-    bulkPrint.awaiting().then((l) => setItems(l ?? [])).catch(() => setItems([]))
+    bulkPrint.reviewEntries().then((l) => setEntries(l ?? [])).catch(() => setEntries([]))
     printer.pendingCount().then((r) => setHeld(r?.count ?? 0)).catch(() => {})
   }
   useEffect(() => {
@@ -81,15 +81,15 @@ function AwaitingLabels() {
     return () => clearInterval(t)
   }, [])
 
-  if (!items) return null
-  const totalLabels = items.reduce((n, i) => n + i.quantity, 0)
-  const categories = Array.from(new Set(items.map((i) => i.categoryCode))).sort()
+  if (!entries) return null
+  const totalLabels = entries.reduce((n, e) => n + e.copies, 0)
+  const categories = Array.from(new Set(entries.map((e) => e.categoryCode))).sort()
 
   const sendAll = async () => {
     setSending(true)
     setMessage('')
     try {
-      const r = await bulkPrint.queueAwaiting()
+      const r = await bulkPrint.sendReview()
       setMessage(
         `Sent ${r.labelsQueued} label${r.labelsQueued === 1 ? '' : 's'} for ${r.productsQueued} product${r.productsQueued === 1 ? '' : 's'} to the queue — printing now.`,
       )
@@ -105,7 +105,7 @@ function AwaitingLabels() {
     <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r1)', padding: 'var(--s3)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
         <h2 style={{ margin: 0, flex: 1 }}>Labels to print</h2>
-        {items.length > 0 && (
+        {entries.length > 0 && (
           <button className="btn-primary" disabled={sending} onClick={sendAll}>
             {sending ? 'Sending…' : `Send all to queue (${totalLabels} label${totalLabels === 1 ? '' : 's'})`}
           </button>
@@ -127,23 +127,23 @@ function AwaitingLabels() {
         </div>
       )}
 
-      {items.length === 0 ? (
+      {entries.length === 0 ? (
         <p style={{ color: 'var(--ink-faint)', marginBottom: 0 }}>Nothing waiting — every priced product has its labels.</p>
       ) : (
         <div style={{ marginTop: 'var(--s2)', maxHeight: 420, overflowY: 'auto' }}>
-          {items.map((i) => (
-            <div key={i.productId} style={{ padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
+          {entries.map((e) => (
+            <div key={e.jobId} style={{ padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
               <div style={{ display: 'flex', gap: 'var(--s2)', alignItems: 'center' }}>
-                <span style={{ flex: 1 }}>{i.name}</span>
-                <span style={{ color: 'var(--ink-faint)' }}>{rupees(i.sellingPricePaise)}</span>
-                <span style={{ minWidth: 44, textAlign: 'right' }}>×{i.quantity}</span>
-                <button onClick={() => setEditing(editing === i.productId ? null : i.productId)}>
-                  {editing === i.productId ? 'Close' : 'Edit'}
+                <span style={{ flex: 1 }}>{e.name}</span>
+                <span style={{ color: 'var(--ink-faint)' }}>{rupees(e.sellingPricePaise)}</span>
+                <span style={{ minWidth: 44, textAlign: 'right' }}>×{e.copies}</span>
+                <button onClick={() => setEditing(editing === e.jobId ? null : e.jobId)}>
+                  {editing === e.jobId ? 'Close' : 'Edit'}
                 </button>
               </div>
-              {editing === i.productId && (
+              {editing === e.jobId && (
                 <ReviewEditForm
-                  item={i}
+                  entry={e}
                   categories={categories}
                   onDone={() => { setEditing(null); refresh() }}
                 />
@@ -157,24 +157,24 @@ function AwaitingLabels() {
 }
 
 /**
- * Edit a priced product right on the review screen before its label prints — name, category, MRP,
- * price, and the in-hand count. Saving re-prices it; the quantity is the count of record, so it
- * overwrites on-hand (setInHandAsTotal), never adds. The label reflects the edit on the next send.
+ * Edit one review entry before its labels print — name, category, MRP, price, and how many copies.
+ * The name/category/price/MRP are written back to the product so the till agrees; copies is how
+ * many stickers this entry prints when sent. Stock is not touched here — that was set at pricing.
  */
 function ReviewEditForm({
-  item,
+  entry,
   categories,
   onDone,
 }: {
-  item: AwaitingLabelProduct
+  entry: LabelReviewEntry
   categories: string[]
   onDone: () => void
 }) {
-  const [name, setName] = useState(item.name)
-  const [category, setCategory] = useState(item.categoryCode)
-  const [mrp, setMrp] = useState(item.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
-  const [price, setPrice] = useState((item.sellingPricePaise / 100).toString())
-  const [qty, setQty] = useState(item.quantity)
+  const [name, setName] = useState(entry.name)
+  const [category, setCategory] = useState(entry.categoryCode)
+  const [mrp, setMrp] = useState(entry.mrpPaise != null ? (entry.mrpPaise / 100).toString() : '')
+  const [price, setPrice] = useState((entry.sellingPricePaise / 100).toString())
+  const [copies, setCopies] = useState(entry.copies)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -200,15 +200,12 @@ function ReviewEditForm({
     if (pricePaise == null) return setError('Enter a selling price.')
     setSaving(true)
     try {
-      await shelfPricing.saveExisting({
-        productId: item.productId,
-        batchId: item.batchId ?? '',
+      await bulkPrint.editReview(entry.jobId, {
+        name: name.trim(),
         categoryCode: category,
         sellingPricePaise: pricePaise,
         mrpPaise,
-        inHandQuantity: qty,
-        name: name.trim(),
-        setInHandAsTotal: true,
+        copies,
       })
       onDone()
     } catch (e) {
@@ -231,9 +228,9 @@ function ReviewEditForm({
             {options.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div style={{ width: 110 }}>
-          <label style={{ fontSize: 12, fontWeight: 600 }}>Qty (on hand)</label>
-          <QtyInput value={qty} onChange={setQty} min={0} style={field} />
+        <div style={{ width: 130 }}>
+          <label style={{ fontSize: 12, fontWeight: 600 }}>Copies (on hand {entry.onHand})</label>
+          <QtyInput value={copies} onChange={setCopies} min={0} style={field} />
         </div>
       </div>
 

@@ -42,9 +42,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShelfPricingController {
 
     private final ShelfPricing shelfPricing;
+    private final com.bahikhaata.backend.print.BulkLabelPrint labels;
 
-    public ShelfPricingController(ShelfPricing shelfPricing) {
+    public ShelfPricingController(
+            ShelfPricing shelfPricing, com.bahikhaata.backend.print.BulkLabelPrint labels) {
         this.shelfPricing = shelfPricing;
+        this.labels = labels;
     }
 
     @GetMapping("/lots")
@@ -82,11 +85,16 @@ public class ShelfPricingController {
 
     @PostMapping("/existing")
     public ShelfPricedProduct saveExisting(@RequestBody PriceExistingRequest req) {
-        return shelfPricing.saveExisting(req);
+        ShelfPricedProduct saved = shelfPricing.saveExisting(req);
+        // Pricing hands off to review: the product's labels wait as one entry for a reviewer to send.
+        labels.enqueueForReview(saved.productId());
+        return saved;
     }
 
     @PostMapping("/manual")
     public ShelfPricedProduct saveManual(@RequestBody PriceManualRequest req) {
-        return shelfPricing.saveManual(req);
+        ShelfPricedProduct saved = shelfPricing.saveManual(req);
+        labels.enqueueForReview(saved.productId());
+        return saved;
     }
 }

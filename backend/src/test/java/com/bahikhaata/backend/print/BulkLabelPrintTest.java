@@ -49,11 +49,12 @@ class BulkLabelPrintTest {
     @Mock private PrintJobRepository printJobs;
     @Mock private LabelTemplateService labelService;
     @Mock private PrinterDriver printerDriver;
+    @Mock private com.bahikhaata.backend.pricing.ShelfPricing shelfPricing;
 
     private BulkLabelPrint bulk() {
         return new BulkLabelPrint(
                 products, barcodes, barcodeResolver, batches, stock, printJobs, labelService,
-                printerDriver);
+                printerDriver, shelfPricing);
     }
 
     private Product priced(String name) {
@@ -186,5 +187,47 @@ class BulkLabelPrintTest {
         assertThatThrownBy(() -> bulk().labelByBarcode("BBZ-1"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not priced");
+    }
+
+    @Test
+    void enqueueForReviewAddsOneEntryWithCopiesFromOnHand() {
+        Product p = priced("A");
+        when(products.findById(p.getId())).thenReturn(Optional.of(p));
+        when(stock.onHand(p.getId())).thenReturn(4L);
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
+        when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
+
+        bulk().enqueueForReview(p.getId());
+
+        // One review row for the product, copies = on-hand, carrying its BBZ.
+        verify(printJobs).save(argThat(j -> "review".equals(j.getStatus())
+                && j.getCopies() == 4 && "BBZ-A".equals(j.getBarcode())
+                && p.getId().equals(j.getProductId())));
+    }
+
+    @Test
+    void sendAllForReviewExplodesEachEntryIntoSingleLabelQueuedJobs() {
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getCopies()).thenReturn(3);
+        when(entry.getBarcode()).thenReturn("BBZ-A");
+        when(entry.getProductName()).thenReturn("A");
+        when(entry.getSellingPricePaise()).thenReturn(10_000L);
+        when(entry.getMrpPaise()).thenReturn(null);
+        when(entry.getProductId()).thenReturn(UUID.randomUUID());
+        when(printJobs.findByStatusOrderByCreatedAtAsc("review")).thenReturn(List.of(entry));
+
+        var result = bulk().sendAllForReview();
+
+        assertThat(result.productsQueued()).isEqualTo(1);
+        assertThat(result.labelsQueued()).isEqualTo(3L);
+        // Three single-label queued jobs, and the review row is cleared.
+        verify(printJobs, times(3))
+                .save(argThat(j -> j.getCopies() == 1 && "queued".equals(j.getStatus())));
+        verify(printJobs).delete(entry);
     }
 }

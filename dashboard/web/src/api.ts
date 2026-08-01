@@ -430,6 +430,7 @@ export const printer = {
 import type {
   AwaitingLabelProduct as _AwaitingLabelProduct,
   QueueAwaitingResult as _QueueAwaitingResult,
+  LabelReviewEntry as _LabelReviewEntry,
   BulkPrintResult as _BulkPrintResult,
   CaptureSummary as _CaptureSummary,
   LotPhantomReport as _LotPhantomReport,
@@ -528,4 +529,13 @@ export const bulkPrint = {
   // unit on hand, the count set at pricing).
   queueAwaiting: () =>
     post<_QueueAwaitingResult>('/api/print-jobs/bulk/queue-awaiting') as Promise<_QueueAwaitingResult>,
+
+  // The review queue: one entry per product, edited then sent to the print queue.
+  reviewEntries: () => get<_LabelReviewEntry[]>('/api/print-jobs/bulk/review'),
+  editReview: (
+    jobId: string,
+    body: { name: string; categoryCode: string; sellingPricePaise: number; mrpPaise: number | null; copies: number },
+  ) => put<void>(`/api/print-jobs/bulk/review/${jobId}`, body),
+  sendReview: () =>
+    post<_QueueAwaitingResult>('/api/print-jobs/bulk/review/send') as Promise<_QueueAwaitingResult>,
 }

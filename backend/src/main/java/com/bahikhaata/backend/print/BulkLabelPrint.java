@@ -25,9 +25,13 @@ import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.StockLevels;
+import com.bahikhaata.backend.pricing.ShelfPricing;
 import com.bahikhaata.contracts.AwaitingLabelProduct;
 import com.bahikhaata.contracts.BulkPrintResult;
+import com.bahikhaata.contracts.LabelReviewEditRequest;
+import com.bahikhaata.contracts.LabelReviewEntry;
 import com.bahikhaata.contracts.Origin;
+import com.bahikhaata.contracts.PriceExistingRequest;
 import com.bahikhaata.contracts.PrintLabelRequest;
 import com.bahikhaata.contracts.QueueAwaitingResult;
 import java.time.Instant;
@@ -64,6 +68,9 @@ public class BulkLabelPrint {
     private final PrintJobRepository printJobs;
     private final LabelTemplateService labelService;
     private final PrinterDriver printerDriver;
+    private final ShelfPricing shelfPricing;
+
+    private static final String REVIEW = "review";
 
     public BulkLabelPrint(
             ProductRepository products,
@@ -73,7 +80,8 @@ public class BulkLabelPrint {
             StockLevels stock,
             PrintJobRepository printJobs,
             LabelTemplateService labelService,
-            PrinterDriver printerDriver) {
+            PrinterDriver printerDriver,
+            ShelfPricing shelfPricing) {
         this.products = products;
         this.barcodes = barcodes;
         this.barcodeResolver = barcodeResolver;
@@ -82,6 +90,104 @@ public class BulkLabelPrint {
         this.printJobs = printJobs;
         this.labelService = labelService;
         this.printerDriver = printerDriver;
+        this.shelfPricing = shelfPricing;
+    }
+
+    /**
+     * Puts a product's labels on the review queue as a single entry — one row per product, not one
+     * per sticker — so a reviewer sees the whole pricing command in one go. Called after each price
+     * or re-price; it refreshes the product's one review row to the latest details and count (one
+     * sticker per unit on hand). A product with nothing on hand or no shelf barcode is not queued.
+     */
+    @Transactional
+    public void enqueueForReview(UUID productId) {
+        Product product = products.findById(productId).filter(Product::isPriced).orElse(null);
+        // Refresh: drop any existing review row for this product, then re-add with current details.
+        printJobs.findFirstByProductIdAndStatus(productId, REVIEW).ifPresent(printJobs::delete);
+        if (product == null) {
+            return;
+        }
+        long onHand = stock.onHand(productId);
+        String bbz = bbzFor(product);
+        if (onHand <= 0 || bbz.isEmpty()) {
+            return;
+        }
+        PrintJob entry = PrintJob.create(
+                bbz, product.getName(), product.getSellingPrice().paise(),
+                confirmedMrpPaise(product), (int) onHand, productId);
+        entry.setStatus(REVIEW);
+        printJobs.save(entry);
+    }
+
+    /** The label entries waiting for a reviewer, one per product. */
+    @Transactional(readOnly = true)
+    public List<LabelReviewEntry> reviewEntries() {
+        return printJobs.findByStatusOrderByCreatedAtAsc(REVIEW).stream()
+                .map(this::toReviewEntry)
+                .toList();
+    }
+
+    private LabelReviewEntry toReviewEntry(PrintJob job) {
+        Product p = job.getProductId() == null ? null : products.findById(job.getProductId()).orElse(null);
+        UUID batchId = p == null ? null : labelBatchFor(p);
+        String category = p == null ? "" : p.getCategory().code();
+        long onHand = p == null ? 0 : stock.onHand(p.getId());
+        return new LabelReviewEntry(
+                job.getId(), job.getProductId(), batchId, job.getBarcode(), job.getProductName(),
+                category, job.getSellingPricePaise(), job.getMrpPaise(), job.getCopies(), onHand);
+    }
+
+    /**
+     * A reviewer's edit of one waiting entry: the corrected name, category, price and MRP are written
+     * back to the product (so the till agrees) and the entry is refreshed to match, with the copies
+     * the reviewer chose. Stock is not touched — that was set at pricing.
+     */
+    @Transactional
+    public void editReviewEntry(UUID jobId, LabelReviewEditRequest req) {
+        PrintJob entry = printJobs.findById(jobId)
+                .filter(j -> REVIEW.equals(j.getStatus()))
+                .orElseThrow(() -> new IllegalArgumentException("no such review entry: " + jobId));
+        UUID productId = entry.getProductId();
+        Product product = products.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("no such product: " + productId));
+        UUID batchId = labelBatchFor(product);
+        // Write the corrected details back through the pricing path (MRP ceiling enforced, no stock
+        // change since inHandQuantity is null). This re-enqueues nothing — enqueue is the caller's job.
+        shelfPricing.saveExisting(new PriceExistingRequest(
+                productId, batchId, req.categoryCode(), req.sellingPricePaise(), req.mrpPaise(),
+                null, req.name(), false));
+        Product edited = products.findById(productId).orElseThrow();
+        printJobs.delete(entry);
+        PrintJob fresh = PrintJob.create(
+                bbzFor(edited), edited.getName(), edited.getSellingPrice().paise(),
+                confirmedMrpPaise(edited), Math.max(0, req.copies()), productId);
+        fresh.setStatus(REVIEW);
+        printJobs.save(fresh);
+    }
+
+    /**
+     * Sends every review entry to the print queue: each entry explodes into its {@code copies}
+     * single-label queued jobs (so the hold-and-pair poller prints them two-up and spaced), and the
+     * review row is cleared. Returns how many products and labels were sent.
+     */
+    @Transactional
+    public QueueAwaitingResult sendAllForReview() {
+        int productsQueued = 0;
+        long labelsQueued = 0;
+        for (PrintJob entry : printJobs.findByStatusOrderByCreatedAtAsc(REVIEW)) {
+            int copies = Math.max(0, entry.getCopies());
+            for (int i = 0; i < copies; i++) {
+                printJobs.save(PrintJob.create(
+                        entry.getBarcode(), entry.getProductName(), entry.getSellingPricePaise(),
+                        entry.getMrpPaise(), 1, entry.getProductId()));
+            }
+            printJobs.delete(entry);
+            if (copies > 0) {
+                productsQueued++;
+                labelsQueued += copies;
+            }
+        }
+        return new QueueAwaitingResult(productsQueued, labelsQueued);
     }
 
     /**
