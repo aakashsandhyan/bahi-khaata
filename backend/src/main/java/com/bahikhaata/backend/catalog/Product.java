@@ -245,6 +245,15 @@ public class Product extends UuidEntity {
     }
 
     /**
+     * Marks the product as needing a label again, so it re-enters the review screen's awaiting list.
+     * A re-pricing — more stock found, a corrected price, MRP or name — means the printed labels no
+     * longer match, so the product is sent back for the reviewer to send afresh.
+     */
+    public void clearLabelPrinted() {
+        this.labelPrintedAt = null;
+    }
+
+    /**
      * Whether this product may be sold.
      *
      * <p>Requires a price and a recorded MRP. The MRP is not a formality: it is the printed
