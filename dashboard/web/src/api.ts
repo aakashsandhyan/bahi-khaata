@@ -205,7 +205,14 @@ export const unpacking = {
 }
 
 // --- checkout ---
-import type { CartView as _CartView } from './types'
+import type {
+  CartView as _CartView,
+  PaymentMethod as _PaymentMethod,
+  SaleView as _SaleView,
+  SaleSummary as _SaleSummary,
+  ReceiptPrinterConfig as _ReceiptPrinterConfig,
+  BillSettings as _BillSettings,
+} from './types'
 
 async function del<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE}${path}`, { method: 'DELETE' })
@@ -232,6 +239,38 @@ export const checkout = {
     del<_CartView>(`/api/checkout/cart/${cartId}/lines/${lineId}`),
   clear: (cartId: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/clear`) as Promise<_CartView>,
+  // Turns the cart into a recorded sale and prints its bill. The returned sale carries printFailed
+  // so the till can offer a reprint when the printer did not answer — the sale is recorded either way.
+  complete: (cartId: string, paymentMethod: _PaymentMethod, operatorName: string | null) =>
+    post<_SaleView>(`/api/checkout/cart/${cartId}/complete`, {
+      paymentMethod,
+      operatorName,
+    }) as Promise<_SaleView>,
+}
+
+// --- sales (records + reprint) ---
+// A sale, once completed, is immutable; a reprint re-renders from the stored sale, never a cart.
+
+export const sales = {
+  recent: (limit = 50) => getList<_SaleSummary>(`/api/sales?limit=${limit}`),
+  byBillNo: (billNo: number) => get<_SaleView>(`/api/sales/${billNo}`),
+  reprint: (saleId: string) => post<_SaleView>(`/api/sales/${saleId}/reprint`) as Promise<_SaleView>,
+}
+
+// --- receipt printer + bill settings (admin) ---
+// The second printer (ESC/POS receipts), separate from the label printer above, and the editable
+// text on a bill — the whole GST posture (Bill of Supply vs Tax Invoice) is a settings edit here.
+
+export const receiptPrinter = {
+  getConfig: () => get<_ReceiptPrinterConfig>('/api/admin/receipt-printer-config'),
+  saveConfig: (config: { address: string; transport: string; enabled: boolean }) =>
+    put<_ReceiptPrinterConfig>('/api/admin/receipt-printer-config', config),
+  testPrint: () => post<_PrinterTestResult>('/api/admin/receipt-printer-config/test-print'),
+}
+
+export const billSettings = {
+  get: () => get<_BillSettings>('/api/admin/bill-settings'),
+  save: (settings: _BillSettings) => put<_BillSettings>('/api/admin/bill-settings', settings),
 }
 
 // --- remediation ---

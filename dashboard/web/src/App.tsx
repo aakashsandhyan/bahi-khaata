@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Checkout } from './Checkout'
+import { Sales } from './Sales'
 import { LotManagement } from './LotManagement'
 import { Receiving } from './Receiving'
 import { Unpacking } from './Unpacking'
@@ -11,10 +12,13 @@ import { Prep } from './Prep'
 import { Catalog } from './Catalog'
 import { Suppliers } from './Suppliers'
 import { PrinterConfig } from './admin/PrinterConfig'
+import { ReceiptPrinterConfig } from './admin/ReceiptPrinterConfig'
+import { BillSettings } from './admin/BillSettings'
 
 type View =
-  | 'checkout' | 'lots' | 'receiving' | 'unpacking' | 'prep'
-  | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers' | 'printer-config'
+  | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
+  | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
+  | 'printer-config' | 'receipt-config' | 'bill-settings'
 
 /**
  * The admin dashboard shell.
@@ -54,6 +58,7 @@ export function App() {
           )}
         </span>
         <button className={view === 'checkout' ? 'on' : ''} onClick={() => setView('checkout')}>Till</button>
+        <button className={view === 'sales' ? 'on' : ''} onClick={() => setView('sales')}>Sales</button>
         <button className={view === 'lots' ? 'on' : ''} onClick={() => setView('lots')}>Lots</button>
         <button className={view === 'receiving' ? 'on' : ''} onClick={() => setView('receiving')}>Receiving</button>
         <button className={view === 'unpacking' ? 'on' : ''} onClick={() => setView('unpacking')}>Unpacking</button>
@@ -64,9 +69,12 @@ export function App() {
         <button className={view === 'catalog' ? 'on' : ''} onClick={() => setView('catalog')}>Catalog</button>
         <button className={view === 'suppliers' ? 'on' : ''} onClick={() => setView('suppliers')}>Suppliers</button>
         <button className={view === 'printer-config' ? 'on' : ''} onClick={() => setView('printer-config')}>Printer</button>
+        <button className={view === 'receipt-config' ? 'on' : ''} onClick={() => setView('receipt-config')}>Receipt</button>
+        <button className={view === 'bill-settings' ? 'on' : ''} onClick={() => setView('bill-settings')}>Bill</button>
       </nav>
       <main>
         {view === 'checkout' ? <Checkout />
+          : view === 'sales' ? <Sales />
           : view === 'lots' ? <LotManagement />
           : view === 'receiving' ? <Receiving />
           : view === 'unpacking' ? <Unpacking />
@@ -77,7 +85,10 @@ export function App() {
           : view === 'capture' ? <MobileCapture />
           : view === 'catalog' ? <Catalog />
           : view === 'suppliers' ? <Suppliers />
-          : <PrinterConfig />}
+          : view === 'printer-config' ? <PrinterConfig />
+          : view === 'receipt-config' ? <ReceiptPrinterConfig />
+          : view === 'bill-settings' ? <BillSettings />
+          : <Checkout />}
       </main>
     </>
   )
