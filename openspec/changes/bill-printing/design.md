@@ -37,3 +37,19 @@ The till (`/api/checkout`) opens a cart, scans, edits lines, clears — but has 
 - **ESC/POS printer variability** (cut command, code page, chars/line) differs by model. Mitigated by keeping the template driven by a small command set and the config holding transport details; verified against the actual printer at rollout.
 - **Composition declaration / GSTIN correctness** is legal wording pending the CA. Mitigated by making it editable settings, not baked-in text.
 - **COGS on overshoot** uses the newest batch's pinned cost as a best estimate when stock is exceeded — margin on those units is approximate, which is acceptable for a liquidation shop and only affects internal reporting, never the bill.
+
+## Future extension — turning the bill into a GST Tax Invoice
+
+Deliberately kept cheap, in case the shop registers under regular GST instead of composition (or later crosses the threshold). The pipeline — sale, immutability, bill number, reprint, ESC/POS print — does not change; only tax is added.
+
+Already in place, so no work:
+- `sale.tax_paise` — the tax-total slot (zero under composition).
+- `bill_settings.bill_title` / `declaration` / `gstin` — switch to "Tax Invoice", drop the composition declaration, fill the GSTIN: a settings edit, no code.
+- `product.hsn_code` exists on every product; the row-based template appends a tax section without restructure.
+
+The real work, a focused follow-up change (no rewrite):
+1. **Compute the tax** — a per-line GST rate and its CGST/SGST split. This is the parked `gst-inclusive-pricing` change (per-category rate, tax extracted from the inclusive price).
+2. **Snapshot it on the line** — add `gst_percent` + `tax_paise` to `sale_line` (one migration), captured at completion like the other snapshots.
+3. **Template tax section** — taxable value + CGST/SGST, or an HSN-wise summary: a handful of `Row`s.
+
+Not built now (YAGNI): the composition bill never shows tax, so no unused `gst_percent`/tax columns are added ahead of need — the `tax_paise` slot, HSN, and settings keep the door open.
