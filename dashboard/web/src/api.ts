@@ -473,6 +473,8 @@ export const shelfPricing = {
     sellingPricePaise: number
     mrpPaise: number | null
     inHandQuantity: number | null
+    name?: string | null
+    setInHandAsTotal?: boolean
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
 
   saveManual: (body: {

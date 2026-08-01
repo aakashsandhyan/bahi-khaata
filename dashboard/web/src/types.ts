@@ -434,6 +434,8 @@ export interface AwaitingLabelProduct {
   sellingPricePaise: number
   mrpPaise: number | null
   quantity: number
+  batchId: string | null
+  categoryCode: string
 }
 
 export interface QueueAwaitingResult {

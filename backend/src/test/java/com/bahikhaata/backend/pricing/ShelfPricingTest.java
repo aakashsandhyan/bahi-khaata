@@ -97,7 +97,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-100500");
 
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null, null));
+                product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null, null, null, false));
 
         // Price is set through the guarded setter, allowing uncosted stock (decision B-b).
         verify(productPricing).setSellingPrice(product.getId(), Money.ofPaise(44900L), true);
@@ -118,10 +118,31 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-1");
 
         shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), batchId, "KITCHEN", 44900L, 149900L, null));
+                product.getId(), batchId, "KITCHEN", 44900L, 149900L, null, null, false));
 
         // Confirmed (non-estimate), so the label may strike it.
         verify(batch).recordMrp(Money.ofPaise(149900L), false);
+    }
+
+    @Test
+    void reviewerEditOverwritesTheCountAndRenamesEvenWhenAlreadyPriced() {
+        Product product = new Product("Messy manifest name", Category.of("KITCHEN"), Map.of());
+        product.setSellingPrice(Money.ofRupees(100)); // already priced → normally a later add
+        UUID batchId = UUID.randomUUID();
+        Batch batch = mock(Batch.class);
+        when(products.findById(product.getId())).thenReturn(Optional.of(product));
+        when(batches.findById(batchId)).thenReturn(Optional.of(batch));
+        when(barcodes.findByProductId(product.getId())).thenReturn(List.of());
+        stubMintsBbz("BBZ-9");
+
+        shelfPricing().saveExisting(new PriceExistingRequest(
+                product.getId(), batchId, "APPLIANCE", 40000L, null, 3L, "Clean Name", true));
+
+        // setInHandAsTotal overrides the first-vs-later rule: the count of record overwrites, never adds.
+        verify(goodsIn).reconcileBatchTo(eq(batch), eq(3L), any());
+        verify(goodsIn, never()).addToInHand(any(), org.mockito.ArgumentMatchers.anyLong(), any());
+        assertEquals("Clean Name", product.getName());
+        assertEquals("APPLIANCE", product.getCategory().code());
     }
 
     @Test
@@ -134,7 +155,7 @@ class ShelfPricingTest {
         when(barcodes.findByProductId(product.getId())).thenReturn(List.of(existing));
 
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), UUID.randomUUID(), "KITCHEN", 44900L, null, null));
+                product.getId(), UUID.randomUUID(), "KITCHEN", 44900L, null, null, null, false));
 
         assertEquals("BBZ-ALREADY", result.barcode());
         verify(barcodeGenerator, never()).generateFor(any());

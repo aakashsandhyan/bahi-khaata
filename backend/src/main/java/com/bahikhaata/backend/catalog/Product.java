@@ -170,6 +170,14 @@ public class Product extends UuidEntity {
         return name;
     }
 
+    /**
+     * Renames the product. The name is a label it carries — decided from the manifest and
+     * correctable when a reviewer catches a wrong or messy one; nothing costing rides on it.
+     */
+    public void setName(String name) {
+        this.name = Objects.requireNonNull(name, "name");
+    }
+
     public Category getCategory() {
         return Category.of(categoryCode);
     }

@@ -69,6 +69,7 @@ function AwaitingLabels() {
   const [sending, setSending] = useState(false)
   const [flushing, setFlushing] = useState(false)
   const [message, setMessage] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)
 
   const refresh = () => {
     bulkPrint.awaiting().then((l) => setItems(l ?? [])).catch(() => setItems([]))
@@ -82,6 +83,7 @@ function AwaitingLabels() {
 
   if (!items) return null
   const totalLabels = items.reduce((n, i) => n + i.quantity, 0)
+  const categories = Array.from(new Set(items.map((i) => i.categoryCode))).sort()
 
   const sendAll = async () => {
     setSending(true)
@@ -128,16 +130,134 @@ function AwaitingLabels() {
       {items.length === 0 ? (
         <p style={{ color: 'var(--ink-faint)', marginBottom: 0 }}>Nothing waiting — every priced product has its labels.</p>
       ) : (
-        <div style={{ marginTop: 'var(--s2)', maxHeight: 320, overflowY: 'auto' }}>
+        <div style={{ marginTop: 'var(--s2)', maxHeight: 420, overflowY: 'auto' }}>
           {items.map((i) => (
-            <div key={i.productId} style={{ display: 'flex', gap: 'var(--s2)', padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
-              <span style={{ flex: 1 }}>{i.name}</span>
-              <span style={{ color: 'var(--ink-faint)' }}>{rupees(i.sellingPricePaise)}</span>
-              <span style={{ minWidth: 64, textAlign: 'right' }}>×{i.quantity}</span>
+            <div key={i.productId} style={{ padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
+              <div style={{ display: 'flex', gap: 'var(--s2)', alignItems: 'center' }}>
+                <span style={{ flex: 1 }}>{i.name}</span>
+                <span style={{ color: 'var(--ink-faint)' }}>{rupees(i.sellingPricePaise)}</span>
+                <span style={{ minWidth: 44, textAlign: 'right' }}>×{i.quantity}</span>
+                <button onClick={() => setEditing(editing === i.productId ? null : i.productId)}>
+                  {editing === i.productId ? 'Close' : 'Edit'}
+                </button>
+              </div>
+              {editing === i.productId && (
+                <ReviewEditForm
+                  item={i}
+                  categories={categories}
+                  onDone={() => { setEditing(null); refresh() }}
+                />
+              )}
             </div>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Edit a priced product right on the review screen before its label prints — name, category, MRP,
+ * price, and the in-hand count. Saving re-prices it; the quantity is the count of record, so it
+ * overwrites on-hand (setInHandAsTotal), never adds. The label reflects the edit on the next send.
+ */
+function ReviewEditForm({
+  item,
+  categories,
+  onDone,
+}: {
+  item: AwaitingLabelProduct
+  categories: string[]
+  onDone: () => void
+}) {
+  const [name, setName] = useState(item.name)
+  const [category, setCategory] = useState(item.categoryCode)
+  const [mrp, setMrp] = useState(item.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
+  const [price, setPrice] = useState((item.sellingPricePaise / 100).toString())
+  const [qty, setQty] = useState(item.quantity)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const paise = (s: string): number | null => {
+    const n = Number(s)
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null
+  }
+
+  // The same floor the label and till use, so the reviewer sees the discount the sticker will show.
+  const pricePaise = paise(price)
+  const mrpPaise = mrp.trim() ? paise(mrp) : null
+  const percentOff =
+    mrpPaise != null && pricePaise != null && mrpPaise > pricePaise
+      ? Math.floor(((mrpPaise - pricePaise) * 100) / mrpPaise)
+      : null
+
+  const options = Array.from(new Set([category, ...categories])).filter(Boolean)
+
+  const save = async () => {
+    setError(null)
+    if (!name.trim()) return setError('Name cannot be empty.')
+    if (!category) return setError('Choose a category.')
+    if (pricePaise == null) return setError('Enter a selling price.')
+    setSaving(true)
+    try {
+      await shelfPricing.saveExisting({
+        productId: item.productId,
+        batchId: item.batchId ?? '',
+        categoryCode: category,
+        sellingPricePaise: pricePaise,
+        mrpPaise,
+        inHandQuantity: qty,
+        name: name.trim(),
+        setInHandAsTotal: true,
+      })
+      onDone()
+    } catch (e) {
+      setError(e instanceof BackendError ? e.message : 'Save failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const field: React.CSSProperties = { width: '100%', padding: 8 }
+  return (
+    <div style={{ marginTop: 'var(--s2)', padding: 'var(--s3)', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
+      <label style={{ fontSize: 12, fontWeight: 600 }}>Name</label>
+      <input value={name} onChange={(e) => setName(e.target.value)} style={field} />
+
+      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 12, fontWeight: 600 }}>Category</label>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={field}>
+            {options.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{ width: 110 }}>
+          <label style={{ fontSize: 12, fontWeight: 600 }}>Qty (on hand)</label>
+          <QtyInput value={qty} onChange={setQty} min={0} style={field} />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 12, fontWeight: 600 }}>MRP (optional)</label>
+          <input value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="₹" style={field} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 12, fontWeight: 600 }}>Selling price</label>
+          <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="₹" style={field} />
+        </div>
+      </div>
+      {percentOff != null && (
+        <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4 }}>Label will show SAVE {percentOff}%.</div>
+      )}
+
+      {error && <p className="stop" style={{ marginTop: 'var(--s2)' }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+        <button className="btn-primary" style={{ flex: 1 }} disabled={saving} onClick={save}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
+        <button style={{ flex: 1 }} onClick={onDone}>Cancel</button>
+      </div>
     </div>
   )
 }

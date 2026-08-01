@@ -199,7 +199,21 @@ public class BulkLabelPrint {
                 product.getName(),
                 product.getSellingPrice().paise(),
                 confirmedMrpPaise(product),
-                stock.onHand(product.getId()));
+                stock.onHand(product.getId()),
+                labelBatchFor(product),
+                product.getCategory().code());
+    }
+
+    /** The batch a review edit reconciles against — the product's good stock, newest first. */
+    private UUID labelBatchFor(Product product) {
+        List<Batch> found = batches.findByProductIdNewestFirst(product.getId());
+        return found.stream()
+                .filter(b -> b.getCondition() == com.bahikhaata.contracts.StockCondition.GOOD
+                        && b.getQuantityReceived() > 0)
+                .findFirst()
+                .or(() -> found.stream().findFirst())
+                .map(Batch::getId)
+                .orElse(null);
     }
 
     private PrintLabelRequest labelFor(Product product) {

@@ -25,4 +25,7 @@ import java.util.UUID;
  */
 public record AwaitingLabelProduct(
         UUID productId, String barcode, String name, long sellingPricePaise, Long mrpPaise,
-        long quantity) {}
+        long quantity,
+        // The batch to reconcile against, and the current category — so the reviewer can edit the
+        // product's name, category, price, MRP and count right on the review screen before printing.
+        UUID batchId, String categoryCode) {}

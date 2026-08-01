@@ -32,4 +32,10 @@ public record PriceExistingRequest(
         Long mrpPaise,
         // The true in-hand count taken at pricing: the total on a first pricing (overwrites stock),
         // or the pieces found on a later one (added). Null/absent means leave stock untouched.
-        Long inHandQuantity) {}
+        Long inHandQuantity,
+        // A corrected product name, or null to leave it. The reviewer may fix a messy manifest name.
+        String name,
+        // When true, inHandQuantity is the true total and overwrites on-hand however the product was
+        // priced before — the reviewer's count of record. When false, the first-vs-later rule
+        // applies (first pricing overwrites, a later one adds).
+        boolean setInHandAsTotal) {}

@@ -210,6 +210,9 @@ public class ShelfPricing {
         // Read before we set the price: no price yet means this is the first pricing.
         boolean firstPricing = product.getSellingPrice() == null;
         product.setCategory(Category.of(req.categoryCode()));
+        if (req.name() != null && !req.name().isBlank()) {
+            product.setName(req.name().trim());
+        }
 
         // Touch the batch only when there is something to write to it — an MRP to confirm or an
         // in-hand count to reconcile — so a bare re-price needs no batch loaded.
@@ -222,7 +225,9 @@ public class ShelfPricing {
                 batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
             }
             if (req.inHandQuantity() != null) {
-                if (firstPricing) {
+                // A first pricing, or the reviewer's count of record, is the true total and
+                // overwrites; a later pricing from the workbench adds the extra pieces found.
+                if (req.setInHandAsTotal() || firstPricing) {
                     goodsIn.reconcileBatchTo(batch, req.inHandQuantity(), Instant.now());
                 } else {
                     goodsIn.addToInHand(batch, req.inHandQuantity(), Instant.now());
