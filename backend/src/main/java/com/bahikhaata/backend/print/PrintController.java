@@ -17,17 +17,20 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.contracts.AwaitingLabelProduct;
 import com.bahikhaata.contracts.QueuePrintJobRequest;
 import com.bahikhaata.contracts.QueuePrintJobResponse;
 import com.bahikhaata.contracts.PrintJobStatusResponse;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -41,10 +44,33 @@ import org.springframework.web.bind.annotation.RestController;
 public class PrintController {
     private final PrintJobRepository printJobRepository;
     private final PrintExecutorService executor;
+    private final BulkLabelPrint labels;
 
-    public PrintController(PrintJobRepository printJobRepository, PrintExecutorService executor) {
+    public PrintController(
+            PrintJobRepository printJobRepository, PrintExecutorService executor, BulkLabelPrint labels) {
         this.printJobRepository = printJobRepository;
         this.executor = executor;
+        this.labels = labels;
+    }
+
+    /**
+     * Look up a priced product by any of its barcodes for the reprint screen: the shelf BBZ, or the
+     * original LSN/ASIN. Returns the label figures (name, price, confirmed MRP). An unknown code is
+     * a 400 and an unpriced product a 409, each with a message the screen shows.
+     */
+    @GetMapping("/label-for")
+    public AwaitingLabelProduct labelFor(@RequestParam String barcode) {
+        return labels.labelByBarcode(barcode);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<String> badRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<String> conflict(IllegalStateException e) {
+        return ResponseEntity.status(409).body(e.getMessage());
     }
 
     /** How many labels are held, waiting for a partner to pair with — shown on the pricing screen. */

@@ -26,6 +26,8 @@ import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.CategoryCatalog;
+import com.bahikhaata.backend.inventory.ExpectedLine;
+import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotCategoryResolver;
@@ -77,6 +79,7 @@ public class ShelfPricing {
     private final ProductPricing productPricing;
     private final LotCategoryResolver lotCategories;
     private final CategoryCatalog categoryCatalog;
+    private final ExpectedLineRepository expectedLines;
 
     public ShelfPricing(
             LotRepository lots,
@@ -89,7 +92,8 @@ public class ShelfPricing {
             TargetMargins targetMargins,
             ProductPricing productPricing,
             LotCategoryResolver lotCategories,
-            CategoryCatalog categoryCatalog) {
+            CategoryCatalog categoryCatalog,
+            ExpectedLineRepository expectedLines) {
         this.lots = lots;
         this.batches = batches;
         this.products = products;
@@ -101,6 +105,7 @@ public class ShelfPricing {
         this.productPricing = productPricing;
         this.lotCategories = lotCategories;
         this.categoryCatalog = categoryCatalog;
+        this.expectedLines = expectedLines;
     }
 
     /**
@@ -291,6 +296,14 @@ public class ShelfPricing {
                 batch.getMrp() != null ? batch.getMrp().paise() : null,
                 batch.isMrpEstimate(),
                 batch.sellableQuantity(),
-                product.getSellingPrice() != null ? product.getSellingPrice().paise() : null);
+                product.getSellingPrice() != null ? product.getSellingPrice().paise() : null,
+                expectedQuantityFor(batch));
+    }
+
+    /** The manifest's expected total for the batch's product in its lot, or null if unmanifested. */
+    private Long expectedQuantityFor(Batch batch) {
+        List<ExpectedLine> lines = expectedLines.findByLotIdAndProductIdOrderByCode(
+                batch.getLot().getId(), batch.getProduct().getId());
+        return lines.isEmpty() ? null : lines.stream().mapToLong(ExpectedLine::getQuantityExpected).sum();
     }
 }

@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.print;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
@@ -42,12 +43,14 @@ class BulkLabelPrintTest {
 
     @Mock private ProductRepository products;
     @Mock private BarcodeRepository barcodes;
+    @Mock private com.bahikhaata.backend.catalog.BarcodeResolver barcodeResolver;
     @Mock private BatchRepository batches;
     @Mock private LabelTemplateService labelService;
     @Mock private PrinterDriver printerDriver;
 
     private BulkLabelPrint bulk() {
-        return new BulkLabelPrint(products, barcodes, batches, labelService, printerDriver);
+        return new BulkLabelPrint(
+                products, barcodes, barcodeResolver, batches, labelService, printerDriver);
     }
 
     private Product priced(String name) {
@@ -107,5 +110,47 @@ class BulkLabelPrintTest {
         assertThat(result.failed()).isEqualTo(1);
         assertThat(result.printed()).isZero();
         verifyNoInteractions(printerDriver);
+    }
+
+    @Test
+    void reprintLookupReturnsTheCurrentLabelFigures() {
+        Product p = priced("Cooker");
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-100042");
+        when(barcodeResolver.resolve("B08RWJ5MGW")).thenReturn(Optional.of(p));
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        var batch = mock(com.bahikhaata.backend.inventory.Batch.class);
+        when(batch.getMrp()).thenReturn(Money.ofRupees(400));
+        when(batch.isMrpEstimate()).thenReturn(false);
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of(batch));
+
+        var found = bulk().labelByBarcode("B08RWJ5MGW");
+
+        // The label carries the BBZ, the current name/price, and the confirmed MRP.
+        assertThat(found.barcode()).isEqualTo("BBZ-100042");
+        assertThat(found.name()).isEqualTo("Cooker");
+        assertThat(found.sellingPricePaise()).isEqualTo(10_000L);
+        assertThat(found.mrpPaise()).isEqualTo(40_000L);
+    }
+
+    @Test
+    void reprintLookupRefusesAnUnknownBarcode() {
+        when(barcodeResolver.resolve("NOPE")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> bulk().labelByBarcode("NOPE"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No product");
+    }
+
+    @Test
+    void reprintLookupRefusesAnUnpricedProduct() {
+        Product p = new Product("Unpriced", Category.of("KITCHEN"), java.util.Map.of());
+        when(barcodeResolver.resolve("BBZ-1")).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> bulk().labelByBarcode("BBZ-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not priced");
     }
 }

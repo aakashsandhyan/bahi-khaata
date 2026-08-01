@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.print;
 
 import com.bahikhaata.backend.catalog.Barcode;
+import com.bahikhaata.backend.catalog.BarcodeResolver;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.catalog.BarcodeRepository;
@@ -53,6 +54,7 @@ public class BulkLabelPrint {
 
     private final ProductRepository products;
     private final BarcodeRepository barcodes;
+    private final BarcodeResolver barcodeResolver;
     private final BatchRepository batches;
     private final LabelTemplateService labelService;
     private final PrinterDriver printerDriver;
@@ -60,14 +62,33 @@ public class BulkLabelPrint {
     public BulkLabelPrint(
             ProductRepository products,
             BarcodeRepository barcodes,
+            BarcodeResolver barcodeResolver,
             BatchRepository batches,
             LabelTemplateService labelService,
             PrinterDriver printerDriver) {
         this.products = products;
         this.barcodes = barcodes;
+        this.barcodeResolver = barcodeResolver;
         this.batches = batches;
         this.labelService = labelService;
         this.printerDriver = printerDriver;
+    }
+
+    /**
+     * Resolves any barcode (BBZ shelf code, or the original LSN/ASIN) to its priced product, for the
+     * reprint screen — the one place a barcode can be looked up. Refuses an unknown code and an
+     * as-yet-unpriced product with a clear message; the label always carries the product's BBZ.
+     */
+    @Transactional(readOnly = true)
+    public AwaitingLabelProduct labelByBarcode(String code) {
+        Product product = barcodeResolver.resolve(code)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No product found for barcode \"" + code + "\"."));
+        if (!product.isPriced()) {
+            throw new IllegalStateException(
+                    "\"" + product.getName() + "\" is not priced yet — price it before printing a label.");
+        }
+        return toAwaiting(product);
     }
 
     /** Priced shelf products whose label has not printed, newest-name first, for the bulk screen. */

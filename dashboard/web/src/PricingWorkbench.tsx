@@ -3,6 +3,7 @@ import { shelfPricing, printer, BackendError } from './api'
 import type { ScannedItem, ShelfLot, ShelfPricedProduct } from './types'
 import { rupees } from './money'
 import { LotReconcile } from './LotReconcile'
+import { QtyInput } from './QtyInput'
 
 /**
  * Pricing the shelf, lot first.
@@ -215,11 +216,15 @@ function PriceForm({
   onCancel: () => void
   onSaved: () => void
 }) {
+  // First pricing = the product has no selling price yet. Then the in-hand count is the true total
+  // and overwrites stock; a later pricing adds only the extra pieces found.
+  const firstPricing = !!item && item.sellingPricePaise == null
   const [name, setName] = useState(item?.name ?? '')
   const [category, setCategory] = useState(item?.categoryCode ?? '')
   const [condition, setCondition] = useState('GOOD')
-  // Defaults to the counted stock for a scanned item — one label per unit — or 1 for a hand-keyed one.
-  const [quantity, setQuantity] = useState(item?.quantity ?? 1)
+  // For a scanned item this is the in-hand count (and one label per unit): the counted stock on a
+  // first pricing, or 0 additional on a later one. For a hand-keyed product it is the quantity, 1.
+  const [quantity, setQuantity] = useState(item ? (firstPricing ? item.quantity : 0) : 1)
   const [mrp, setMrp] = useState<string>(item?.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
   const [price, setPrice] = useState<string>('')
   const [suggested, setSuggested] = useState<number | null>(null)
@@ -260,6 +265,9 @@ function PriceForm({
           categoryCode: category,
           sellingPricePaise: pricePaise,
           mrpPaise,
+          // The in-hand count is the count of record: overwrites stock on a first pricing, adds on
+          // a later one. 0 on a later pricing leaves stock be — a bare price/MRP fix moves nothing.
+          inHandQuantity: quantity,
         })
       : shelfPricing.saveManual({
           lotId,
@@ -320,19 +328,25 @@ function PriceForm({
             </select>
           </Field>
           <Field label="Quantity">
-            <input type="number" min={1} value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              style={{ width: '100%', padding: 8 }} />
+            <QtyInput value={quantity} onChange={setQuantity} min={1} style={{ width: '100%', padding: 8 }} />
           </Field>
         </div>
       )}
 
       {item && (
-        <Field label="Quantity (labels to print)">
-          <input type="number" min={1} value={quantity}
-            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-            style={{ width: '100%', padding: 8 }} />
-        </Field>
+        <>
+          <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 'var(--s2)' }}>
+            {item.expectedQuantity != null && <>Manifest expected <b>{item.expectedQuantity}</b>. </>}
+            {firstPricing
+              ? <>Counted at unpacking <b>{item.quantity}</b>.</>
+              : <>On hand now <b>{item.quantity}</b>.</>}
+          </div>
+          <Field label={firstPricing
+            ? 'In-hand quantity (physical count — sets stock & labels)'
+            : 'Additional found (adds to stock & labels; 0 = fixing price/MRP only)'}>
+            <QtyInput value={quantity} onChange={setQuantity} min={0} style={{ width: '100%', padding: 8 }} />
+          </Field>
+        </>
       )}
 
       <Field label="MRP (optional)">
@@ -400,11 +414,16 @@ function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; c
       <div style={{ fontSize: 14, marginTop: 4 }}>
         {rupees(product.sellingPricePaise)}{product.mrpPaise ? ` · MRP ${rupees(product.mrpPaise)}` : ''}
       </div>
+      {copies === 0 && (
+        <div style={{ marginTop: 'var(--s2)', fontSize: 13, color: 'var(--ink-faint)' }}>
+          No new labels — stock unchanged. Reprint a corrected label from the Reprint screen.
+        </div>
+      )}
       {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
-        <button className={state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
-          {state === 'ask' ? 'Skip (print later)' : 'Next product'}
+        {copies > 0 && state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
+        <button className={copies > 0 && state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
+          {copies > 0 && state === 'ask' ? 'Skip (print later)' : 'Next product'}
         </button>
       </div>
     </div>

@@ -400,6 +400,8 @@ export interface ScannedItem {
   mrpPaise: number | null
   mrpIsEstimate: boolean
   quantity: number
+  sellingPricePaise: number | null
+  expectedQuantity: number | null
 }
 
 export interface PriceSuggestion {

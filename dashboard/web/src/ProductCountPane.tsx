@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { productCounting, BackendError } from './api'
 import type { ProductBoxLine, RejectedEntry } from './types'
+import { QtyInput } from './QtyInput'
 
 /**
  * Counting one product across every box of a single delivery at once, instead of opening each
@@ -187,14 +188,13 @@ export function ProductCountPane({
                         : `${r.outstanding} to find`}
                     </span>
                   </div>
-                  <input
-                    type="number"
+                  <QtyInput
                     className="pcc-qty-in"
                     min={0}
                     max={r.outstanding}
                     value={r.quantity}
                     disabled={r.outstanding === 0}
-                    onChange={(e) => setQty(r.lineId, Math.floor(Number(e.target.value) || 0))}
+                    onChange={(n) => setQty(r.lineId, n)}
                   />
                 </div>
               )

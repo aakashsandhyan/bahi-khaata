@@ -405,6 +405,11 @@ export const printer = {
   getJobStatus: (jobId: string) =>
     get<_PrintJob>(`/api/print-jobs/${jobId}`),
 
+  // Reprint lookup: resolve any of a product's barcodes (shelf BBZ, or the original LSN/ASIN) to
+  // its current label figures. The backend refuses an unknown code (400) or an unpriced one (409).
+  labelFor: (barcode: string) =>
+    get<_AwaitingLabelProduct>(`/api/print-jobs/label-for?barcode=${encodeURIComponent(barcode)}`),
+
   // Labels print two to a row, so a lone label is held until a second pairs with it. This is how
   // many are held, and the flush that prints a leftover (as a duplicate pair) on demand.
   pendingCount: () => get<{ count: number }>('/api/print-jobs/pending-count'),
@@ -466,6 +471,7 @@ export const shelfPricing = {
     categoryCode: string
     sellingPricePaise: number
     mrpPaise: number | null
+    inHandQuantity: number | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
 
   saveManual: (body: {

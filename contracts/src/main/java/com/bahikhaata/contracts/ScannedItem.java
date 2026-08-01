@@ -35,4 +35,7 @@ public record ScannedItem(
         Long mrpPaise,
         boolean mrpIsEstimate,
         long quantity,
-        Long sellingPricePaise) {}
+        Long sellingPricePaise,
+        // The manifest's expected quantity for this product in the lot (summed over its lines), for
+        // reference against the physical in-hand count at pricing. Null when nothing was manifested.
+        Long expectedQuantity) {}

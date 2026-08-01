@@ -10,24 +10,24 @@
 
 ## 2. Pricing form — Expected + In-hand (frontend)
 
-- [ ] 2.1 Show the manifest **Expected** quantity for reference (read-only) on a scanned item.
-- [ ] 2.2 The quantity field means **In-hand total** when the item is not yet priced (`sellingPricePaise == null`) — default to the counted quantity; and **additional found** when already priced — default **0**, label it so, and send it as `inHandQuantity`.
-- [ ] 2.3 Confirm the label count still follows the in-hand/added quantity (labels for what's now on hand, per the hold-and-pair queue).
+- [x] 2.1 Show the manifest **Expected** quantity for reference (read-only) on a scanned item.
+- [x] 2.2 The quantity field means **In-hand total** when the item is not yet priced (`sellingPricePaise == null`) — default to the counted quantity; and **additional found** when already priced — default **0**, label it so, and send it as `inHandQuantity`.
+- [x] 2.3 Confirm the label count still follows the in-hand/added quantity (labels for what's now on hand, per the hold-and-pair queue).
 
 ## 3. Reprint label by barcode
 
-- [ ] 3.1 Backend `GET /api/print-jobs/label-for?barcode=` → `{barcode, name, sellingPricePaise, mrpPaise}`; MRP resolved from the batch (as `sellableMrp` does). 404 unknown code; clear 4xx when the product has no price.
-- [ ] 3.2 Frontend **Reprint** view + nav tab: barcode box → resolved label card (name/price/MRP) → `QtyInput` → queue via the existing `queueLabel`. Show the refusal message for unknown/unpriced.
-- [ ] 3.3 Tests: lookup returns the current name/price/MRP; unknown and unpriced are refused.
+- [x] 3.1 Backend `GET /api/print-jobs/label-for?barcode=` → `{barcode, name, sellingPricePaise, mrpPaise}`; MRP resolved from the batch (as `sellableMrp` does). 404 unknown code; clear 4xx when the product has no price.
+- [x] 3.2 Frontend **Reprint** view + nav tab: barcode box → resolved label card (name/price/MRP) → `QtyInput` → queue via the existing `queueLabel`. Show the refusal message for unknown/unpriced.
+- [x] 3.3 Tests: lookup returns the current name/price/MRP; unknown and unpriced are refused.
 
 ## 4. Clearable quantity input
 
-- [ ] 4.1 `QtyInput` component — raw text while typing (empty allowed), clamp to a whole number ≥ min on blur, `onChange(n)`. (Prototyped on `fix/qty-input-clearable` — bring it in.)
-- [ ] 4.2 Apply it in: the count pane, both pricing quantities, the review queue, and manual receive. Remove the `parseInt(value) || default` handlers.
+- [x] 4.1 `QtyInput` component — raw text while typing (empty allowed), clamp to a whole number ≥ min on blur, `onChange(n)`. (Prototyped on `fix/qty-input-clearable` — bring it in.)
+- [x] 4.2 Apply it in: the count pane, both pricing quantities, the review queue, and manual receive. Remove the `parseInt(value) || default` handlers.
 
 ## 5. Verify + ship
 
-- [ ] 5.1 Full backend suite + ArchUnit green; frontend `tsc` clean.
+- [x] 5.1 Full backend suite + ArchUnit green; frontend `tsc` clean.
 - [ ] 5.2 Local end-to-end: first-price a product (overwrite), re-price to add, re-price with 0 to fix MRP (no move), reprint by barcode, clear-and-retype a qty.
 - [ ] 5.3 Deploy to the shop — this **mutates stock on real data**, so back up first and verify on-hand moves only as expected; watch a down-adjustment case.
 - [ ] 5.4 `/opsx:sync` + `/opsx:archive` once shipped.

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { reviewQueue, shelfPricing, BackendError } from './api'
 import type { CaptureSummary, ShelfLot } from './types'
 import { rupees } from './money'
+import { QtyInput } from './QtyInput'
 
 /**
  * The review queue for captures made from a phone. Each is a pricing-free draft; a reviewer gives
@@ -103,9 +104,7 @@ function ApproveForm({ capture, lots, onDone }: { capture: CaptureSummary; lots:
         <select value={condition} onChange={(e) => setCondition(e.target.value)} style={{ padding: 8, flex: 1 }}>
           {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <input type="number" min={1} value={quantity}
-          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-          style={{ padding: 8, flex: 1 }} placeholder="Qty" />
+        <QtyInput value={quantity} onChange={setQuantity} min={1} style={{ padding: 8, flex: 1 }} />
       </div>
       <input value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="MRP (optional)" style={{ padding: 8 }} />
       <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Selling price" style={{ padding: 8 }} />

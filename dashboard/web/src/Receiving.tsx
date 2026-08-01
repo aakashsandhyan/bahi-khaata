@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { receiving, BackendError } from './api'
 import type { LotSummary, ReceivingBoxes } from './types'
+import { QtyInput } from './QtyInput'
 
 export function Receiving() {
   const [lots, setLots] = useState<LotSummary[] | null>(null)
@@ -273,11 +274,10 @@ export function Receiving() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Qty *</label>
-                <input
-                  type="number"
-                  placeholder="1"
+                <QtyInput
+                  min={1}
                   value={productForm.quantity}
-                  onChange={(e) => setProductForm({ ...productForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                  onChange={(n) => setProductForm({ ...productForm, quantity: n })}
                   style={{
                     width: '100%',
                     padding: '8px',

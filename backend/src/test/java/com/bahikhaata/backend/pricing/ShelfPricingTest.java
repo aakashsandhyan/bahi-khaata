@@ -67,11 +67,12 @@ class ShelfPricingTest {
     @Mock private ProductPricing productPricing;
     @Mock private com.bahikhaata.backend.inventory.LotCategoryResolver lotCategories;
     @Mock private com.bahikhaata.backend.inventory.CategoryCatalog categoryCatalog;
+    @Mock private com.bahikhaata.backend.inventory.ExpectedLineRepository expectedLines;
 
     private ShelfPricing shelfPricing() {
         return new ShelfPricing(
                 lots, batches, products, barcodes, barcodeResolver, barcodeGenerator, goodsIn,
-                targetMargins, productPricing, lotCategories, categoryCatalog);
+                targetMargins, productPricing, lotCategories, categoryCatalog, expectedLines);
     }
 
     private Lot openLot(UUID id, String supplier, java.time.LocalDate receivedOn) {
@@ -237,6 +238,9 @@ class ShelfPricingTest {
     void directScanResolvesACountedProductInAnyLot() {
         Product product = new Product("Cooker", Category.of("KITCHEN"), Map.of());
         Batch batch = mock(Batch.class);
+        com.bahikhaata.backend.inventory.Lot lot = mock(com.bahikhaata.backend.inventory.Lot.class);
+        UUID lotId = UUID.randomUUID();
+        when(lot.getId()).thenReturn(lotId);
         when(batch.getId()).thenReturn(UUID.randomUUID());
         when(batch.getQuantityReceived()).thenReturn(3L);
         when(batch.getCondition()).thenReturn(StockCondition.GOOD);
@@ -245,8 +249,16 @@ class ShelfPricingTest {
         when(batch.getMrp()).thenReturn(null);
         when(batch.isMrpEstimate()).thenReturn(false);
         when(batch.sellableQuantity()).thenReturn(12L);
+        when(batch.getLot()).thenReturn(lot);
+        when(batch.getProduct()).thenReturn(product);
         when(barcodeResolver.resolve("B08RWJ5MGW")).thenReturn(Optional.of(product));
         when(batches.findByProductId(product.getId())).thenReturn(List.of(batch));
+        // Manifested 15, so the workbench can show it against the in-hand count.
+        com.bahikhaata.backend.inventory.ExpectedLine line =
+                mock(com.bahikhaata.backend.inventory.ExpectedLine.class);
+        when(line.getQuantityExpected()).thenReturn(15L);
+        when(expectedLines.findByLotIdAndProductIdOrderByCode(lotId, product.getId()))
+                .thenReturn(List.of(line));
 
         var found = shelfPricing().resolveScannedAnywhere("B08RWJ5MGW");
 
@@ -255,6 +267,7 @@ class ShelfPricingTest {
         assertTrue(found.get().costed());
         assertEquals(35_759L, found.get().unitCostPaise());
         assertEquals(12L, found.get().quantity(), "the counted stock, so pricing can print one label each");
+        assertEquals(15L, found.get().expectedQuantity(), "the manifest total, for reference");
     }
 
     @Test
