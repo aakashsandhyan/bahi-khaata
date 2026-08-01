@@ -29,5 +29,5 @@
 
 - [x] 5.1 Full backend suite + ArchUnit green; frontend `tsc` clean.
 - [ ] 5.2 Local end-to-end: first-price a product (overwrite), re-price to add, re-price with 0 to fix MRP (no move), reprint by barcode, clear-and-retype a qty.
-- [ ] 5.3 Deploy to the shop — this **mutates stock on real data**, so back up first and verify on-hand moves only as expected; watch a down-adjustment case.
+- [x] 5.3 Deploy to the shop — this **mutates stock on real data**, so back up first and verify on-hand moves only as expected; watch a down-adjustment case.
 - [ ] 5.4 `/opsx:sync` + `/opsx:archive` once shipped.

@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.print;
 
+import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.PrintLabelRequest;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -202,7 +203,8 @@ public class LabelTemplateService {
             g.drawLine(lineX + prefixW - 2, 153, lineX + prefixW + mm.stringWidth(amount) + 2, 153);
 
             // "SAVE 70%" as a reversed badge — white on solid black, a 1mm breath below the MRP.
-            long percent = (req.mrpPaise() - req.pricePaise()) * 100 / req.mrpPaise();
+            // Shared with the till (Money.percentOffTo) so the sticker and the counter agree.
+            int percent = Money.ofPaise(req.mrpPaise()).percentOffTo(Money.ofPaise(req.pricePaise()));
             String save = "SAVE " + percent + "%";
             g.setFont(badgeFont);
             FontMetrics bm = g.getFontMetrics();

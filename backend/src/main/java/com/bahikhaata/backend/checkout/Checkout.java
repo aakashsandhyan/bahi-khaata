@@ -26,8 +26,6 @@ import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.contracts.CartLineView;
 import com.bahikhaata.contracts.CartView;
 import com.bahikhaata.contracts.Money;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -152,13 +150,8 @@ public class Checkout {
         long total = line.lineTotal().paise();
         long saving = line.saving().paise();
         long mrp = line.getMrp().paise();
-        int percent =
-                mrp == 0
-                        ? 0
-                        : BigDecimal.valueOf(
-                                        (mrp - line.getUnitPrice().paise()) * 100L)
-                                .divide(BigDecimal.valueOf(mrp), 0, RoundingMode.HALF_UP)
-                                .intValue();
+        // Shared with the shelf label (Money.percentOffTo) so the counter and the sticker agree.
+        int percent = line.getMrp().percentOffTo(line.getUnitPrice());
         return new CartLineView(
                 line.getId(),
                 line.getProduct().getId(),
