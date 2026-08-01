@@ -43,11 +43,15 @@ public class ShelfPricingController {
 
     private final ShelfPricing shelfPricing;
     private final com.bahikhaata.backend.print.BulkLabelPrint labels;
+    private final com.bahikhaata.backend.inventory.StockLevels stock;
 
     public ShelfPricingController(
-            ShelfPricing shelfPricing, com.bahikhaata.backend.print.BulkLabelPrint labels) {
+            ShelfPricing shelfPricing,
+            com.bahikhaata.backend.print.BulkLabelPrint labels,
+            com.bahikhaata.backend.inventory.StockLevels stock) {
         this.shelfPricing = shelfPricing;
         this.labels = labels;
+        this.stock = stock;
     }
 
     @GetMapping("/lots")
@@ -85,16 +89,20 @@ public class ShelfPricingController {
 
     @PostMapping("/existing")
     public ShelfPricedProduct saveExisting(@RequestBody PriceExistingRequest req) {
+        long before = stock.onHand(req.productId());
         ShelfPricedProduct saved = shelfPricing.saveExisting(req);
-        // Pricing hands off to review: the product's labels wait as one entry for a reviewer to send.
-        labels.enqueueForReview(saved.productId());
+        // Pricing hands off to review: the product's labels wait as one entry for a reviewer to
+        // send. Pass how much this command grew the stock, so the reviewer's count is kept and only
+        // the newly-found units are added.
+        labels.enqueueForReview(saved.productId(), stock.onHand(saved.productId()) - before);
         return saved;
     }
 
     @PostMapping("/manual")
     public ShelfPricedProduct saveManual(@RequestBody PriceManualRequest req) {
         ShelfPricedProduct saved = shelfPricing.saveManual(req);
-        labels.enqueueForReview(saved.productId());
+        // A hand-keyed product is new, so all of its on-hand is newly added.
+        labels.enqueueForReview(saved.productId(), stock.onHand(saved.productId()));
         return saved;
     }
 }

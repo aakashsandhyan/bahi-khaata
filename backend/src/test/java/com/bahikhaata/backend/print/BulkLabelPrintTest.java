@@ -202,12 +202,36 @@ class BulkLabelPrintTest {
         when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
         when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
 
-        bulk().enqueueForReview(p.getId());
+        bulk().enqueueForReview(p.getId(), 4);
 
-        // One review row for the product, copies = on-hand, carrying its BBZ.
+        // First time: one review row for the product, copies = on-hand, carrying its BBZ.
         verify(printJobs).save(argThat(j -> "review".equals(j.getStatus())
                 && j.getCopies() == 4 && "BBZ-A".equals(j.getBarcode())
                 && p.getId().equals(j.getProductId())));
+    }
+
+    @Test
+    void enqueueForReviewKeepsTheReviewersCountAndAddsOnlyNewUnits() {
+        Product p = priced("A");
+        when(products.findById(p.getId())).thenReturn(Optional.of(p));
+        when(stock.onHand(p.getId())).thenReturn(8L); // was 5, reviewer set 1, +3 found → on-hand 8
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
+        PrintJob existing = mock(PrintJob.class);
+        when(existing.getCopies()).thenReturn(1); // the reviewer's chosen count
+        when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review"))
+                .thenReturn(Optional.of(existing));
+
+        bulk().enqueueForReview(p.getId(), 3); // three newly-found units
+
+        // Same row updated in place: 1 kept + 3 new = 4, never reset to on-hand (8), never deleted.
+        verify(existing).setCopies(4);
+        verify(printJobs).save(existing);
+        verify(printJobs, never()).delete(any(PrintJob.class));
     }
 
     @Test

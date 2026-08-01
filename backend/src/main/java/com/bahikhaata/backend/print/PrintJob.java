@@ -122,16 +122,32 @@ public class PrintJob extends UuidEntity {
         return barcode;
     }
 
+    public void setBarcode(String barcode) {
+        this.barcode = barcode;
+    }
+
     public String getProductName() {
         return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
     }
 
     public long getSellingPricePaise() {
         return sellingPricePaise;
     }
 
+    public void setSellingPricePaise(long sellingPricePaise) {
+        this.sellingPricePaise = sellingPricePaise;
+    }
+
     public Long getMrpPaise() {
         return mrpPaise;
+    }
+
+    public void setMrpPaise(Long mrpPaise) {
+        this.mrpPaise = mrpPaise;
     }
 
     public int getCopies() {

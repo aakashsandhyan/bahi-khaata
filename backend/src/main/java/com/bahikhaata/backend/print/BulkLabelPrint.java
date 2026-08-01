@@ -96,27 +96,44 @@ public class BulkLabelPrint {
     /**
      * Puts a product's labels on the review queue as a single entry — one row per product, not one
      * per sticker — so a reviewer sees the whole pricing command in one go. Called after each price
-     * or re-price; it refreshes the product's one review row to the latest details and count (one
-     * sticker per unit on hand). A product with nothing on hand or no shelf barcode is not queued.
+     * or re-price with {@code unitsAdded}, how much this command grew the stock.
+     *
+     * <p>The entry is upserted in place, so its id is stable and a reviewer mid-edit is not thrown
+     * off. On the first pricing every unit on hand needs a label. On a later one the reviewer's
+     * chosen count is kept and only the newly-found units are added on top (never silently reset),
+     * capped at what is actually on hand. A product with nothing on hand or no shelf barcode gets no
+     * entry — an existing one is dropped, since there is nothing left to label.
      */
     @Transactional
-    public void enqueueForReview(UUID productId) {
+    public void enqueueForReview(UUID productId, long unitsAdded) {
         Product product = products.findById(productId).filter(Product::isPriced).orElse(null);
-        // Refresh: drop any existing review row for this product, then re-add with current details.
-        printJobs.findFirstByProductIdAndStatus(productId, REVIEW).ifPresent(printJobs::delete);
-        if (product == null) {
+        PrintJob existing = printJobs.findFirstByProductIdAndStatus(productId, REVIEW).orElse(null);
+        long onHand = product == null ? 0 : stock.onHand(productId);
+        String bbz = product == null ? "" : bbzFor(product);
+        if (product == null || onHand <= 0 || bbz.isEmpty()) {
+            if (existing != null) {
+                printJobs.delete(existing);
+            }
             return;
         }
-        long onHand = stock.onHand(productId);
-        String bbz = bbzFor(product);
-        if (onHand <= 0 || bbz.isEmpty()) {
+        if (existing == null) {
+            // First time: label every unit on hand.
+            PrintJob entry = PrintJob.create(
+                    bbz, product.getName(), product.getSellingPrice().paise(),
+                    confirmedMrpPaise(product), (int) onHand, productId);
+            entry.setStatus(REVIEW);
+            printJobs.save(entry);
             return;
         }
-        PrintJob entry = PrintJob.create(
-                bbz, product.getName(), product.getSellingPrice().paise(),
-                confirmedMrpPaise(product), (int) onHand, productId);
-        entry.setStatus(REVIEW);
-        printJobs.save(entry);
+        // Keep the reviewer's count, add only the newly-found units, never exceed what is on hand.
+        long kept = Math.max(0, existing.getCopies());
+        long copies = Math.min(onHand, kept + Math.max(0, unitsAdded));
+        existing.setCopies((int) copies);
+        existing.setBarcode(bbz);
+        existing.setProductName(product.getName());
+        existing.setSellingPricePaise(product.getSellingPrice().paise());
+        existing.setMrpPaise(confirmedMrpPaise(product));
+        printJobs.save(existing); // same id — a mid-edit reviewer keeps their row
     }
 
     /** The label entries waiting for a reviewer, one per product. */
@@ -156,13 +173,14 @@ public class BulkLabelPrint {
         shelfPricing.saveExisting(new PriceExistingRequest(
                 productId, batchId, req.categoryCode(), req.sellingPricePaise(), req.mrpPaise(),
                 null, req.name(), false));
+        // Update the entry in place (same id) with the reviewer's copies and the corrected details.
         Product edited = products.findById(productId).orElseThrow();
-        printJobs.delete(entry);
-        PrintJob fresh = PrintJob.create(
-                bbzFor(edited), edited.getName(), edited.getSellingPrice().paise(),
-                confirmedMrpPaise(edited), Math.max(0, req.copies()), productId);
-        fresh.setStatus(REVIEW);
-        printJobs.save(fresh);
+        entry.setCopies(Math.max(0, req.copies()));
+        entry.setBarcode(bbzFor(edited));
+        entry.setProductName(edited.getName());
+        entry.setSellingPricePaise(edited.getSellingPrice().paise());
+        entry.setMrpPaise(confirmedMrpPaise(edited));
+        printJobs.save(entry);
     }
 
     /**
