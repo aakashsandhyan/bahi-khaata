@@ -128,7 +128,6 @@ class ShelfPricingTest {
     void reviewerEditOverwritesTheCountAndRenamesEvenWhenAlreadyPriced() {
         Product product = new Product("Messy manifest name", Category.of("KITCHEN"), Map.of());
         product.setSellingPrice(Money.ofRupees(100)); // already priced → normally a later add
-        product.markLabelPrinted(java.time.Instant.parse("2026-07-30T00:00:00Z")); // already labelled
         UUID batchId = UUID.randomUUID();
         Batch batch = mock(Batch.class);
         when(products.findById(product.getId())).thenReturn(Optional.of(product));
@@ -144,8 +143,6 @@ class ShelfPricingTest {
         verify(goodsIn, never()).addToInHand(any(), org.mockito.ArgumentMatchers.anyLong(), any());
         assertEquals("Clean Name", product.getName());
         assertEquals("APPLIANCE", product.getCategory().code());
-        // Re-pricing sends it back to review for a fresh label.
-        assertFalse(product.isLabelPrinted(), "re-price clears the printed mark so it re-lands in review");
     }
 
     @Test

@@ -211,6 +211,26 @@ class BulkLabelPrintTest {
     }
 
     @Test
+    void enqueueForReviewForAnAlreadyLabelledProductLabelsOnlyTheNewUnits() {
+        Product p = priced("A");
+        p.markLabelPrinted(java.time.Instant.parse("2026-07-30T00:00:00Z")); // printed before
+        when(products.findById(p.getId())).thenReturn(Optional.of(p));
+        when(stock.onHand(p.getId())).thenReturn(5L); // 3 were labelled, 2 more found → on-hand 5
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
+        when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
+
+        bulk().enqueueForReview(p.getId(), 2); // two newly-found units
+
+        // Only the 2 new units get labels, not all 5 on hand — the other 3 are already labelled.
+        verify(printJobs).save(argThat(j -> "review".equals(j.getStatus()) && j.getCopies() == 2));
+    }
+
+    @Test
     void enqueueForReviewKeepsTheReviewersCountAndAddsOnlyNewUnits() {
         Product p = priced("A");
         when(products.findById(p.getId())).thenReturn(Optional.of(p));

@@ -117,10 +117,18 @@ public class BulkLabelPrint {
             return;
         }
         if (existing == null) {
-            // First time: label every unit on hand.
+            // No entry yet. A product that has never been labelled needs a sticker for every unit
+            // on hand; one that has printed before needs stickers only for the newly-found units —
+            // the rest are already labelled. A bare re-price of a labelled product (no new units)
+            // therefore makes no entry; a corrected label is reprinted from the Reprint screen.
+            long newUnits = product.isLabelPrinted() ? Math.max(0, unitsAdded) : onHand;
+            newUnits = Math.min(onHand, newUnits);
+            if (newUnits <= 0) {
+                return;
+            }
             PrintJob entry = PrintJob.create(
                     bbz, product.getName(), product.getSellingPrice().paise(),
-                    confirmedMrpPaise(product), (int) onHand, productId);
+                    confirmedMrpPaise(product), (int) newUnits, productId);
             entry.setStatus(REVIEW);
             printJobs.save(entry);
             return;

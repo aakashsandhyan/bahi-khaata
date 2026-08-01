@@ -239,9 +239,9 @@ public class ShelfPricing {
         // Route through the guarded setter: the MRP ceiling is enforced, and uncosted stock is
         // allowed (the workbench deliberately prices before a lot is costed — decision B-b).
         productPricing.setSellingPrice(product.getId(), Money.ofPaise(req.sellingPricePaise()), true);
-        // A (re)price means the product needs its label (re)done, so it lands back on the review
-        // screen's awaiting list — including one that was already priced and printed before.
-        product.clearLabelPrinted();
+        // labelPrintedAt is left as it was: it is the signal for whether this product has ever been
+        // labelled, which the review queue uses to size a fresh entry — all of on-hand the first
+        // time, only the newly-found units once it has printed before.
         String barcode = bbzFor(product);
         products.save(product);
         return new ShelfPricedProduct(
