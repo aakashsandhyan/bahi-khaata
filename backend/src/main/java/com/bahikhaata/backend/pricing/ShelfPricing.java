@@ -25,12 +25,14 @@ import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
+import com.bahikhaata.backend.inventory.CategoryCatalog;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotCategoryResolver;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.contracts.PriceExistingRequest;
@@ -42,6 +44,7 @@ import com.bahikhaata.contracts.ShelfPricedProduct;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +76,7 @@ public class ShelfPricing {
     private final TargetMargins targetMargins;
     private final ProductPricing productPricing;
     private final LotCategoryResolver lotCategories;
+    private final CategoryCatalog categoryCatalog;
 
     public ShelfPricing(
             LotRepository lots,
@@ -84,7 +88,8 @@ public class ShelfPricing {
             GoodsInCounting goodsIn,
             TargetMargins targetMargins,
             ProductPricing productPricing,
-            LotCategoryResolver lotCategories) {
+            LotCategoryResolver lotCategories,
+            CategoryCatalog categoryCatalog) {
         this.lots = lots;
         this.batches = batches;
         this.products = products;
@@ -95,18 +100,27 @@ public class ShelfPricing {
         this.targetMargins = targetMargins;
         this.productPricing = productPricing;
         this.lotCategories = lotCategories;
+        this.categoryCatalog = categoryCatalog;
     }
 
     /**
-     * The lots the workbench can be scoped to: those holding counted stock still to be priced,
-     * newest received first. Both open lots (uncosted, hand-priced) and closed lots (costed, so a
-     * margin price is suggested) appear — a lot is worth pricing whenever it has unpriced counted
-     * stock, whatever its state; it drops off once everything in it is priced.
+     * The lots the workbench can be scoped to, newest received first. A lot is listed when it is
+     * still OPEN — including a mixed lot that was never counted, so it can be hand-priced into — or
+     * when it holds counted stock still to be priced, whatever its state (a closed lot lingers only
+     * while it has unpriced counted stock). A closed, fully-priced lot drops off; an open lot stays
+     * until it is closed, since more stock can still be hand-priced into it.
      */
     @Transactional(readOnly = true)
     public List<ShelfLot> lots() {
-        java.util.Map<UUID, String> categoryByLot = lotCategories.categoryByLot();
-        return lots.findAllById(batches.lotIdsWithUnpricedStock()).stream()
+        Map<UUID, String> categoryByLot = lotCategories.categoryByLot();
+        Map<UUID, Lot> byId = new LinkedHashMap<>();
+        for (Lot l : lots.findByStateOrderByReceivedOnDesc(LotState.OPEN)) {
+            byId.put(l.getId(), l);
+        }
+        for (Lot l : lots.findAllById(batches.lotIdsWithUnpricedStock())) {
+            byId.putIfAbsent(l.getId(), l);
+        }
+        return byId.values().stream()
                 .sorted(Comparator.comparing(
                         Lot::getReceivedOn, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(l -> new ShelfLot(
@@ -152,13 +166,18 @@ public class ShelfPricing {
                 .or(() -> found.stream().findFirst());
     }
 
-    /** The distinct category codes of products already in the lot, for the dropdown. */
+    /**
+     * The category choices for the dropdown: the distinct categories of products already in the lot,
+     * or — when the lot holds none yet, as an uncounted mixed lot does — the shop's full category
+     * list, so a hand-added item can still be classified.
+     */
     @Transactional(readOnly = true)
     public List<String> categoriesForLot(UUID lotId) {
-        return batches.findByLotId(lotId).stream()
+        List<String> fromBatches = batches.findByLotId(lotId).stream()
                 .map(b -> b.getProduct().getCategory().code())
                 .distinct()
                 .toList();
+        return fromBatches.isEmpty() ? categoryCatalog.allCodes() : fromBatches;
     }
 
     /**
