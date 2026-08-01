@@ -45,8 +45,13 @@ public class ReceiptTemplateService {
     /** Characters per line for an 80mm roll in Font A. */
     static final int WIDTH = 48;
 
-    // size: 0 normal, 1 double height, 2 double width+height.
-    private record Row(String text, boolean center, boolean bold, int size) {
+    // size: 0 normal, 1 double height, 2 double width+height. raster: draw as a bitmap image instead
+    // of text (for Devanagari and other scripts the printer has no font for — see ReceiptRaster).
+    private record Row(String text, boolean center, boolean bold, int size, boolean raster) {
+        Row(String text, boolean center, boolean bold, int size) {
+            this(text, center, bold, size, false);
+        }
+
         static Row of(String t) {
             return new Row(t, false, false, 0);
         }
@@ -66,8 +71,13 @@ public class ReceiptTemplateService {
         Escpos e = new Escpos();
         e.init();
         for (Row row : layout(sale)) {
-            e.style(row.center(), row.bold(), row.size());
-            e.line(row.text());
+            if (row.raster()) {
+                // The shop name in a script the printer has no font for — printed as an image.
+                e.image(ReceiptRaster.escposImage(row.text()));
+            } else {
+                e.style(row.center(), row.bold(), row.size());
+                e.line(row.text());
+            }
         }
         e.reset();
         e.feed(3);
@@ -88,7 +98,9 @@ public class ReceiptTemplateService {
         BillSettings s = settings.findById(BillSettings.SINGLETON_ID).orElseThrow();
         List<Row> rows = new ArrayList<>();
 
-        rows.add(new Row(s.getShopName(), true, true, 2));
+        // Devanagari (or any non-ASCII) shop name can't be set as text on a thermal printer, so it is
+        // drawn as a centred bitmap; a Latin name stays fast double-height text.
+        rows.add(new Row(s.getShopName(), true, true, 2, ReceiptRaster.needsRaster(s.getShopName())));
         if (notBlank(s.getAddress())) {
             rows.add(new Row(s.getAddress(), true, false, 0));
         }
@@ -214,6 +226,13 @@ public class ReceiptTemplateService {
         void line(String text) {
             byte[] b = text.getBytes(StandardCharsets.US_ASCII);
             out.write(b, 0, b.length);
+            out.write(0x0A);
+        }
+
+        /** Writes a pre-built raster block (GS v 0), centred, followed by a line feed. */
+        void image(byte[] gsv0) {
+            raw(0x1B, 0x61, 1); // ESC a — centre (the image is full width, so this is belt-and-braces)
+            out.write(gsv0, 0, gsv0.length);
             out.write(0x0A);
         }
 

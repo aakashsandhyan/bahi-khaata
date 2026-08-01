@@ -99,6 +99,51 @@ class ReceiptTemplateServiceTest {
     }
 
     @Test
+    void aDevanagariShopNameIsPrintedAsARasterImage() {
+        BillSettings s = compositionSettings();
+        s.setShopName("बचत बाज़ार"); // Devanagari — no thermal font has it, so it must raster
+        when(settings.findById(BillSettings.SINGLETON_ID)).thenReturn(Optional.of(s));
+        ReceiptTemplateService template = new ReceiptTemplateService(settings);
+
+        byte[] bytes = template.render(sampleSale());
+
+        // The header goes out as a GS v 0 raster block (1D 76 30 ...), not as text.
+        assertThat(indexOf(bytes, new byte[] {0x1D, 0x76, 0x30}))
+                .as("GS v 0 raster block present for the Devanagari header")
+                .isGreaterThanOrEqualTo(0);
+        // And the name never degrades to '?' filler (what US-ASCII encoding would have produced).
+        assertThat(indexOf(bytes, "????".getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
+                .as("no ???? — the name was not force-encoded to ASCII")
+                .isEqualTo(-1);
+    }
+
+    @Test
+    void aLatinShopNameStaysFastText() {
+        when(settings.findById(BillSettings.SINGLETON_ID))
+                .thenReturn(Optional.of(compositionSettings())); // "Bachat Baazar"
+        ReceiptTemplateService template = new ReceiptTemplateService(settings);
+
+        byte[] bytes = template.render(sampleSale());
+
+        assertThat(indexOf(bytes, new byte[] {0x1D, 0x76, 0x30}))
+                .as("no raster block — a Latin name prints as text")
+                .isEqualTo(-1);
+    }
+
+    private static int indexOf(byte[] haystack, byte[] needle) {
+        outer:
+        for (int i = 0; i <= haystack.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
+    }
+
+    @Test
     void reprintRendersIdenticalBytesFromTheSameSale() {
         when(settings.findById(BillSettings.SINGLETON_ID))
                 .thenReturn(Optional.of(compositionSettings()));
