@@ -235,6 +235,18 @@ class BulkLabelPrintTest {
     }
 
     @Test
+    void rejectReviewEntryDropsItWithoutPrinting() {
+        UUID jobId = UUID.randomUUID();
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getStatus()).thenReturn("review");
+        when(printJobs.findById(jobId)).thenReturn(Optional.of(entry));
+
+        bulk().rejectReviewEntry(jobId);
+
+        verify(printJobs).delete(entry);
+    }
+
+    @Test
     void sendAllForReviewExplodesEachEntryIntoSingleLabelQueuedJobs() {
         PrintJob entry = mock(PrintJob.class);
         when(entry.getCopies()).thenReturn(3);

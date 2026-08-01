@@ -183,6 +183,15 @@ public class BulkLabelPrint {
         printJobs.save(entry);
     }
 
+    /** Rejects a review entry: drop it from the queue without printing. The stock is untouched. */
+    @Transactional
+    public void rejectReviewEntry(UUID jobId) {
+        PrintJob entry = printJobs.findById(jobId)
+                .filter(j -> REVIEW.equals(j.getStatus()))
+                .orElseThrow(() -> new IllegalArgumentException("no such review entry: " + jobId));
+        printJobs.delete(entry);
+    }
+
     /**
      * Sends every review entry to the print queue: each entry explodes into its {@code copies}
      * single-label queued jobs (so the hold-and-pair poller prints them two-up and spaced), and the

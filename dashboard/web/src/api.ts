@@ -213,6 +213,12 @@ async function del<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+// A DELETE that answers 204 with no body — nothing to parse.
+async function delVoid(path: string): Promise<void> {
+  const response = await fetch(`${BASE}${path}`, { method: 'DELETE' })
+  if (!response.ok) throw new BackendError(await message(response))
+}
+
 export const checkout = {
   open: () => post<_CartView>('/api/checkout/cart') as Promise<_CartView>,
   view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
@@ -538,4 +544,5 @@ export const bulkPrint = {
   ) => put<void>(`/api/print-jobs/bulk/review/${jobId}`, body),
   sendReview: () =>
     post<_QueueAwaitingResult>('/api/print-jobs/bulk/review/send') as Promise<_QueueAwaitingResult>,
+  rejectReview: (jobId: string) => delVoid(`/api/print-jobs/bulk/review/${jobId}`),
 }

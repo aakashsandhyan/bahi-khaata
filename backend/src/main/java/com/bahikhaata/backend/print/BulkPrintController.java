@@ -26,6 +26,7 @@ import com.bahikhaata.contracts.QueueAwaitingResult;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -75,6 +76,13 @@ public class BulkPrintController {
     public ResponseEntity<Void> editReview(
             @PathVariable UUID jobId, @RequestBody LabelReviewEditRequest req) {
         bulkLabelPrint.editReviewEntry(jobId, req);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Reject one review entry — drop it from the queue without printing. */
+    @DeleteMapping("/review/{jobId}")
+    public ResponseEntity<Void> rejectReview(@PathVariable UUID jobId) {
+        bulkLabelPrint.rejectReviewEntry(jobId);
         return ResponseEntity.noContent().build();
     }
 

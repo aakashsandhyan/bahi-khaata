@@ -140,6 +140,15 @@ function AwaitingLabels() {
                 <button onClick={() => setEditing(editing === e.jobId ? null : e.jobId)}>
                   {editing === e.jobId ? 'Close' : 'Edit'}
                 </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Reject labels for "${e.name}"? It leaves the queue; stock is untouched.`)) {
+                      bulkPrint.rejectReview(e.jobId).then(refresh).catch(() => {})
+                    }
+                  }}
+                >
+                  Reject
+                </button>
               </div>
               {editing === e.jobId && (
                 <ReviewEditForm
