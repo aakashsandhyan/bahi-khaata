@@ -129,6 +129,22 @@ public record Money(long paise) implements Comparable<Money> {
     }
 
     /**
+     * The whole-percent markdown from this amount (read as the MRP) down to {@code price},
+     * floored. Both the till and the shelf label show this figure, so it lives in one place — a
+     * shelf sticker and the counter must never disagree on the discount.
+     *
+     * <p>Floored on purpose: the printed "SAVE X%" must never over-state the discount, so 52.5%
+     * shows as 52, not 53. Returns 0 when there is no genuine markdown — this amount is zero or
+     * negative, or {@code price} is not below it.
+     */
+    public int percentOffTo(Money price) {
+        if (paise <= 0 || price.paise >= paise) {
+            return 0;
+        }
+        return (int) ((paise - price.paise) * 100 / paise);
+    }
+
+    /**
      * Rounds to the nearest whole rupee under section 170 of the CGST Act: fifty paise
      * and above rounds up, below fifty rounds down.
      *

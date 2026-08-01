@@ -67,11 +67,12 @@ class ShelfPricingTest {
     @Mock private ProductPricing productPricing;
     @Mock private com.bahikhaata.backend.inventory.LotCategoryResolver lotCategories;
     @Mock private com.bahikhaata.backend.inventory.CategoryCatalog categoryCatalog;
+    @Mock private com.bahikhaata.backend.inventory.ExpectedLineRepository expectedLines;
 
     private ShelfPricing shelfPricing() {
         return new ShelfPricing(
                 lots, batches, products, barcodes, barcodeResolver, barcodeGenerator, goodsIn,
-                targetMargins, productPricing, lotCategories, categoryCatalog);
+                targetMargins, productPricing, lotCategories, categoryCatalog, expectedLines);
     }
 
     private Lot openLot(UUID id, String supplier, java.time.LocalDate receivedOn) {
@@ -96,7 +97,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-100500");
 
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null));
+                product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null, null, null, false, null));
 
         // Price is set through the guarded setter, allowing uncosted stock (decision B-b).
         verify(productPricing).setSellingPrice(product.getId(), Money.ofPaise(44900L), true);
@@ -117,10 +118,31 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-1");
 
         shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), batchId, "KITCHEN", 44900L, 149900L));
+                product.getId(), batchId, "KITCHEN", 44900L, 149900L, null, null, false, null));
 
         // Confirmed (non-estimate), so the label may strike it.
         verify(batch).recordMrp(Money.ofPaise(149900L), false);
+    }
+
+    @Test
+    void reviewerEditOverwritesTheCountAndRenamesEvenWhenAlreadyPriced() {
+        Product product = new Product("Messy manifest name", Category.of("KITCHEN"), Map.of());
+        product.setSellingPrice(Money.ofRupees(100)); // already priced → normally a later add
+        UUID batchId = UUID.randomUUID();
+        Batch batch = mock(Batch.class);
+        when(products.findById(product.getId())).thenReturn(Optional.of(product));
+        when(batches.findById(batchId)).thenReturn(Optional.of(batch));
+        when(barcodes.findByProductId(product.getId())).thenReturn(List.of());
+        stubMintsBbz("BBZ-9");
+
+        shelfPricing().saveExisting(new PriceExistingRequest(
+                product.getId(), batchId, "APPLIANCE", 40000L, null, 3L, "Clean Name", true, null));
+
+        // setInHandAsTotal overrides the first-vs-later rule: the count of record overwrites, never adds.
+        verify(goodsIn).reconcileBatchTo(eq(batch), eq(3L), any());
+        verify(goodsIn, never()).addToInHand(any(), org.mockito.ArgumentMatchers.anyLong(), any());
+        assertEquals("Clean Name", product.getName());
+        assertEquals("APPLIANCE", product.getCategory().code());
     }
 
     @Test
@@ -133,7 +155,7 @@ class ShelfPricingTest {
         when(barcodes.findByProductId(product.getId())).thenReturn(List.of(existing));
 
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), UUID.randomUUID(), "KITCHEN", 44900L, null));
+                product.getId(), UUID.randomUUID(), "KITCHEN", 44900L, null, null, null, false, null));
 
         assertEquals("BBZ-ALREADY", result.barcode());
         verify(barcodeGenerator, never()).generateFor(any());
@@ -149,7 +171,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-100600");
 
         ShelfPricedProduct result = shelfPricing().saveManual(new PriceManualRequest(
-                lotId, "Mystery Item", "KITCHEN", "GOOD", 5L, 9900L, null));
+                lotId, "Mystery Item", "KITCHEN", "GOOD", 5L, 9900L, null, null));
 
         assertEquals("BBZ-100600", result.barcode());
         assertEquals(9900L, result.sellingPricePaise());
@@ -237,6 +259,9 @@ class ShelfPricingTest {
     void directScanResolvesACountedProductInAnyLot() {
         Product product = new Product("Cooker", Category.of("KITCHEN"), Map.of());
         Batch batch = mock(Batch.class);
+        com.bahikhaata.backend.inventory.Lot lot = mock(com.bahikhaata.backend.inventory.Lot.class);
+        UUID lotId = UUID.randomUUID();
+        when(lot.getId()).thenReturn(lotId);
         when(batch.getId()).thenReturn(UUID.randomUUID());
         when(batch.getQuantityReceived()).thenReturn(3L);
         when(batch.getCondition()).thenReturn(StockCondition.GOOD);
@@ -245,8 +270,16 @@ class ShelfPricingTest {
         when(batch.getMrp()).thenReturn(null);
         when(batch.isMrpEstimate()).thenReturn(false);
         when(batch.sellableQuantity()).thenReturn(12L);
+        when(batch.getLot()).thenReturn(lot);
+        when(batch.getProduct()).thenReturn(product);
         when(barcodeResolver.resolve("B08RWJ5MGW")).thenReturn(Optional.of(product));
         when(batches.findByProductId(product.getId())).thenReturn(List.of(batch));
+        // Manifested 15, so the workbench can show it against the in-hand count.
+        com.bahikhaata.backend.inventory.ExpectedLine line =
+                mock(com.bahikhaata.backend.inventory.ExpectedLine.class);
+        when(line.getQuantityExpected()).thenReturn(15L);
+        when(expectedLines.findByLotIdAndProductIdOrderByCode(lotId, product.getId()))
+                .thenReturn(List.of(line));
 
         var found = shelfPricing().resolveScannedAnywhere("B08RWJ5MGW");
 
@@ -255,6 +288,7 @@ class ShelfPricingTest {
         assertTrue(found.get().costed());
         assertEquals(35_759L, found.get().unitCostPaise());
         assertEquals(12L, found.get().quantity(), "the counted stock, so pricing can print one label each");
+        assertEquals(15L, found.get().expectedQuantity(), "the manifest total, for reference");
     }
 
     @Test

@@ -213,6 +213,12 @@ async function del<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+// A DELETE that answers 204 with no body — nothing to parse.
+async function delVoid(path: string): Promise<void> {
+  const response = await fetch(`${BASE}${path}`, { method: 'DELETE' })
+  if (!response.ok) throw new BackendError(await message(response))
+}
+
 export const checkout = {
   open: () => post<_CartView>('/api/checkout/cart') as Promise<_CartView>,
   view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
@@ -405,6 +411,11 @@ export const printer = {
   getJobStatus: (jobId: string) =>
     get<_PrintJob>(`/api/print-jobs/${jobId}`),
 
+  // Reprint lookup: resolve any of a product's barcodes (shelf BBZ, or the original LSN/ASIN) to
+  // its current label figures. The backend refuses an unknown code (400) or an unpriced one (409).
+  labelFor: (barcode: string) =>
+    get<_AwaitingLabelProduct>(`/api/print-jobs/label-for?barcode=${encodeURIComponent(barcode)}`),
+
   // Labels print two to a row, so a lone label is held until a second pairs with it. This is how
   // many are held, and the flush that prints a leftover (as a duplicate pair) on demand.
   pendingCount: () => get<{ count: number }>('/api/print-jobs/pending-count'),
@@ -424,6 +435,8 @@ export const printer = {
 
 import type {
   AwaitingLabelProduct as _AwaitingLabelProduct,
+  QueueAwaitingResult as _QueueAwaitingResult,
+  LabelReviewEntry as _LabelReviewEntry,
   BulkPrintResult as _BulkPrintResult,
   CaptureSummary as _CaptureSummary,
   LotPhantomReport as _LotPhantomReport,
@@ -439,6 +452,9 @@ export const shelfPricing = {
 
   categoriesForLot: (lotId: string) =>
     get<string[]>(`/api/pricing/shelf/lots/${lotId}/categories`),
+
+  // The shop's full category list, so any product can be classified as any category.
+  categories: () => get<string[]>('/api/pricing/shelf/categories'),
 
   // A scanned code the lot does not hold answers 404 — getList turns that into an empty list, so
   // "no match, key it by hand" is a clean [] rather than a thrown error.
@@ -466,6 +482,10 @@ export const shelfPricing = {
     categoryCode: string
     sellingPricePaise: number
     mrpPaise: number | null
+    inHandQuantity: number | null
+    name?: string | null
+    setInHandAsTotal?: boolean
+    operatorName?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
 
   saveManual: (body: {
@@ -476,6 +496,7 @@ export const shelfPricing = {
     quantity: number
     sellingPricePaise: number
     mrpPaise: number | null
+    operatorName?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/manual', body) as Promise<_ShelfPricedProduct>,
 
   phantomReport: (lotId: string) =>
@@ -515,4 +536,20 @@ export const bulkPrint = {
   awaiting: () => get<_AwaitingLabelProduct[]>('/api/print-jobs/bulk/awaiting'),
   print: (productIds: string[]) =>
     post<_BulkPrintResult>('/api/print-jobs/bulk', { productIds }) as Promise<_BulkPrintResult>,
+  // The reviewer's one action: send every awaiting product to the spaced queue (one sticker per
+  // unit on hand, the count set at pricing).
+  queueAwaiting: () =>
+    post<_QueueAwaitingResult>('/api/print-jobs/bulk/queue-awaiting') as Promise<_QueueAwaitingResult>,
+
+  // The review queue: one entry per product, edited then sent to the print queue.
+  reviewEntries: () => get<_LabelReviewEntry[]>('/api/print-jobs/bulk/review'),
+  editReview: (
+    jobId: string,
+    body: { name: string; categoryCode: string; sellingPricePaise: number; mrpPaise: number | null; copies: number },
+  ) => put<void>(`/api/print-jobs/bulk/review/${jobId}`, body),
+  sendReview: () =>
+    post<_QueueAwaitingResult>('/api/print-jobs/bulk/review/send') as Promise<_QueueAwaitingResult>,
+  sendReviewOne: (jobId: string) =>
+    post<_QueueAwaitingResult>(`/api/print-jobs/bulk/review/${jobId}/send`) as Promise<_QueueAwaitingResult>,
+  rejectReview: (jobId: string) => delVoid(`/api/print-jobs/bulk/review/${jobId}`),
 }

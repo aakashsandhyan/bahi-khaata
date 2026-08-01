@@ -81,7 +81,8 @@ public class CaptureService {
                 req.condition(),
                 req.quantity(),
                 req.sellingPricePaise(),
-                mrp));
+                mrp,
+                null)); // capture approval records no operator name
 
         capture.approve();
         captures.save(capture);

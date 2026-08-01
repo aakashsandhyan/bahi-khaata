@@ -400,6 +400,8 @@ export interface ScannedItem {
   mrpPaise: number | null
   mrpIsEstimate: boolean
   quantity: number
+  sellingPricePaise: number | null
+  expectedQuantity: number | null
 }
 
 export interface PriceSuggestion {
@@ -431,6 +433,28 @@ export interface AwaitingLabelProduct {
   name: string
   sellingPricePaise: number
   mrpPaise: number | null
+  quantity: number
+  batchId: string | null
+  categoryCode: string
+}
+
+export interface QueueAwaitingResult {
+  productsQueued: number
+  labelsQueued: number
+}
+
+export interface LabelReviewEntry {
+  jobId: string
+  productId: string
+  batchId: string | null
+  barcode: string
+  name: string
+  categoryCode: string
+  sellingPricePaise: number
+  mrpPaise: number | null
+  copies: number
+  onHand: number
+  operatorName: string | null
 }
 
 export interface PhantomLine {

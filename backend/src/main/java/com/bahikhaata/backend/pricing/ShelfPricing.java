@@ -26,6 +26,8 @@ import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.CategoryCatalog;
+import com.bahikhaata.backend.inventory.ExpectedLine;
+import com.bahikhaata.backend.inventory.ExpectedLineRepository;
 import com.bahikhaata.backend.inventory.GoodsInCounting;
 import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotCategoryResolver;
@@ -77,6 +79,7 @@ public class ShelfPricing {
     private final ProductPricing productPricing;
     private final LotCategoryResolver lotCategories;
     private final CategoryCatalog categoryCatalog;
+    private final ExpectedLineRepository expectedLines;
 
     public ShelfPricing(
             LotRepository lots,
@@ -89,7 +92,8 @@ public class ShelfPricing {
             TargetMargins targetMargins,
             ProductPricing productPricing,
             LotCategoryResolver lotCategories,
-            CategoryCatalog categoryCatalog) {
+            CategoryCatalog categoryCatalog,
+            ExpectedLineRepository expectedLines) {
         this.lots = lots;
         this.batches = batches;
         this.products = products;
@@ -101,6 +105,7 @@ public class ShelfPricing {
         this.productPricing = productPricing;
         this.lotCategories = lotCategories;
         this.categoryCatalog = categoryCatalog;
+        this.expectedLines = expectedLines;
     }
 
     /**
@@ -180,6 +185,12 @@ public class ShelfPricing {
         return fromBatches.isEmpty() ? categoryCatalog.allCodes() : fromBatches;
     }
 
+    /** The shop's whole category list, for pickers that let an item be classified as anything. */
+    @Transactional(readOnly = true)
+    public List<String> allCategoryCodes() {
+        return categoryCatalog.allCodes();
+    }
+
     /**
      * A suggested selling price from a category's target margin against a unit cost. Only
      * meaningful for costed stock; the caller does not ask for uncosted stock, which is hand-priced.
@@ -193,25 +204,50 @@ public class ShelfPricing {
 
     /**
      * Prices a scanned, already-counted product: sets category and selling price, confirms the
-     * batch MRP if one is given, and mints the BBZ if the product has none. Writes no stock — the
-     * receipt was already recorded at counting.
+     * batch MRP if one is given, and mints the BBZ if the product has none. Reconciles the in-hand
+     * count taken at pricing — the count of record — into stock: on a first pricing the quantity is
+     * the true total and overwrites; on a later one it is pieces found and is added; absent leaves
+     * stock be (so a re-price that only fixes a figure moves nothing).
      */
     @Transactional
     public ShelfPricedProduct saveExisting(PriceExistingRequest req) {
         Product product = products.findById(req.productId())
                 .orElseThrow(() -> new IllegalArgumentException("no such product: " + req.productId()));
+        // Read before we set the price: no price yet means this is the first pricing.
+        boolean firstPricing = product.getSellingPrice() == null;
         product.setCategory(Category.of(req.categoryCode()));
-        // Confirm the MRP before pricing, so the price is checked against the figure the operator
-        // just set, not a stale estimate.
-        if (req.mrpPaise() != null) {
+        if (req.name() != null && !req.name().isBlank()) {
+            product.setName(req.name().trim());
+        }
+
+        // Touch the batch only when there is something to write to it — an MRP to confirm or an
+        // in-hand count to reconcile — so a bare re-price needs no batch loaded.
+        if (req.mrpPaise() != null || req.inHandQuantity() != null) {
             Batch batch = batches.findById(req.batchId())
                     .orElseThrow(() -> new IllegalArgumentException("no such batch: " + req.batchId()));
-            batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
+            // Confirm the MRP before pricing, so the price is checked against the figure the
+            // operator just set, not a stale estimate.
+            if (req.mrpPaise() != null) {
+                batch.recordMrp(Money.ofPaise(req.mrpPaise()), false);
+            }
+            if (req.inHandQuantity() != null) {
+                // A first pricing, or the reviewer's count of record, is the true total and
+                // overwrites; a later pricing from the workbench adds the extra pieces found.
+                if (req.setInHandAsTotal() || firstPricing) {
+                    goodsIn.reconcileBatchTo(batch, req.inHandQuantity(), Instant.now());
+                } else {
+                    goodsIn.addToInHand(batch, req.inHandQuantity(), Instant.now());
+                }
+            }
             batches.save(batch);
         }
+
         // Route through the guarded setter: the MRP ceiling is enforced, and uncosted stock is
         // allowed (the workbench deliberately prices before a lot is costed — decision B-b).
         productPricing.setSellingPrice(product.getId(), Money.ofPaise(req.sellingPricePaise()), true);
+        // labelPrintedAt is left as it was: it is the signal for whether this product has ever been
+        // labelled, which the review queue uses to size a fresh entry — all of on-hand the first
+        // time, only the newly-found units once it has printed before.
         String barcode = bbzFor(product);
         products.save(product);
         return new ShelfPricedProduct(
@@ -273,6 +309,15 @@ public class ShelfPricing {
                 costed ? batch.getAllocatedUnitCost().paise() : null,
                 batch.getMrp() != null ? batch.getMrp().paise() : null,
                 batch.isMrpEstimate(),
-                batch.sellableQuantity());
+                batch.sellableQuantity(),
+                product.getSellingPrice() != null ? product.getSellingPrice().paise() : null,
+                expectedQuantityFor(batch));
+    }
+
+    /** The manifest's expected total for the batch's product in its lot, or null if unmanifested. */
+    private Long expectedQuantityFor(Batch batch) {
+        List<ExpectedLine> lines = expectedLines.findByLotIdAndProductIdOrderByCode(
+                batch.getLot().getId(), batch.getProduct().getId());
+        return lines.isEmpty() ? null : lines.stream().mapToLong(ExpectedLine::getQuantityExpected).sum();
     }
 }

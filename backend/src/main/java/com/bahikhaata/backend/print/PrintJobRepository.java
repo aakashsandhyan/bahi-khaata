@@ -19,6 +19,7 @@ package com.bahikhaata.backend.print;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -26,4 +27,7 @@ public interface PrintJobRepository extends JpaRepository<PrintJob, UUID> {
     List<PrintJob> findByStatusOrderByCreatedAtAsc(String status);
 
     List<PrintJob> findByStatusAndUpdatedAtAfter(String status, Instant since);
+
+    /** The one review entry for a product, if any — the review queue keeps a single row per product. */
+    Optional<PrintJob> findFirstByProductIdAndStatus(UUID productId, String status);
 }

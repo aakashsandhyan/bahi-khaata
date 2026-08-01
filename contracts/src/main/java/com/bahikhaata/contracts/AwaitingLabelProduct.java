@@ -19,6 +19,13 @@ package com.bahikhaata.contracts;
 
 import java.util.UUID;
 
-/** A priced shelf product still awaiting a label, with the fields its label would carry. */
+/**
+ * A priced shelf product still awaiting a label, with the fields its label would carry and the
+ * on-hand quantity — the count set at pricing, which is how many stickers it needs (one per unit).
+ */
 public record AwaitingLabelProduct(
-        UUID productId, String barcode, String name, long sellingPricePaise, Long mrpPaise) {}
+        UUID productId, String barcode, String name, long sellingPricePaise, Long mrpPaise,
+        long quantity,
+        // The batch to reconcile against, and the current category — so the reviewer can edit the
+        // product's name, category, price, MRP and count right on the review screen before printing.
+        UUID batchId, String categoryCode) {}

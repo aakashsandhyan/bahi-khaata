@@ -42,9 +42,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShelfPricingController {
 
     private final ShelfPricing shelfPricing;
+    private final com.bahikhaata.backend.print.BulkLabelPrint labels;
 
-    public ShelfPricingController(ShelfPricing shelfPricing) {
+    public ShelfPricingController(
+            ShelfPricing shelfPricing, com.bahikhaata.backend.print.BulkLabelPrint labels) {
         this.shelfPricing = shelfPricing;
+        this.labels = labels;
     }
 
     @GetMapping("/lots")
@@ -55,6 +58,12 @@ public class ShelfPricingController {
     @GetMapping("/lots/{lotId}/categories")
     public List<String> categoriesForLot(@PathVariable UUID lotId) {
         return shelfPricing.categoriesForLot(lotId);
+    }
+
+    /** The shop's full category list, so any product can be classified as any category. */
+    @GetMapping("/categories")
+    public List<String> categories() {
+        return shelfPricing.allCategoryCodes();
     }
 
     // A list of zero or one: a hit is a single-element list, a miss an empty one. The client reads
@@ -82,11 +91,18 @@ public class ShelfPricingController {
 
     @PostMapping("/existing")
     public ShelfPricedProduct saveExisting(@RequestBody PriceExistingRequest req) {
-        return shelfPricing.saveExisting(req);
+        ShelfPricedProduct saved = shelfPricing.saveExisting(req);
+        // Pricing hands off to review: the product's labels wait as one entry. The labels are for
+        // exactly the quantity the operator entered, not for any pre-existing stock.
+        long entered = req.inHandQuantity() != null ? req.inHandQuantity() : 0;
+        labels.enqueueForReview(saved.productId(), entered, req.operatorName());
+        return saved;
     }
 
     @PostMapping("/manual")
     public ShelfPricedProduct saveManual(@RequestBody PriceManualRequest req) {
-        return shelfPricing.saveManual(req);
+        ShelfPricedProduct saved = shelfPricing.saveManual(req);
+        labels.enqueueForReview(saved.productId(), req.quantity(), req.operatorName());
+        return saved;
     }
 }

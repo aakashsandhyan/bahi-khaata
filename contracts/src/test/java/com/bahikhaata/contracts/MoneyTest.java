@@ -182,4 +182,29 @@ class MoneyTest {
             assertThat(Money.ofPaise(-500).abs()).isEqualTo(Money.ofPaise(500));
         }
     }
+
+    @Nested
+    @DisplayName("percentOffTo — the discount the till and the label both show")
+    class PercentOffTo {
+
+        @Test
+        @DisplayName("floors, so the printed discount is never over-stated")
+        void floorsTheFraction() {
+            // ₹400 down to ₹190 = 52.5% off → 52, not 53.
+            assertThat(Money.ofPaise(40_000).percentOffTo(Money.ofPaise(19_000))).isEqualTo(52);
+        }
+
+        @Test
+        void exactPercentIsUnchanged() {
+            assertThat(Money.ofPaise(20_000).percentOffTo(Money.ofPaise(10_000))).isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("no genuine markdown returns zero, never a negative")
+        void guardsNonDiscounts() {
+            assertThat(Money.ofPaise(10_000).percentOffTo(Money.ofPaise(10_000))).isZero(); // equal
+            assertThat(Money.ofPaise(10_000).percentOffTo(Money.ofPaise(12_000))).isZero(); // price above
+            assertThat(Money.ZERO.percentOffTo(Money.ofPaise(5_000))).isZero(); // no MRP
+        }
+    }
 }

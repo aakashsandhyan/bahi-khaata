@@ -170,6 +170,14 @@ public class Product extends UuidEntity {
         return name;
     }
 
+    /**
+     * Renames the product. The name is a label it carries — decided from the manifest and
+     * correctable when a reviewer catches a wrong or messy one; nothing costing rides on it.
+     */
+    public void setName(String name) {
+        this.name = Objects.requireNonNull(name, "name");
+    }
+
     public Category getCategory() {
         return Category.of(categoryCode);
     }
@@ -234,6 +242,15 @@ public class Product extends UuidEntity {
     /** Records that a label printed, at the given instant. A reprint simply re-stamps it. */
     public void markLabelPrinted(Instant at) {
         this.labelPrintedAt = Objects.requireNonNull(at, "at");
+    }
+
+    /**
+     * Marks the product as needing a label again, so it re-enters the review screen's awaiting list.
+     * A re-pricing — more stock found, a corrected price, MRP or name — means the printed labels no
+     * longer match, so the product is sent back for the reviewer to send afresh.
+     */
+    public void clearLabelPrinted() {
+        this.labelPrintedAt = null;
     }
 
     /**

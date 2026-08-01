@@ -36,11 +36,12 @@ class PrintControllerTest {
 
     @Mock private PrintJobRepository jobs;
     @Mock private PrintExecutorService executor;
+    @Mock private BulkLabelPrint labels;
 
     @Test
     void queueingCopiesCreatesThatManySingleLabelJobs() {
         when(jobs.save(any())).thenAnswer(i -> i.getArgument(0));
-        PrintController controller = new PrintController(jobs, executor);
+        PrintController controller = new PrintController(jobs, executor, labels);
 
         var response = controller.queuePrintJob(new QueuePrintJobRequest(
                 "BBZ-100042", "Cooker", 51_000L, null, 3, UUID.randomUUID()));

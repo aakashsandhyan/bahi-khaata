@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.print;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
@@ -42,12 +43,18 @@ class BulkLabelPrintTest {
 
     @Mock private ProductRepository products;
     @Mock private BarcodeRepository barcodes;
+    @Mock private com.bahikhaata.backend.catalog.BarcodeResolver barcodeResolver;
     @Mock private BatchRepository batches;
+    @Mock private com.bahikhaata.backend.inventory.StockLevels stock;
+    @Mock private PrintJobRepository printJobs;
     @Mock private LabelTemplateService labelService;
     @Mock private PrinterDriver printerDriver;
+    @Mock private com.bahikhaata.backend.pricing.ShelfPricing shelfPricing;
 
     private BulkLabelPrint bulk() {
-        return new BulkLabelPrint(products, barcodes, batches, labelService, printerDriver);
+        return new BulkLabelPrint(
+                products, barcodes, barcodeResolver, batches, stock, printJobs, labelService,
+                printerDriver, shelfPricing);
     }
 
     private Product priced(String name) {
@@ -107,5 +114,198 @@ class BulkLabelPrintTest {
         assertThat(result.failed()).isEqualTo(1);
         assertThat(result.printed()).isZero();
         verifyNoInteractions(printerDriver);
+    }
+
+    @Test
+    void reprintLookupReturnsTheCurrentLabelFigures() {
+        Product p = priced("Cooker");
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-100042");
+        when(barcodeResolver.resolve("B08RWJ5MGW")).thenReturn(Optional.of(p));
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        var batch = mock(com.bahikhaata.backend.inventory.Batch.class);
+        when(batch.getMrp()).thenReturn(Money.ofRupees(400));
+        when(batch.isMrpEstimate()).thenReturn(false);
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of(batch));
+        when(stock.onHand(p.getId())).thenReturn(4L);
+
+        var found = bulk().labelByBarcode("B08RWJ5MGW");
+
+        // The label carries the BBZ, the current name/price, and the confirmed MRP.
+        assertThat(found.barcode()).isEqualTo("BBZ-100042");
+        assertThat(found.name()).isEqualTo("Cooker");
+        assertThat(found.sellingPricePaise()).isEqualTo(10_000L);
+        assertThat(found.mrpPaise()).isEqualTo(40_000L);
+        assertThat(found.quantity()).isEqualTo(4L);
+    }
+
+    @Test
+    void queueAllAwaitingSendsOneStickerPerUnitAndSkipsWhatIsAlreadyQueued() {
+        Product a = priced("A"); // on-hand 3, has a BBZ → queues 3
+        Product b = priced("B"); // already printing → skipped
+        Product c = priced("C"); // nothing on hand → skipped
+        when(products.findBySellingPriceIsNotNullAndLabelPrintedAtIsNullOrderByName())
+                .thenReturn(List.of(a, b, c));
+        when(printJobs.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of());
+        PrintJob inFlight = mock(PrintJob.class);
+        when(inFlight.getProductId()).thenReturn(b.getId());
+        when(printJobs.findByStatusOrderByCreatedAtAsc("printing")).thenReturn(List.of(inFlight));
+        when(stock.onHand(a.getId())).thenReturn(3L);
+        when(stock.onHand(c.getId())).thenReturn(0L);
+        com.bahikhaata.backend.catalog.Barcode bbzA =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbzA.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbzA.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(a.getId())).thenReturn(List.of(bbzA));
+        when(batches.findByProductIdNewestFirst(a.getId())).thenReturn(List.of());
+
+        var result = bulk().queueAllAwaiting();
+
+        assertThat(result.productsQueued()).isEqualTo(1);
+        assertThat(result.labelsQueued()).isEqualTo(3L);
+        // Three single-label jobs for A, none for the skipped B and C.
+        verify(printJobs, times(3))
+                .save(argThat(j -> j.getCopies() == 1 && "BBZ-A".equals(j.getBarcode())));
+    }
+
+    @Test
+    void reprintLookupRefusesAnUnknownBarcode() {
+        when(barcodeResolver.resolve("NOPE")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> bulk().labelByBarcode("NOPE"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No product");
+    }
+
+    @Test
+    void reprintLookupRefusesAnUnpricedProduct() {
+        Product p = new Product("Unpriced", Category.of("KITCHEN"), java.util.Map.of());
+        when(barcodeResolver.resolve("BBZ-1")).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> bulk().labelByBarcode("BBZ-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not priced");
+    }
+
+    @Test
+    void enqueueForReviewLabelsExactlyTheEnteredQuantityNotOnHand() {
+        Product p = priced("A");
+        when(products.findById(p.getId())).thenReturn(Optional.of(p));
+        when(stock.onHand(p.getId())).thenReturn(4L); // pre-existing stock brings on-hand to 4
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
+        when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
+
+        bulk().enqueueForReview(p.getId(), 3, "Sushil"); // the operator Sushil entered 3
+
+        // The label count is what was entered (3), not the on-hand 4 — the pre-existing unit is left.
+        // The entry carries the operator's name for the review screen.
+        verify(printJobs).save(argThat(j -> "review".equals(j.getStatus())
+                && j.getCopies() == 3 && "BBZ-A".equals(j.getBarcode())
+                && p.getId().equals(j.getProductId()) && "Sushil".equals(j.getOperatorName())));
+    }
+
+    @Test
+    void enqueueForReviewCapsTheEnteredQuantityAtOnHand() {
+        Product p = priced("A");
+        when(products.findById(p.getId())).thenReturn(Optional.of(p));
+        when(stock.onHand(p.getId())).thenReturn(2L); // only 2 actually on hand
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
+        when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
+
+        bulk().enqueueForReview(p.getId(), 9, null); // more entered than exists
+
+        // Never label more than is on hand.
+        verify(printJobs).save(argThat(j -> "review".equals(j.getStatus()) && j.getCopies() == 2));
+    }
+
+    @Test
+    void enqueueForReviewKeepsTheReviewersCountAndAddsOnlyNewUnits() {
+        Product p = priced("A");
+        when(products.findById(p.getId())).thenReturn(Optional.of(p));
+        when(stock.onHand(p.getId())).thenReturn(8L); // was 5, reviewer set 1, +3 found → on-hand 8
+        com.bahikhaata.backend.catalog.Barcode bbz =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbz.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(p.getId())).thenReturn(List.of(bbz));
+        when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
+        PrintJob existing = mock(PrintJob.class);
+        when(existing.getCopies()).thenReturn(1); // the reviewer's chosen count
+        when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review"))
+                .thenReturn(Optional.of(existing));
+
+        bulk().enqueueForReview(p.getId(), 3, null); // three newly-found units
+
+        // Same row updated in place: 1 kept + 3 new = 4, never reset to on-hand (8), never deleted.
+        verify(existing).setCopies(4);
+        verify(printJobs).save(existing);
+        verify(printJobs, never()).delete(any(PrintJob.class));
+    }
+
+    @Test
+    void rejectReviewEntryDropsItWithoutPrinting() {
+        UUID jobId = UUID.randomUUID();
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getStatus()).thenReturn("review");
+        when(printJobs.findById(jobId)).thenReturn(Optional.of(entry));
+
+        bulk().rejectReviewEntry(jobId);
+
+        verify(printJobs).delete(entry);
+    }
+
+    @Test
+    void sendReviewEntrySendsJustThatOneEntry() {
+        UUID jobId = UUID.randomUUID();
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getStatus()).thenReturn("review");
+        when(entry.getCopies()).thenReturn(2);
+        when(entry.getBarcode()).thenReturn("BBZ-A");
+        when(entry.getProductName()).thenReturn("A");
+        when(entry.getSellingPricePaise()).thenReturn(10_000L);
+        when(entry.getMrpPaise()).thenReturn(null);
+        when(entry.getProductId()).thenReturn(UUID.randomUUID());
+        when(printJobs.findById(jobId)).thenReturn(Optional.of(entry));
+
+        var result = bulk().sendReviewEntry(jobId);
+
+        assertThat(result.productsQueued()).isEqualTo(1);
+        assertThat(result.labelsQueued()).isEqualTo(2L);
+        verify(printJobs, times(2))
+                .save(argThat(j -> j.getCopies() == 1 && "queued".equals(j.getStatus())));
+        verify(printJobs).delete(entry);
+    }
+
+    @Test
+    void sendAllForReviewExplodesEachEntryIntoSingleLabelQueuedJobs() {
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getCopies()).thenReturn(3);
+        when(entry.getBarcode()).thenReturn("BBZ-A");
+        when(entry.getProductName()).thenReturn("A");
+        when(entry.getSellingPricePaise()).thenReturn(10_000L);
+        when(entry.getMrpPaise()).thenReturn(null);
+        when(entry.getProductId()).thenReturn(UUID.randomUUID());
+        when(printJobs.findByStatusOrderByCreatedAtAsc("review")).thenReturn(List.of(entry));
+
+        var result = bulk().sendAllForReview();
+
+        assertThat(result.productsQueued()).isEqualTo(1);
+        assertThat(result.labelsQueued()).isEqualTo(3L);
+        // Three single-label queued jobs, and the review row is cleared.
+        verify(printJobs, times(3))
+                .save(argThat(j -> j.getCopies() == 1 && "queued".equals(j.getStatus())));
+        verify(printJobs).delete(entry);
     }
 }

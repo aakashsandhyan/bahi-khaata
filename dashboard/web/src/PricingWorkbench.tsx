@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { shelfPricing, printer, BackendError } from './api'
+import { shelfPricing, BackendError } from './api'
 import type { ScannedItem, ShelfLot, ShelfPricedProduct } from './types'
 import { rupees } from './money'
 import { LotReconcile } from './LotReconcile'
+import { QtyInput } from './QtyInput'
 
 /**
  * Pricing the shelf, lot first.
@@ -22,6 +23,14 @@ export function PricingWorkbench() {
   const [item, setItem] = useState<ScannedItem | null>(null)
   const [manual, setManual] = useState(false)
 
+  // Who is pricing — remembered on this device (no login). Travels with each save so the review
+  // screen can show who priced each item.
+  const [operator, setOperator] = useState(() => localStorage.getItem('pricing.operator') ?? '')
+  const setOperatorCached = (name: string) => {
+    setOperator(name)
+    localStorage.setItem('pricing.operator', name)
+  }
+
   useEffect(() => {
     shelfPricing
       .lots()
@@ -32,6 +41,9 @@ export function PricingWorkbench() {
         if (last && ls.some((l) => l.lotId === last)) setLotId(last)
       })
       .catch((e) => setError(e instanceof BackendError ? e.message : 'Cannot reach the backend.'))
+    // The full category list, so any product — scanned or hand-keyed — can be classified as any of
+    // them (a scanned item is no longer locked to its manifest category).
+    shelfPricing.categories().then(setCategories).catch(() => setCategories([]))
   }, [])
 
   useEffect(() => {
@@ -39,7 +51,6 @@ export function PricingWorkbench() {
     localStorage.setItem('pricing.lastLotId', lotId)
     setItem(null)
     setManual(false)
-    shelfPricing.categoriesForLot(lotId).then(setCategories).catch(() => setCategories([]))
   }, [lotId])
 
   const scan = (code: string) => {
@@ -84,7 +95,16 @@ export function PricingWorkbench() {
   return (
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
       <h1>Pricing</h1>
-      <PendingLabels />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', marginBottom: 'var(--s2)' }}>
+        <label style={{ fontSize: 13, fontWeight: 600 }}>Operator</label>
+        <input
+          value={operator}
+          onChange={(e) => setOperatorCached(e.target.value)}
+          placeholder="Your name (remembered on this device)"
+          style={{ flex: 1, maxWidth: 280, padding: 6, fontSize: 14 }}
+        />
+      </div>
 
       {/* TRANSIENT: direct scan of already-manifested, already-counted stock — price it in one
           scan without picking its lot. Remove this whole block when no longer needed. */}
@@ -135,45 +155,13 @@ export function PricingWorkbench() {
       {(item || (lotId && manual)) && (
         <PriceForm
           lotId={lotId}
-          categories={item?.categoryCode ? [item.categoryCode] : categories}
+          categories={categories}
           item={item}
+          operator={operator}
           onCancel={done}
           onSaved={done}
         />
       )}
-    </div>
-  )
-}
-
-/**
- * Labels print two to a row, so a single one is held until a second pairs with it. This shows how
- * many are waiting and lets the operator flush a leftover — printed as a duplicate pair — when
- * they are done and want it out anyway.
- */
-function PendingLabels() {
-  const [count, setCount] = useState(0)
-  const [flushing, setFlushing] = useState(false)
-
-  const refresh = () => printer.pendingCount().then((r) => setCount(r?.count ?? 0)).catch(() => {})
-  useEffect(() => {
-    refresh()
-    const t = setInterval(refresh, 2000)
-    return () => clearInterval(t)
-  }, [])
-
-  if (count === 0) return null
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', padding: 'var(--s2) var(--s3)',
-      background: 'var(--line-soft)', borderRadius: 'var(--r1)', margin: 'var(--s2) 0' }}>
-      <span style={{ flex: 1, fontSize: 14 }}>
-        <b>{count}</b> label{count > 1 ? 's' : ''} held, waiting to pair.
-      </span>
-      <button disabled={flushing} onClick={async () => {
-        setFlushing(true)
-        try { await printer.flush() } finally { setFlushing(false); refresh() }
-      }}>
-        {flushing ? 'Printing…' : 'Print pending now'}
-      </button>
     </div>
   )
 }
@@ -206,20 +194,26 @@ function PriceForm({
   lotId,
   categories,
   item,
+  operator,
   onCancel,
   onSaved,
 }: {
   lotId: string
   categories: string[]
   item: ScannedItem | null
+  operator: string
   onCancel: () => void
   onSaved: () => void
 }) {
+  // First pricing = the product has no selling price yet. Then the in-hand count is the true total
+  // and overwrites stock; a later pricing adds only the extra pieces found.
+  const firstPricing = !!item && item.sellingPricePaise == null
   const [name, setName] = useState(item?.name ?? '')
   const [category, setCategory] = useState(item?.categoryCode ?? '')
   const [condition, setCondition] = useState('GOOD')
-  // Defaults to the counted stock for a scanned item — one label per unit — or 1 for a hand-keyed one.
-  const [quantity, setQuantity] = useState(item?.quantity ?? 1)
+  // The in-hand count entered here (and one label per unit). Defaults to 1 — the operator types the
+  // actual number they are putting out.
+  const [quantity, setQuantity] = useState(1)
   const [mrp, setMrp] = useState<string>(item?.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
   const [price, setPrice] = useState<string>('')
   const [suggested, setSuggested] = useState<number | null>(null)
@@ -260,6 +254,10 @@ function PriceForm({
           categoryCode: category,
           sellingPricePaise: pricePaise,
           mrpPaise,
+          // The in-hand count is the count of record: overwrites stock on a first pricing, adds on
+          // a later one. 0 on a later pricing leaves stock be — a bare price/MRP fix moves nothing.
+          inHandQuantity: quantity,
+          operatorName: operator.trim() || null,
         })
       : shelfPricing.saveManual({
           lotId,
@@ -269,12 +267,13 @@ function PriceForm({
           quantity,
           sellingPricePaise: pricePaise,
           mrpPaise,
+          operatorName: operator.trim() || null,
         })
     if (!item && !name.trim()) return setError('Enter a product name.')
     req.then(setSaved).catch((e) => setError(e instanceof BackendError ? e.message : 'Save failed.'))
   }
 
-  if (saved) return <SavedCard product={saved} copies={quantity} onDone={onSaved} />
+  if (saved) return <SavedCard product={saved} onDone={onSaved} />
 
   return (
     <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
@@ -320,19 +319,25 @@ function PriceForm({
             </select>
           </Field>
           <Field label="Quantity">
-            <input type="number" min={1} value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              style={{ width: '100%', padding: 8 }} />
+            <QtyInput value={quantity} onChange={setQuantity} min={1} style={{ width: '100%', padding: 8 }} />
           </Field>
         </div>
       )}
 
       {item && (
-        <Field label="Quantity (labels to print)">
-          <input type="number" min={1} value={quantity}
-            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-            style={{ width: '100%', padding: 8 }} />
-        </Field>
+        <>
+          <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 'var(--s2)' }}>
+            {item.expectedQuantity != null && <>Manifest expected <b>{item.expectedQuantity}</b>. </>}
+            {firstPricing
+              ? <>Counted at unpacking <b>{item.quantity}</b>.</>
+              : <>On hand now <b>{item.quantity}</b>.</>}
+          </div>
+          <Field label={firstPricing
+            ? 'In-hand quantity (physical count — sets stock & labels)'
+            : 'Additional found (adds to stock & labels; 0 = fixing price/MRP only)'}>
+            <QtyInput value={quantity} onChange={setQuantity} min={0} style={{ width: '100%', padding: 8 }} />
+          </Field>
+        </>
       )}
 
       <Field label="MRP (optional)">
@@ -365,47 +370,20 @@ function PriceForm({
   )
 }
 
-function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; copies: number; onDone: () => void }) {
-  const [state, setState] = useState<'ask' | 'queued' | 'failed'>('ask')
-  const [message, setMessage] = useState('')
-
-  // Queuing a label holds it for pairing — it prints when a second label joins it, or on flush.
-  // So this confirms "queued", not "printed"; the pending banner tracks it from there.
-  const print = async () => {
-    try {
-      const job = await printer.queueLabel({
-        barcode: product.barcode,
-        productName: product.name,
-        sellingPricePaise: product.sellingPricePaise,
-        mrpPaise: product.mrpPaise,
-        copies,
-        productId: product.productId,
-      })
-      if (!job) throw new Error('Could not queue the label.')
-      // Held, not flushed: labels print two to a row, so an even count prints in full and a lone
-      // one waits to pair with the next product's label rather than wasting a sticker. So N=5
-      // prints 4 and holds 1. The pending banner tracks the held one; “Print pending now” forces
-      // a leftover out as a duplicate when the operator is done.
-      setState('queued')
-      setMessage(`${copies} label${copies > 1 ? 's' : ''} queued — printed two to a row; a lone one waits to pair with the next product (or press “Print pending now”).`)
-    } catch (e) {
-      setState('failed')
-      setMessage(e instanceof BackendError ? e.message : 'Could not queue the label.')
-    }
-  }
-
+function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: () => void }) {
+  // Pricing no longer prints. The product is now priced and waiting for a label; the reviewer sends
+  // it, and every other awaiting product, to the print queue in one go from the Review screen.
   return (
     <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', background: 'var(--good-tint)', borderRadius: 'var(--r1)' }}>
       <div style={{ fontWeight: 600 }}>✓ {product.name} saved · {product.barcode}</div>
       <div style={{ fontSize: 14, marginTop: 4 }}>
         {rupees(product.sellingPricePaise)}{product.mrpPaise ? ` · MRP ${rupees(product.mrpPaise)}` : ''}
       </div>
-      {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
+      <div style={{ marginTop: 'var(--s2)', fontSize: 13, color: 'var(--ink-faint)' }}>
+        Priced — waiting for a label. Print it from the Review screen.
+      </div>
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
-        <button className={state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
-          {state === 'ask' ? 'Skip (print later)' : 'Next product'}
-        </button>
+        <button className="btn-primary" style={{ flex: 1 }} onClick={onDone}>Next product</button>
       </div>
     </div>
   )

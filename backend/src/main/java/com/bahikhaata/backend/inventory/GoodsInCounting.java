@@ -883,6 +883,48 @@ public class GoodsInCounting {
         return batch;
     }
 
+    /**
+     * Reconciles a batch's counted quantity to a target — the true in-hand count taken at pricing,
+     * when the goods are actually handled. Goes through the same primitives counting uses, so the
+     * quantity, a pinned cost, and the ledger stay in step: short of the target adds a receipt,
+     * over it a correcting negative adjustment, an exact match nothing. Returns the signed change.
+     */
+    @Transactional
+    public long reconcileBatchTo(Batch batch, long target, Instant at) {
+        if (target < 0) {
+            throw new IllegalArgumentException("in-hand quantity cannot be negative, was " + target);
+        }
+        long delta = target - batch.getQuantityReceived();
+        if (delta > 0) {
+            batch.addCounted(delta);
+            ledger.save(StockLedgerEntry.receipt(batch.getProduct(), batch, delta, at));
+        } else if (delta < 0) {
+            batch.removeCounted(-delta);
+            ledger.save(StockLedgerEntry.adjustment(batch.getProduct(), batch, delta, at));
+        }
+        if (delta != 0) {
+            batches.save(batch);
+        }
+        return delta;
+    }
+
+    /**
+     * Adds found pieces onto a batch — a later pricing that turns up more of the same product. A
+     * receipt, never a reduction; zero does nothing.
+     */
+    @Transactional
+    public void addToInHand(Batch batch, long found, Instant at) {
+        if (found < 0) {
+            throw new IllegalArgumentException("found quantity cannot be negative, was " + found);
+        }
+        if (found == 0) {
+            return;
+        }
+        batch.addCounted(found);
+        ledger.save(StockLedgerEntry.receipt(batch.getProduct(), batch, found, at));
+        batches.save(batch);
+    }
+
     private Product resolveOrCreate(String code, String name, String categoryCode) {
         return barcodes
                 .findByCode(code)

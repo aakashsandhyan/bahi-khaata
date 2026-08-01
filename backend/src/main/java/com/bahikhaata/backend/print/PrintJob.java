@@ -69,7 +69,11 @@ public class PrintJob extends UuidEntity {
     private UUID productId;
 
     @Column(name = "status", nullable = false, columnDefinition = "text")
-    private String status; // "queued", "printing", "done", "failed"
+    private String status; // "queued", "printing", "done", "failed", "review"
+
+    /** Who priced this — shown on the review screen. Null for exploded print jobs and old rows. */
+    @Column(name = "operator_name", columnDefinition = "text")
+    private String operatorName;
 
     @Column(name = "error", columnDefinition = "text")
     private String error;
@@ -122,16 +126,32 @@ public class PrintJob extends UuidEntity {
         return barcode;
     }
 
+    public void setBarcode(String barcode) {
+        this.barcode = barcode;
+    }
+
     public String getProductName() {
         return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
     }
 
     public long getSellingPricePaise() {
         return sellingPricePaise;
     }
 
+    public void setSellingPricePaise(long sellingPricePaise) {
+        this.sellingPricePaise = sellingPricePaise;
+    }
+
     public Long getMrpPaise() {
         return mrpPaise;
+    }
+
+    public void setMrpPaise(Long mrpPaise) {
+        this.mrpPaise = mrpPaise;
     }
 
     public int getCopies() {
@@ -152,6 +172,14 @@ public class PrintJob extends UuidEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getOperatorName() {
+        return operatorName;
+    }
+
+    public void setOperatorName(String operatorName) {
+        this.operatorName = operatorName;
     }
 
     public String getError() {

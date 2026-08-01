@@ -20,18 +20,21 @@ package com.bahikhaata.contracts;
 import java.util.UUID;
 
 /**
- * Prices stock keyed in by hand — never counted, or a lost-reference item re-entered. Creates the
- * product and a batch under the lot for {@code quantity} units in {@code condition} ("GOOD" or
- * "DAMAGED"), writes the stock receipt, sets category and selling price, records the MRP confirmed
- * (null for none), and mints a BBZ. An uncosted batch has no suggestion, so the price is required.
+ * One product's labels waiting for a reviewer, as a single row — the labels from a pricing command
+ * reviewed in one go, not one row per sticker. Carries what the label will show (name, price, MRP)
+ * and how many copies, plus the batch, category and on-hand count so the reviewer can edit the
+ * product before sending it to the print queue.
  */
-public record PriceManualRequest(
-        UUID lotId,
+public record LabelReviewEntry(
+        UUID jobId,
+        UUID productId,
+        UUID batchId,
+        String barcode,
         String name,
         String categoryCode,
-        String condition,
-        long quantity,
         long sellingPricePaise,
         Long mrpPaise,
-        // Who priced it (remembered per device), shown on the review screen. Null when not set.
+        int copies,
+        long onHand,
+        // Who priced it, shown on the review screen. Null when not recorded.
         String operatorName) {}

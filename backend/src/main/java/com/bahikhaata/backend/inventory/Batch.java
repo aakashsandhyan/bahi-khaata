@@ -381,6 +381,10 @@ public class Batch extends UuidEntity {
                     "batch " + getId() + "'s lot is closed; counts cannot be taken back");
         }
         this.quantityReceived -= quantity;
+        if (costBasis == CostBasis.PINNED && allocatedUnitCost != null) {
+            // Keep the pinned total in step with the running quantity, as addCounted does.
+            this.allocatedTotal = allocatedUnitCost.times(sellableQuantity());
+        }
     }
 
     /** Adds to what has been counted, as more of the same line is found in a box. */
