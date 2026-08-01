@@ -97,4 +97,16 @@ class ReceiptTemplateServiceTest {
         byte[] bytes = template.render(sampleSale());
         assertThat(bytes).startsWith(new byte[] {0x1B, 0x40});
     }
+
+    @Test
+    void reprintRendersIdenticalBytesFromTheSameSale() {
+        when(settings.findById(BillSettings.SINGLETON_ID))
+                .thenReturn(Optional.of(compositionSettings()));
+        ReceiptTemplateService template = new ReceiptTemplateService(settings);
+
+        // A reprint re-renders the stored sale — rendering is a pure function of it, so the reprint
+        // is byte-for-byte the original bill, not a fresh figure that could drift with prices.
+        SaleView sale = sampleSale();
+        assertThat(template.render(sale)).isEqualTo(template.render(sale));
+    }
 }

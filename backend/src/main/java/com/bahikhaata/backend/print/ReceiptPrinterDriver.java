@@ -15,15 +15,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.checkout;
+package com.bahikhaata.backend.print;
 
-import java.util.List;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
+/**
+ * Sends a bill to the ESC/POS receipt printer — a second physical printer, separate from the label
+ * {@link PrinterDriver} (ESC/POS bytes, not TSPL). Reuses the label driver's exception and status
+ * types so callers handle both printers the same way.
+ */
+public interface ReceiptPrinterDriver {
 
-public interface SaleLineRepository extends JpaRepository<SaleLine, UUID> {
+    /** Sends an already-rendered ESC/POS byte stream to the receipt printer. */
+    void printReceipt(byte[] escpos) throws PrinterDriver.PrinterException;
 
-    List<SaleLine> findBySaleIdOrderByCreatedAtAsc(UUID saleId);
-
-    long countBySaleId(UUID saleId);
+    /** Prints a short test slip and reports whether the printer answered. Never throws. */
+    PrinterDriver.PrinterStatus test();
 }

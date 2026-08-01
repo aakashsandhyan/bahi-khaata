@@ -15,15 +15,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.checkout;
+package com.bahikhaata.contracts;
 
-import java.util.List;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface SaleLineRepository extends JpaRepository<SaleLine, UUID> {
-
-    List<SaleLine> findBySaleIdOrderByCreatedAtAsc(UUID saleId);
-
-    long countBySaleId(UUID saleId);
-}
+/**
+ * What the admin screen sets on the receipt printer. The test fields ({@code testStatus} etc.) are
+ * written by the test action, never by the caller, so they are not here.
+ */
+public record ReceiptPrinterConfigRequest(String address, String transport, boolean enabled) {}

@@ -29,10 +29,12 @@ import com.bahikhaata.contracts.CartView;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.PaymentMethod;
 import com.bahikhaata.contracts.SaleLineView;
+import com.bahikhaata.contracts.SaleSummary;
 import com.bahikhaata.contracts.SaleView;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -123,6 +125,32 @@ public class Checkout {
         }
         cart.markPaid();
         return sale;
+    }
+
+    /** Recent sales, newest first, for the sales screen — a summary row each, no lines loaded. */
+    @Transactional(readOnly = true)
+    public List<SaleSummary> recentSales(int limit) {
+        return sales.findByOrderByCreatedAtDesc(PageRequest.of(0, limit)).stream()
+                .map(s -> new SaleSummary(
+                        s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
+                        PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
+                        saleLines.countBySaleId(s.getId())))
+                .toList();
+    }
+
+    /** A single stored sale by its bill number, fully lined, for viewing or reprint. */
+    @Transactional(readOnly = true)
+    public SaleView saleByBillNo(long billNo) {
+        return sales.findByBillNo(billNo)
+                .map(s -> toView(s, false))
+                .orElseThrow(() -> new IllegalArgumentException("No sale numbered " + billNo + "."));
+    }
+
+    /** Loads a stored sale by id — the reprint path re-renders from this, never from a live cart. */
+    @Transactional(readOnly = true)
+    public Sale requireSale(UUID saleId) {
+        return sales.findById(saleId)
+                .orElseThrow(() -> new IllegalArgumentException("No such sale: " + saleId));
     }
 
     /** A completed sale as the till and sales screen show it, flagging whether its bill printed. */

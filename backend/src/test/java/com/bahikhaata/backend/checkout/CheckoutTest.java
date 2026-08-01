@@ -37,6 +37,7 @@ import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.PaymentMethod;
+import com.bahikhaata.contracts.SaleSummary;
 import com.bahikhaata.contracts.SaleView;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
@@ -294,6 +295,33 @@ class CheckoutTest {
         checkout.complete(cartId, PaymentMethod.CASH, null);
 
         assertThat(stock.onHand(productId)).isEqualTo(-2);
+    }
+
+    @Test
+    @DisplayName("The sales list is newest-first, and a sale is fetchable by bill number for reprint")
+    void salesListAndLookup() {
+        String a = onTheShelf("BOWL", 20_000, 40_000, 19_900);
+        String b = onTheShelf("SPOON", 10_000, 20_000, 9_900);
+        long firstBill = checkout.complete(scannedCart(a), PaymentMethod.CASH, "Ravi").getBillNo();
+        long secondBill = checkout.complete(scannedCart(b), PaymentMethod.UPI, "Sita").getBillNo();
+
+        List<SaleSummary> recent = checkout.recentSales(10);
+        assertThat(recent).hasSize(2);
+        assertThat(recent.get(0).billNo()).as("newest first").isEqualTo(secondBill);
+        assertThat(recent.get(0).paymentMethod()).isEqualTo(PaymentMethod.UPI);
+        assertThat(recent.get(0).itemCount()).isEqualTo(1);
+
+        SaleView fetched = checkout.saleByBillNo(firstBill);
+        assertThat(fetched.operatorName()).isEqualTo("Ravi");
+        assertThat(fetched.lines()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Fetching an unknown bill number is a plain not-found")
+    void unknownBillNumberRejected() {
+        assertThatThrownBy(() -> checkout.saleByBillNo(9999))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No sale numbered");
     }
 
     private UUID scannedCart(String code) {

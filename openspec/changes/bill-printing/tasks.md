@@ -22,18 +22,18 @@
 
 ## 4. Receipt printing (print)
 
-- [ ] 4.1 `ReceiptPrinterDriver` interface (`printReceipt(byte[])`, `test()`) + ESC/POS implementation over the configured transport (LAN raw-9100 default; USB via javax.print alternative).
-- [ ] 4.2 `receipt_printer_config` admin: `GET/PUT /api/admin/receipt-printer-config` + `POST …/test`; mirror the label printer-config controller + screen.
-- [ ] 4.3 `bill_settings` admin: `GET/PUT /api/admin/bill-settings`.
+- [x] 4.1 `ReceiptPrinterDriver` interface (`printReceipt(byte[])`, `test()`) + ESC/POS implementation over the configured transport (LAN raw-9100 default; USB via javax.print alternative).
+- [x] 4.2 `receipt_printer_config` admin: `GET/PUT /api/admin/receipt-printer-config` + `POST …/test`; mirror the label printer-config controller + screen.
+- [x] 4.3 `bill_settings` admin: `GET/PUT /api/admin/bill-settings`.
 - [x] 4.4 `ReceiptTemplateService.render(Sale) → byte[]`: 80mm ESC/POS — header (name/GSTIN/bill title/declaration from settings), bill no + date/time, item lines (name / qty×price / line total), total saved vs MRP, grand total (bold/double-height), payment method, footer, partial cut. No tax lines.
-- [ ] 4.5 Print on completion AFTER commit; `printFailed` flagged on `SaleView` if the printer is offline/unconfigured — never rolls back the sale.
-- [ ] 4.6 Tests: template renders expected ESC/POS structure + settings (title/declaration/GSTIN, no tax lines); driver test mocked; print-failure path leaves the sale committed.
+- [x] 4.5 Print on completion AFTER commit; `printFailed` flagged on `SaleView` if the printer is offline/unconfigured — never rolls back the sale.
+- [x] 4.6 Tests: template renders expected ESC/POS structure + settings (title/declaration/GSTIN, no tax lines); driver test mocked; print-failure path leaves the sale committed.
 
 ## 5. Sales queries + reprint
 
-- [ ] 5.1 `GET /api/sales?limit=` → `SaleSummary[]` (newest first); `GET /api/sales/{billNo}` → `SaleView`.
-- [ ] 5.2 `POST /api/sales/{id}/reprint` → re-render from the stored sale + print; returns print result.
-- [ ] 5.3 Tests: list + lookup; reprint re-renders identical bytes from the persisted sale.
+- [x] 5.1 `GET /api/sales?limit=` → `SaleSummary[]` (newest first); `GET /api/sales/{billNo}` → `SaleView`.
+- [x] 5.2 `POST /api/sales/{id}/reprint` → re-render from the stored sale + print; returns print result.
+- [x] 5.3 Tests: list + lookup; reprint re-renders identical bytes from the persisted sale.
 
 ## 6. Frontend
 

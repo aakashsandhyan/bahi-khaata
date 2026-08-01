@@ -17,7 +17,9 @@
  */
 package com.bahikhaata.backend.checkout;
 
+import com.bahikhaata.backend.print.ReceiptPrinting;
 import com.bahikhaata.contracts.CartView;
+import com.bahikhaata.contracts.SaleView;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,9 +42,11 @@ import org.springframework.web.bind.annotation.RestController;
 class CheckoutController {
 
     private final Checkout checkout;
+    private final ReceiptPrinting receiptPrinting;
 
-    CheckoutController(Checkout checkout) {
+    CheckoutController(Checkout checkout, ReceiptPrinting receiptPrinting) {
         this.checkout = checkout;
+        this.receiptPrinting = receiptPrinting;
     }
 
     /** Starts a fresh sale. */
@@ -82,13 +86,15 @@ class CheckoutController {
 
     /** Completes the cart into a sale and returns the recorded bill. */
     @PostMapping("/cart/{cartId}/complete")
-    com.bahikhaata.contracts.SaleView complete(
+    SaleView complete(
             @PathVariable UUID cartId,
             @RequestBody com.bahikhaata.contracts.CompleteSaleRequest request) {
+        // complete() opens its own transaction and commits the sale + ledger before returning; the
+        // bill is only printed afterwards, so a jammed or offline printer can never roll it back — a
+        // print failure is flagged as printFailed and the operator reprints from the stored sale.
         Sale sale = checkout.complete(cartId, request.paymentMethod(), request.operatorName());
-        // The bill prints after this commits (wired with the receipt printer); a print failure never
-        // undoes the sale — it is flagged so the operator can reprint. Printing is not wired yet.
-        return checkout.toView(sale, false);
+        boolean printFailed = receiptPrinting.printBill(checkout.toView(sale, false));
+        return checkout.toView(sale, printFailed);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
