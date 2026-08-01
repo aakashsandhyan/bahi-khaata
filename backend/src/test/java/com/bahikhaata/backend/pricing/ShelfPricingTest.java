@@ -36,6 +36,7 @@ import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.contracts.PriceExistingRequest;
@@ -65,11 +66,20 @@ class ShelfPricingTest {
     @Mock private TargetMargins targetMargins;
     @Mock private ProductPricing productPricing;
     @Mock private com.bahikhaata.backend.inventory.LotCategoryResolver lotCategories;
+    @Mock private com.bahikhaata.backend.inventory.CategoryCatalog categoryCatalog;
 
     private ShelfPricing shelfPricing() {
         return new ShelfPricing(
                 lots, batches, products, barcodes, barcodeResolver, barcodeGenerator, goodsIn,
-                targetMargins, productPricing, lotCategories);
+                targetMargins, productPricing, lotCategories, categoryCatalog);
+    }
+
+    private Lot openLot(UUID id, String supplier, java.time.LocalDate receivedOn) {
+        Lot lot = mock(Lot.class);
+        when(lot.getId()).thenReturn(id);
+        when(lot.getSupplier()).thenReturn(supplier);
+        when(lot.getReceivedOn()).thenReturn(receivedOn);
+        return lot;
     }
 
     private void stubMintsBbz(String code) {
@@ -166,6 +176,61 @@ class ShelfPricingTest {
         assertEquals(1, result.size());
         assertEquals("Acme", result.get(0).supplier());
         assertEquals("KITCHEN", result.get(0).categoryCode());
+    }
+
+    @Test
+    void listsAnOpenLotThatHasNoCountedStockYet() {
+        UUID lotId = UUID.randomUUID();
+        Lot lot = openLot(lotId, "Mixed Bulk", java.time.LocalDate.of(2026, 8, 1));
+        when(lots.findByStateOrderByReceivedOnDesc(LotState.OPEN)).thenReturn(List.of(lot));
+
+        var result = shelfPricing().lots();
+
+        // A just-added, uncounted lot appears so it can be hand-priced into.
+        assertEquals(1, result.size());
+        assertEquals("Mixed Bulk", result.get(0).supplier());
+    }
+
+    @Test
+    void doesNotListAClosedFullyPricedLot() {
+        // Open set empty, and no lot has unpriced counted stock — a closed, fully-priced lot is in
+        // neither, so nothing is listed.
+        assertTrue(shelfPricing().lots().isEmpty());
+    }
+
+    @Test
+    void listsALotInBothSetsOnlyOnce() {
+        UUID lotId = UUID.randomUUID();
+        Lot lot = openLot(lotId, "Acme", java.time.LocalDate.of(2026, 7, 1));
+        when(lots.findByStateOrderByReceivedOnDesc(LotState.OPEN)).thenReturn(List.of(lot));
+        when(batches.lotIdsWithUnpricedStock()).thenReturn(List.of(lotId));
+        when(lots.findAllById(List.of(lotId))).thenReturn(List.of(lot));
+
+        var result = shelfPricing().lots();
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void categoriesForLotFallsBackToTheFullListWhenTheLotHasNoBatches() {
+        UUID lotId = UUID.randomUUID();
+        when(batches.findByLotId(lotId)).thenReturn(List.of());
+        when(categoryCatalog.allCodes()).thenReturn(List.of("ELECTRONICS", "KITCHEN"));
+
+        assertEquals(List.of("ELECTRONICS", "KITCHEN"), shelfPricing().categoriesForLot(lotId));
+    }
+
+    @Test
+    void categoriesForLotUsesTheLotsOwnCategoriesWhenItHasBatches() {
+        UUID lotId = UUID.randomUUID();
+        Product product = new Product("Cooker", Category.of("KITCHEN"), Map.of());
+        Batch batch = mock(Batch.class);
+        when(batch.getProduct()).thenReturn(product);
+        when(batches.findByLotId(lotId)).thenReturn(List.of(batch));
+
+        assertEquals(List.of("KITCHEN"), shelfPricing().categoriesForLot(lotId));
+        // The full-list fallback is not consulted when the lot names its own categories.
+        verifyNoInteractions(categoryCatalog);
     }
 
     @Test
