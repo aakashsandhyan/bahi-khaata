@@ -190,10 +190,10 @@ class BulkLabelPrintTest {
     }
 
     @Test
-    void enqueueForReviewAddsOneEntryWithCopiesFromOnHand() {
+    void enqueueForReviewLabelsExactlyTheEnteredQuantityNotOnHand() {
         Product p = priced("A");
         when(products.findById(p.getId())).thenReturn(Optional.of(p));
-        when(stock.onHand(p.getId())).thenReturn(4L);
+        when(stock.onHand(p.getId())).thenReturn(4L); // pre-existing stock brings on-hand to 4
         com.bahikhaata.backend.catalog.Barcode bbz =
                 mock(com.bahikhaata.backend.catalog.Barcode.class);
         when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
@@ -202,20 +202,19 @@ class BulkLabelPrintTest {
         when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
         when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
 
-        bulk().enqueueForReview(p.getId(), 4);
+        bulk().enqueueForReview(p.getId(), 3); // the operator entered 3
 
-        // First time: one review row for the product, copies = on-hand, carrying its BBZ.
+        // The label count is what was entered (3), not the on-hand 4 — the pre-existing unit is left.
         verify(printJobs).save(argThat(j -> "review".equals(j.getStatus())
-                && j.getCopies() == 4 && "BBZ-A".equals(j.getBarcode())
+                && j.getCopies() == 3 && "BBZ-A".equals(j.getBarcode())
                 && p.getId().equals(j.getProductId())));
     }
 
     @Test
-    void enqueueForReviewForAnAlreadyLabelledProductLabelsOnlyTheNewUnits() {
+    void enqueueForReviewCapsTheEnteredQuantityAtOnHand() {
         Product p = priced("A");
-        p.markLabelPrinted(java.time.Instant.parse("2026-07-30T00:00:00Z")); // printed before
         when(products.findById(p.getId())).thenReturn(Optional.of(p));
-        when(stock.onHand(p.getId())).thenReturn(5L); // 3 were labelled, 2 more found → on-hand 5
+        when(stock.onHand(p.getId())).thenReturn(2L); // only 2 actually on hand
         com.bahikhaata.backend.catalog.Barcode bbz =
                 mock(com.bahikhaata.backend.catalog.Barcode.class);
         when(bbz.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
@@ -224,9 +223,9 @@ class BulkLabelPrintTest {
         when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
         when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
 
-        bulk().enqueueForReview(p.getId(), 2); // two newly-found units
+        bulk().enqueueForReview(p.getId(), 9); // more entered than exists
 
-        // Only the 2 new units get labels, not all 5 on hand — the other 3 are already labelled.
+        // Never label more than is on hand.
         verify(printJobs).save(argThat(j -> "review".equals(j.getStatus()) && j.getCopies() == 2));
     }
 

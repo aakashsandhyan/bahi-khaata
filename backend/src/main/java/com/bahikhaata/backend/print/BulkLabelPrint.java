@@ -96,16 +96,17 @@ public class BulkLabelPrint {
     /**
      * Puts a product's labels on the review queue as a single entry — one row per product, not one
      * per sticker — so a reviewer sees the whole pricing command in one go. Called after each price
-     * or re-price with {@code unitsAdded}, how much this command grew the stock.
+     * or re-price with {@code enteredQty}, the quantity the operator entered on the pricing screen:
+     * the labels are for exactly what they said they put out, not for pre-existing stock.
      *
      * <p>The entry is upserted in place, so its id is stable and a reviewer mid-edit is not thrown
-     * off. On the first pricing every unit on hand needs a label. On a later one the reviewer's
-     * chosen count is kept and only the newly-found units are added on top (never silently reset),
-     * capped at what is actually on hand. A product with nothing on hand or no shelf barcode gets no
-     * entry — an existing one is dropped, since there is nothing left to label.
+     * off. A new entry carries {@code enteredQty}; on a later pricing the reviewer's chosen count is
+     * kept and this command's entered quantity is added on top. Everything is capped at what is on
+     * hand (never label more than exists). Nothing entered, and no entry yet, makes no entry — a
+     * corrected label with no new stock is reprinted from the Reprint screen.
      */
     @Transactional
-    public void enqueueForReview(UUID productId, long unitsAdded) {
+    public void enqueueForReview(UUID productId, long enteredQty) {
         Product product = products.findById(productId).filter(Product::isPriced).orElse(null);
         PrintJob existing = printJobs.findFirstByProductIdAndStatus(productId, REVIEW).orElse(null);
         long onHand = product == null ? 0 : stock.onHand(productId);
@@ -116,26 +117,22 @@ public class BulkLabelPrint {
             }
             return;
         }
+        long added = Math.max(0, enteredQty);
         if (existing == null) {
-            // No entry yet. A product that has never been labelled needs a sticker for every unit
-            // on hand; one that has printed before needs stickers only for the newly-found units —
-            // the rest are already labelled. A bare re-price of a labelled product (no new units)
-            // therefore makes no entry; a corrected label is reprinted from the Reprint screen.
-            long newUnits = product.isLabelPrinted() ? Math.max(0, unitsAdded) : onHand;
-            newUnits = Math.min(onHand, newUnits);
-            if (newUnits <= 0) {
+            // Label exactly what this pricing command put out, capped at what is on hand.
+            long copies = Math.min(onHand, added);
+            if (copies <= 0) {
                 return;
             }
             PrintJob entry = PrintJob.create(
                     bbz, product.getName(), product.getSellingPrice().paise(),
-                    confirmedMrpPaise(product), (int) newUnits, productId);
+                    confirmedMrpPaise(product), (int) copies, productId);
             entry.setStatus(REVIEW);
             printJobs.save(entry);
             return;
         }
-        // Keep the reviewer's count, add only the newly-found units, never exceed what is on hand.
-        long kept = Math.max(0, existing.getCopies());
-        long copies = Math.min(onHand, kept + Math.max(0, unitsAdded));
+        // Keep the reviewer's count and add this command's entered quantity, never exceeding on hand.
+        long copies = Math.min(onHand, Math.max(0, existing.getCopies()) + added);
         existing.setCopies((int) copies);
         existing.setBarcode(bbz);
         existing.setProductName(product.getName());

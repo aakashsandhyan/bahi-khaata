@@ -53,10 +53,17 @@ REM Prefer Java 21 explicitly (an older Java may also be installed on this machi
 set "JAVA=java"
 for /d %%d in ("%ProgramFiles%\Eclipse Adoptium\jdk-21*") do set "JAVA=%%d\bin\java.exe"
 
-REM Only the database path changes - same jar, same everything else, different port.
+REM Prefer a staged sandbox jar if one is present, so a new build can be tried here without
+REM touching the live shop jar (which the running shop app holds open). Falls back to the shared
+REM backend.jar when no staged one exists.
+set "SBXJAR=%~dp0backend.jar"
+if exist "%~dp0backend-sandbox.jar" set "SBXJAR=%~dp0backend-sandbox.jar"
+echo   Jar: %SBXJAR%
+
+REM Only the database path changes - same everything else, different port.
 REM bahikhaata.sandbox=true makes the screen badge itself "SANDBOX" so it is never mistaken
 REM for the live shop; the real shop sets no such flag and shows no badge.
-"%JAVA%" -Dbahikhaata.db.path="%SBX%" -Dserver.port=%PORT% -Dbahikhaata.sandbox=true -jar "%~dp0backend.jar"
+"%JAVA%" -Dbahikhaata.db.path="%SBX%" -Dserver.port=%PORT% -Dbahikhaata.sandbox=true -jar "%SBXJAR%"
 
 echo.
 echo Sandbox stopped. Press any key to close.
