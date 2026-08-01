@@ -9,9 +9,9 @@
 
 ## 2. SALE ledger + COGS (inventory)
 
-- [ ] 2.1 FIFO consumption: sell N units of a product → `MovementType.SALE` entries drawn oldest-batch-first, each carrying that batch's cost as COGS; reuse/extend existing FIFO helpers (`findByProductIdInFifoOrder`, `StockLevels`).
-- [ ] 2.2 Overshoot: units beyond counted on-hand attribute to the newest batch and drive it negative — no exception, no clamp. On-hand may go negative.
-- [ ] 2.3 Tests: FIFO split across batches with correct COGS; overshoot drives the newest batch negative; product with a single batch; assert on-hand + per-batch on-hand after.
+- [x] 2.1 FIFO consumption: sell N units of a product → `MovementType.SALE` entries drawn oldest-batch-first, each carrying that batch's cost as COGS; reuse/extend existing FIFO helpers (`findByProductIdInFifoOrder`, `StockLevels`).
+- [x] 2.2 Overshoot: units beyond counted on-hand attribute to the newest batch and drive it negative — no exception, no clamp. On-hand may go negative.
+- [x] 2.3 Tests: FIFO split across batches with correct COGS; overshoot drives the newest batch negative; product with a single batch; assert on-hand + per-batch on-hand after.
 
 ## 3. Sale completion (checkout)
 
