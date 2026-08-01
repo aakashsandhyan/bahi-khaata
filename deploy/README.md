@@ -106,11 +106,64 @@ ssh $WINHOST schtasks /query /tn BachatBaazar           # is it set to auto-star
 > A raw `ssh host "java -jar backend.jar"` dies the moment you disconnect — that is why this goes
 > through Task Scheduler, which keeps it running independently of your SSH session.
 
+## Try a new build safely — the sandbox
+
+Before a new `backend.jar` touches the live shop, try it on a **throwaway copy of the real data**.
+`start-sandbox.bat` runs the same app on **`http://localhost:8081`**, badged **SANDBOX**, against
+`data\sandbox.db` — a fresh copy of `data\bahi-khaata.db` made on every launch. The live shop keeps
+running on `:8080`, untouched; anything you do in the sandbox is discarded next launch.
+
+**Test a new build without disturbing the live shop** — the running shop holds `backend.jar` open
+(Windows locks it), so you cannot overwrite it while trading. Instead stage the new jar beside it:
+
+```bash
+# from the Mac — copy the new jar under the SANDBOX name (does not overwrite the live jar)
+scp deploy/release/backend.jar "$WINHOST:C:/BachatBaazar/backend-sandbox.jar"
+```
+
+On the shop, double-click `start-sandbox.bat`: if `backend-sandbox.jar` is present it runs **that**
+(otherwise it falls back to the live `backend.jar`). So you can exercise a new build — new screens,
+and **any migrations, against a copy of live data** — on `:8081` while the shop bills on `:8080`. If
+it starts clean and behaves, promote it (see below). If not, just delete `backend-sandbox.jar`.
+
+## Check which version the shop's database is on (migrations)
+
+An update only rewrites data if it carries **new migrations**. To know whether it will, compare the
+highest `V##` the shop has applied with the highest `V##` in the new release.
+
+- **Highest migration in the release** — the largest number in
+  `backend/src/main/resources/db/migration/V##__*.sql` (in the repo / the build you're shipping).
+- **Highest migration the shop has applied** — read its Flyway history:
+
+  ```bash
+  # if sqlite3 is on the shop:
+  ssh $WINHOST "sqlite3 C:/BachatBaazar/data/bahi-khaata.db \"SELECT MAX(CAST(version AS INTEGER)) FROM flyway_schema_history;\""
+
+  # or pull the DB to the Mac and read it there (also grab -wal in case of an un-checkpointed row):
+  scp "$WINHOST:C:/BachatBaazar/data/bahi-khaata.db" /tmp/live.db
+  sqlite3 /tmp/live.db "SELECT MAX(CAST(version AS INTEGER)) FROM flyway_schema_history;"
+  ```
+
+  The startup line in `server.log` also names the schema version Flyway migrated to.
+
+If the two numbers **match**, the update runs **no** migrations — it is a pure jar swap (new
+frontend/code only), low risk. If the release is **higher**, it will migrate the live DB on first
+start: **back up first** and test in the sandbox before going live.
+
 ## Updating the software later
 
 1. On the Mac: `./deploy/build-release.sh`.
-2. Copy the new `backend.jar` over the old one on Machine A. **Do not** touch `data\` — that is the
-   shop's records. Restart `start-bachat.bat`. Database migrations run automatically on start.
+2. **If the update carries new migrations** (see the version check above), **back up the live DB
+   first** — double-click `backup-db.bat` on the shop, or `ssh $WINHOST "C:/BachatBaazar/backup-db.bat"`.
+   A migration rewrites live records and is not casually reversible; the backup is the rollback.
+3. **Test in the sandbox first** — stage the new jar as `backend-sandbox.jar` and run
+   `start-sandbox.bat` (see *Try a new build safely* above). Confirm it starts clean and works on a
+   copy of the real data.
+4. **Go live** — the running shop **locks `backend.jar`**, so **stop it first** (close the
+   `start-bachat.bat` window, or `ssh $WINHOST schtasks /end /tn BachatBaazar`). Then copy the new
+   jar over the old one (**never** touch `data\` — that is the shop's records) and start it again
+   (`start-bachat.bat`, or `./deploy/deploy-ssh.sh --no-build --run-now` from the Mac). Migrations,
+   if any, run automatically on start.
 
 ## If something's wrong
 
