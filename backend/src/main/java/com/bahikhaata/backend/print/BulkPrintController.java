@@ -92,6 +92,12 @@ public class BulkPrintController {
         return bulkLabelPrint.sendAllForReview();
     }
 
+    /** Send one review entry to the print queue — approve a single product. */
+    @PostMapping("/review/{jobId}/send")
+    public QueueAwaitingResult sendReviewOne(@PathVariable UUID jobId) {
+        return bulkLabelPrint.sendReviewEntry(jobId);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<String> badRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());

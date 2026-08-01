@@ -95,14 +95,14 @@ public class ShelfPricingController {
         // Pricing hands off to review: the product's labels wait as one entry. The labels are for
         // exactly the quantity the operator entered, not for any pre-existing stock.
         long entered = req.inHandQuantity() != null ? req.inHandQuantity() : 0;
-        labels.enqueueForReview(saved.productId(), entered);
+        labels.enqueueForReview(saved.productId(), entered, req.operatorName());
         return saved;
     }
 
     @PostMapping("/manual")
     public ShelfPricedProduct saveManual(@RequestBody PriceManualRequest req) {
         ShelfPricedProduct saved = shelfPricing.saveManual(req);
-        labels.enqueueForReview(saved.productId(), req.quantity());
+        labels.enqueueForReview(saved.productId(), req.quantity(), req.operatorName());
         return saved;
     }
 }

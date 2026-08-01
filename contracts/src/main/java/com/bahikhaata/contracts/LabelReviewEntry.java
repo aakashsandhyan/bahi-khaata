@@ -35,4 +35,6 @@ public record LabelReviewEntry(
         long sellingPricePaise,
         Long mrpPaise,
         int copies,
-        long onHand) {}
+        long onHand,
+        // Who priced it, shown on the review screen. Null when not recorded.
+        String operatorName) {}

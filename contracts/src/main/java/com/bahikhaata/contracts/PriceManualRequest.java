@@ -32,4 +32,6 @@ public record PriceManualRequest(
         String condition,
         long quantity,
         long sellingPricePaise,
-        Long mrpPaise) {}
+        Long mrpPaise,
+        // Who priced it (remembered per device), shown on the review screen. Null when not set.
+        String operatorName) {}

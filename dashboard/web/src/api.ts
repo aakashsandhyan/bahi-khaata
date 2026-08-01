@@ -485,6 +485,7 @@ export const shelfPricing = {
     inHandQuantity: number | null
     name?: string | null
     setInHandAsTotal?: boolean
+    operatorName?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
 
   saveManual: (body: {
@@ -495,6 +496,7 @@ export const shelfPricing = {
     quantity: number
     sellingPricePaise: number
     mrpPaise: number | null
+    operatorName?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/manual', body) as Promise<_ShelfPricedProduct>,
 
   phantomReport: (lotId: string) =>
@@ -547,5 +549,7 @@ export const bulkPrint = {
   ) => put<void>(`/api/print-jobs/bulk/review/${jobId}`, body),
   sendReview: () =>
     post<_QueueAwaitingResult>('/api/print-jobs/bulk/review/send') as Promise<_QueueAwaitingResult>,
+  sendReviewOne: (jobId: string) =>
+    post<_QueueAwaitingResult>(`/api/print-jobs/bulk/review/${jobId}/send`) as Promise<_QueueAwaitingResult>,
   rejectReview: (jobId: string) => delVoid(`/api/print-jobs/bulk/review/${jobId}`),
 }

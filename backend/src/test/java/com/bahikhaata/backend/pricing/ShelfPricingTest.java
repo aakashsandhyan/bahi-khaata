@@ -97,7 +97,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-100500");
 
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null, null, null, false));
+                product.getId(), UUID.randomUUID(), "APPLIANCE", 44900L, null, null, null, false, null));
 
         // Price is set through the guarded setter, allowing uncosted stock (decision B-b).
         verify(productPricing).setSellingPrice(product.getId(), Money.ofPaise(44900L), true);
@@ -118,7 +118,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-1");
 
         shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), batchId, "KITCHEN", 44900L, 149900L, null, null, false));
+                product.getId(), batchId, "KITCHEN", 44900L, 149900L, null, null, false, null));
 
         // Confirmed (non-estimate), so the label may strike it.
         verify(batch).recordMrp(Money.ofPaise(149900L), false);
@@ -136,7 +136,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-9");
 
         shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), batchId, "APPLIANCE", 40000L, null, 3L, "Clean Name", true));
+                product.getId(), batchId, "APPLIANCE", 40000L, null, 3L, "Clean Name", true, null));
 
         // setInHandAsTotal overrides the first-vs-later rule: the count of record overwrites, never adds.
         verify(goodsIn).reconcileBatchTo(eq(batch), eq(3L), any());
@@ -155,7 +155,7 @@ class ShelfPricingTest {
         when(barcodes.findByProductId(product.getId())).thenReturn(List.of(existing));
 
         ShelfPricedProduct result = shelfPricing().saveExisting(new PriceExistingRequest(
-                product.getId(), UUID.randomUUID(), "KITCHEN", 44900L, null, null, null, false));
+                product.getId(), UUID.randomUUID(), "KITCHEN", 44900L, null, null, null, false, null));
 
         assertEquals("BBZ-ALREADY", result.barcode());
         verify(barcodeGenerator, never()).generateFor(any());
@@ -171,7 +171,7 @@ class ShelfPricingTest {
         stubMintsBbz("BBZ-100600");
 
         ShelfPricedProduct result = shelfPricing().saveManual(new PriceManualRequest(
-                lotId, "Mystery Item", "KITCHEN", "GOOD", 5L, 9900L, null));
+                lotId, "Mystery Item", "KITCHEN", "GOOD", 5L, 9900L, null, null));
 
         assertEquals("BBZ-100600", result.barcode());
         assertEquals(9900L, result.sellingPricePaise());

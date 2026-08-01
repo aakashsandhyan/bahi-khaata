@@ -136,9 +136,17 @@ function AwaitingLabels() {
           {entries.map((e) => (
             <div key={e.jobId} style={{ padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
               <div style={{ display: 'flex', gap: 'var(--s2)', alignItems: 'center' }}>
-                <span style={{ flex: 1 }}>{e.name}</span>
+                <span style={{ flex: 1 }}>
+                  {e.name}
+                  {e.operatorName && (
+                    <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}> — by {e.operatorName}</span>
+                  )}
+                </span>
                 <span style={{ color: 'var(--ink-faint)' }}>{rupees(e.sellingPricePaise)}</span>
                 <span style={{ minWidth: 44, textAlign: 'right' }}>×{e.copies}</span>
+                <button className="btn-primary" onClick={() => bulkPrint.sendReviewOne(e.jobId).then(refresh).catch(() => {})}>
+                  Send
+                </button>
                 <button onClick={() => setEditing(editing === e.jobId ? null : e.jobId)}>
                   {editing === e.jobId ? 'Close' : 'Edit'}
                 </button>

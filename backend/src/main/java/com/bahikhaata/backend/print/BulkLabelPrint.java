@@ -106,7 +106,7 @@ public class BulkLabelPrint {
      * corrected label with no new stock is reprinted from the Reprint screen.
      */
     @Transactional
-    public void enqueueForReview(UUID productId, long enteredQty) {
+    public void enqueueForReview(UUID productId, long enteredQty, String operatorName) {
         Product product = products.findById(productId).filter(Product::isPriced).orElse(null);
         PrintJob existing = printJobs.findFirstByProductIdAndStatus(productId, REVIEW).orElse(null);
         long onHand = product == null ? 0 : stock.onHand(productId);
@@ -128,6 +128,7 @@ public class BulkLabelPrint {
                     bbz, product.getName(), product.getSellingPrice().paise(),
                     confirmedMrpPaise(product), (int) copies, productId);
             entry.setStatus(REVIEW);
+            entry.setOperatorName(operatorName);
             printJobs.save(entry);
             return;
         }
@@ -138,6 +139,9 @@ public class BulkLabelPrint {
         existing.setProductName(product.getName());
         existing.setSellingPricePaise(product.getSellingPrice().paise());
         existing.setMrpPaise(confirmedMrpPaise(product));
+        if (operatorName != null && !operatorName.isBlank()) {
+            existing.setOperatorName(operatorName); // the latest pricer
+        }
         printJobs.save(existing); // same id — a mid-edit reviewer keeps their row
     }
 
@@ -156,7 +160,8 @@ public class BulkLabelPrint {
         long onHand = p == null ? 0 : stock.onHand(p.getId());
         return new LabelReviewEntry(
                 job.getId(), job.getProductId(), batchId, job.getBarcode(), job.getProductName(),
-                category, job.getSellingPricePaise(), job.getMrpPaise(), job.getCopies(), onHand);
+                category, job.getSellingPricePaise(), job.getMrpPaise(), job.getCopies(), onHand,
+                job.getOperatorName());
     }
 
     /**
@@ -177,7 +182,7 @@ public class BulkLabelPrint {
         // change since inHandQuantity is null). This re-enqueues nothing — enqueue is the caller's job.
         shelfPricing.saveExisting(new PriceExistingRequest(
                 productId, batchId, req.categoryCode(), req.sellingPricePaise(), req.mrpPaise(),
-                null, req.name(), false));
+                null, req.name(), false, null));
         // Update the entry in place (same id) with the reviewer's copies and the corrected details.
         Product edited = products.findById(productId).orElseThrow();
         entry.setCopies(Math.max(0, req.copies()));
@@ -207,19 +212,35 @@ public class BulkLabelPrint {
         int productsQueued = 0;
         long labelsQueued = 0;
         for (PrintJob entry : printJobs.findByStatusOrderByCreatedAtAsc(REVIEW)) {
-            int copies = Math.max(0, entry.getCopies());
-            for (int i = 0; i < copies; i++) {
-                printJobs.save(PrintJob.create(
-                        entry.getBarcode(), entry.getProductName(), entry.getSellingPricePaise(),
-                        entry.getMrpPaise(), 1, entry.getProductId()));
-            }
-            printJobs.delete(entry);
+            int copies = explodeToQueue(entry);
             if (copies > 0) {
                 productsQueued++;
                 labelsQueued += copies;
             }
         }
         return new QueueAwaitingResult(productsQueued, labelsQueued);
+    }
+
+    /** Sends one review entry to the print queue — the reviewer approving a single product. */
+    @Transactional
+    public QueueAwaitingResult sendReviewEntry(UUID jobId) {
+        PrintJob entry = printJobs.findById(jobId)
+                .filter(j -> REVIEW.equals(j.getStatus()))
+                .orElseThrow(() -> new IllegalArgumentException("no such review entry: " + jobId));
+        int copies = explodeToQueue(entry);
+        return new QueueAwaitingResult(copies > 0 ? 1 : 0, copies);
+    }
+
+    /** Explodes a review entry into its copies of single-label queued jobs and clears it. */
+    private int explodeToQueue(PrintJob entry) {
+        int copies = Math.max(0, entry.getCopies());
+        for (int i = 0; i < copies; i++) {
+            printJobs.save(PrintJob.create(
+                    entry.getBarcode(), entry.getProductName(), entry.getSellingPricePaise(),
+                    entry.getMrpPaise(), 1, entry.getProductId()));
+        }
+        printJobs.delete(entry);
+        return copies;
     }
 
     /**

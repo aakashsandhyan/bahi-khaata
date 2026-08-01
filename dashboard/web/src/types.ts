@@ -454,6 +454,7 @@ export interface LabelReviewEntry {
   mrpPaise: number | null
   copies: number
   onHand: number
+  operatorName: string | null
 }
 
 export interface PhantomLine {

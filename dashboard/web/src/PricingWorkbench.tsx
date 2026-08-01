@@ -23,6 +23,14 @@ export function PricingWorkbench() {
   const [item, setItem] = useState<ScannedItem | null>(null)
   const [manual, setManual] = useState(false)
 
+  // Who is pricing — remembered on this device (no login). Travels with each save so the review
+  // screen can show who priced each item.
+  const [operator, setOperator] = useState(() => localStorage.getItem('pricing.operator') ?? '')
+  const setOperatorCached = (name: string) => {
+    setOperator(name)
+    localStorage.setItem('pricing.operator', name)
+  }
+
   useEffect(() => {
     shelfPricing
       .lots()
@@ -88,6 +96,16 @@ export function PricingWorkbench() {
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
       <h1>Pricing</h1>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', marginBottom: 'var(--s2)' }}>
+        <label style={{ fontSize: 13, fontWeight: 600 }}>Operator</label>
+        <input
+          value={operator}
+          onChange={(e) => setOperatorCached(e.target.value)}
+          placeholder="Your name (remembered on this device)"
+          style={{ flex: 1, maxWidth: 280, padding: 6, fontSize: 14 }}
+        />
+      </div>
+
       {/* TRANSIENT: direct scan of already-manifested, already-counted stock — price it in one
           scan without picking its lot. Remove this whole block when no longer needed. */}
       {!item && !manual && (
@@ -139,6 +157,7 @@ export function PricingWorkbench() {
           lotId={lotId}
           categories={categories}
           item={item}
+          operator={operator}
           onCancel={done}
           onSaved={done}
         />
@@ -175,12 +194,14 @@ function PriceForm({
   lotId,
   categories,
   item,
+  operator,
   onCancel,
   onSaved,
 }: {
   lotId: string
   categories: string[]
   item: ScannedItem | null
+  operator: string
   onCancel: () => void
   onSaved: () => void
 }) {
@@ -190,9 +211,9 @@ function PriceForm({
   const [name, setName] = useState(item?.name ?? '')
   const [category, setCategory] = useState(item?.categoryCode ?? '')
   const [condition, setCondition] = useState('GOOD')
-  // For a scanned item this is the in-hand count (and one label per unit): the counted stock on a
-  // first pricing, or 0 additional on a later one. For a hand-keyed product it is the quantity, 1.
-  const [quantity, setQuantity] = useState(item ? (firstPricing ? item.quantity : 0) : 1)
+  // The in-hand count entered here (and one label per unit). Defaults to 1 — the operator types the
+  // actual number they are putting out.
+  const [quantity, setQuantity] = useState(1)
   const [mrp, setMrp] = useState<string>(item?.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
   const [price, setPrice] = useState<string>('')
   const [suggested, setSuggested] = useState<number | null>(null)
@@ -236,6 +257,7 @@ function PriceForm({
           // The in-hand count is the count of record: overwrites stock on a first pricing, adds on
           // a later one. 0 on a later pricing leaves stock be — a bare price/MRP fix moves nothing.
           inHandQuantity: quantity,
+          operatorName: operator.trim() || null,
         })
       : shelfPricing.saveManual({
           lotId,
@@ -245,6 +267,7 @@ function PriceForm({
           quantity,
           sellingPricePaise: pricePaise,
           mrpPaise,
+          operatorName: operator.trim() || null,
         })
     if (!item && !name.trim()) return setError('Enter a product name.')
     req.then(setSaved).catch((e) => setError(e instanceof BackendError ? e.message : 'Save failed.'))

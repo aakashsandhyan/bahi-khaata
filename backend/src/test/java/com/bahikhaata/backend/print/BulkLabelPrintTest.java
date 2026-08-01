@@ -202,12 +202,13 @@ class BulkLabelPrintTest {
         when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
         when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
 
-        bulk().enqueueForReview(p.getId(), 3); // the operator entered 3
+        bulk().enqueueForReview(p.getId(), 3, "Sushil"); // the operator Sushil entered 3
 
         // The label count is what was entered (3), not the on-hand 4 — the pre-existing unit is left.
+        // The entry carries the operator's name for the review screen.
         verify(printJobs).save(argThat(j -> "review".equals(j.getStatus())
                 && j.getCopies() == 3 && "BBZ-A".equals(j.getBarcode())
-                && p.getId().equals(j.getProductId())));
+                && p.getId().equals(j.getProductId()) && "Sushil".equals(j.getOperatorName())));
     }
 
     @Test
@@ -223,7 +224,7 @@ class BulkLabelPrintTest {
         when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of());
         when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review")).thenReturn(Optional.empty());
 
-        bulk().enqueueForReview(p.getId(), 9); // more entered than exists
+        bulk().enqueueForReview(p.getId(), 9, null); // more entered than exists
 
         // Never label more than is on hand.
         verify(printJobs).save(argThat(j -> "review".equals(j.getStatus()) && j.getCopies() == 2));
@@ -245,7 +246,7 @@ class BulkLabelPrintTest {
         when(printJobs.findFirstByProductIdAndStatus(p.getId(), "review"))
                 .thenReturn(Optional.of(existing));
 
-        bulk().enqueueForReview(p.getId(), 3); // three newly-found units
+        bulk().enqueueForReview(p.getId(), 3, null); // three newly-found units
 
         // Same row updated in place: 1 kept + 3 new = 4, never reset to on-hand (8), never deleted.
         verify(existing).setCopies(4);
@@ -262,6 +263,28 @@ class BulkLabelPrintTest {
 
         bulk().rejectReviewEntry(jobId);
 
+        verify(printJobs).delete(entry);
+    }
+
+    @Test
+    void sendReviewEntrySendsJustThatOneEntry() {
+        UUID jobId = UUID.randomUUID();
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getStatus()).thenReturn("review");
+        when(entry.getCopies()).thenReturn(2);
+        when(entry.getBarcode()).thenReturn("BBZ-A");
+        when(entry.getProductName()).thenReturn("A");
+        when(entry.getSellingPricePaise()).thenReturn(10_000L);
+        when(entry.getMrpPaise()).thenReturn(null);
+        when(entry.getProductId()).thenReturn(UUID.randomUUID());
+        when(printJobs.findById(jobId)).thenReturn(Optional.of(entry));
+
+        var result = bulk().sendReviewEntry(jobId);
+
+        assertThat(result.productsQueued()).isEqualTo(1);
+        assertThat(result.labelsQueued()).isEqualTo(2L);
+        verify(printJobs, times(2))
+                .save(argThat(j -> j.getCopies() == 1 && "queued".equals(j.getStatus())));
         verify(printJobs).delete(entry);
     }
 
