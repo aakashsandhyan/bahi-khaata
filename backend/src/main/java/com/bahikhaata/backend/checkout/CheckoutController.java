@@ -80,6 +80,17 @@ class CheckoutController {
         return checkout.clear(cartId);
     }
 
+    /** Completes the cart into a sale and returns the recorded bill. */
+    @PostMapping("/cart/{cartId}/complete")
+    com.bahikhaata.contracts.SaleView complete(
+            @PathVariable UUID cartId,
+            @RequestBody com.bahikhaata.contracts.CompleteSaleRequest request) {
+        Sale sale = checkout.complete(cartId, request.paymentMethod(), request.operatorName());
+        // The bill prints after this commits (wired with the receipt printer); a print failure never
+        // undoes the sale — it is flagged so the operator can reprint. Printing is not wired yet.
+        return checkout.toView(sale, false);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<String> badRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());

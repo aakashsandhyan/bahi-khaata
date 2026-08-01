@@ -83,7 +83,6 @@ public class SaleLine extends UuidEntity {
     protected SaleLine() {}
 
     public SaleLine(
-            UUID id,
             UUID saleId,
             UUID productId,
             String name,
@@ -93,7 +92,7 @@ public class SaleLine extends UuidEntity {
             long quantity,
             Money lineTotal,
             Money saving) {
-        super(id);
+        super(newId());
         this.saleId = saleId;
         this.productId = productId;
         this.name = name;

@@ -15,10 +15,10 @@
 
 ## 3. Sale completion (checkout)
 
-- [ ] 3.1 `Checkout.complete(cartId, paymentMethod, operatorName)`: in one transaction validate (non-empty cart, every line priced), create `Sale` + snapshotted `SaleLine`s, assign `bill_no = MAX+1`, write the SALE ledger (section 2), mark the cart completed.
-- [ ] 3.2 Guards: empty cart rejected; unpriced line rejected naming the item; re-completing a completed cart rejected (idempotent).
-- [ ] 3.3 Endpoint `POST /api/checkout/cart/{cartId}/complete` → `SaleView` (with `printStatus`); exception handlers (400/409) matching the checkout controller.
-- [ ] 3.4 Tests: complete records sale + lines + ledger; snapshot immutability (later price change doesn't alter the sale); monotonic bill_no; empty-cart + unpriced + re-complete rejected.
+- [x] 3.1 `Checkout.complete(cartId, paymentMethod, operatorName)`: in one transaction validate (non-empty cart, every line priced), create `Sale` + snapshotted `SaleLine`s, assign `bill_no = MAX+1`, write the SALE ledger (section 2), mark the cart completed.
+- [x] 3.2 Guards: empty cart rejected; unpriced line rejected naming the item; re-completing a completed cart rejected (idempotent).
+- [x] 3.3 Endpoint `POST /api/checkout/cart/{cartId}/complete` → `SaleView` (with `printStatus`); exception handlers (400/409) matching the checkout controller.
+- [x] 3.4 Tests: complete records sale + lines + ledger; snapshot immutability (later price change doesn't alter the sale); monotonic bill_no; empty-cart + unpriced + re-complete rejected.
 
 ## 4. Receipt printing (print)
 

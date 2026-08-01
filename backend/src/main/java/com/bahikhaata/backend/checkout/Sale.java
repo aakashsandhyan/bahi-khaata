@@ -26,7 +26,6 @@ import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -80,7 +79,6 @@ public class Sale extends UuidEntity {
     protected Sale() {}
 
     public Sale(
-            UUID id,
             long billNo,
             String paymentMethod,
             Money subtotal,
@@ -88,7 +86,7 @@ public class Sale extends UuidEntity {
             Money tax,
             Money total,
             String operatorName) {
-        super(id);
+        super(newId());
         this.billNo = billNo;
         this.paymentMethod = paymentMethod;
         this.subtotal = subtotal;
