@@ -20,6 +20,7 @@ package com.bahikhaata.backend.print;
 import com.bahikhaata.contracts.AwaitingLabelProduct;
 import com.bahikhaata.contracts.BulkPrintRequest;
 import com.bahikhaata.contracts.BulkPrintResult;
+import com.bahikhaata.contracts.QueueAwaitingResult;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,6 +42,12 @@ public class BulkPrintController {
     @GetMapping("/awaiting")
     public List<AwaitingLabelProduct> awaiting() {
         return bulkLabelPrint.awaitingLabel();
+    }
+
+    /** The reviewer's one action: send every awaiting product to the spaced print queue. */
+    @PostMapping("/queue-awaiting")
+    public QueueAwaitingResult queueAwaiting() {
+        return bulkLabelPrint.queueAllAwaiting();
     }
 
     @PostMapping

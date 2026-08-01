@@ -24,13 +24,17 @@ import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
+import com.bahikhaata.backend.inventory.StockLevels;
 import com.bahikhaata.contracts.AwaitingLabelProduct;
 import com.bahikhaata.contracts.BulkPrintResult;
 import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.contracts.PrintLabelRequest;
+import com.bahikhaata.contracts.QueueAwaitingResult;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +60,8 @@ public class BulkLabelPrint {
     private final BarcodeRepository barcodes;
     private final BarcodeResolver barcodeResolver;
     private final BatchRepository batches;
+    private final StockLevels stock;
+    private final PrintJobRepository printJobs;
     private final LabelTemplateService labelService;
     private final PrinterDriver printerDriver;
 
@@ -64,14 +70,58 @@ public class BulkLabelPrint {
             BarcodeRepository barcodes,
             BarcodeResolver barcodeResolver,
             BatchRepository batches,
+            StockLevels stock,
+            PrintJobRepository printJobs,
             LabelTemplateService labelService,
             PrinterDriver printerDriver) {
         this.products = products;
         this.barcodes = barcodes;
         this.barcodeResolver = barcodeResolver;
         this.batches = batches;
+        this.stock = stock;
+        this.printJobs = printJobs;
         this.labelService = labelService;
         this.printerDriver = printerDriver;
+    }
+
+    /**
+     * Sends every priced product still awaiting a label to the print queue in one go — the
+     * reviewer's single action. Each product queues one sticker per unit on hand (the count set at
+     * pricing), as single-label jobs so the hold-and-pair executor prints them two-up and spaced.
+     * A product already sitting in the queue is skipped, so pressing this twice does not double up;
+     * a product with nothing on hand is skipped too. The poller marks each product labelled as its
+     * stickers print, so it then drops off the awaiting list.
+     */
+    @Transactional
+    public QueueAwaitingResult queueAllAwaiting() {
+        Set<UUID> alreadyQueued = new HashSet<>();
+        for (PrintJob job : printJobs.findByStatusOrderByCreatedAtAsc("queued")) {
+            if (job.getProductId() != null) alreadyQueued.add(job.getProductId());
+        }
+        for (PrintJob job : printJobs.findByStatusOrderByCreatedAtAsc("printing")) {
+            if (job.getProductId() != null) alreadyQueued.add(job.getProductId());
+        }
+
+        int productsQueued = 0;
+        long labelsQueued = 0;
+        for (Product p : products.findBySellingPriceIsNotNullAndLabelPrintedAtIsNullOrderByName()) {
+            if (alreadyQueued.contains(p.getId())) {
+                continue;
+            }
+            long qty = stock.onHand(p.getId());
+            String bbz = bbzFor(p);
+            if (qty <= 0 || bbz.isEmpty()) {
+                continue;
+            }
+            Long mrp = confirmedMrpPaise(p);
+            long price = p.getSellingPrice().paise();
+            for (long i = 0; i < qty; i++) {
+                printJobs.save(PrintJob.create(bbz, p.getName(), price, mrp, 1, p.getId()));
+            }
+            productsQueued++;
+            labelsQueued += qty;
+        }
+        return new QueueAwaitingResult(productsQueued, labelsQueued);
     }
 
     /**
@@ -148,7 +198,8 @@ public class BulkLabelPrint {
                 bbzFor(product),
                 product.getName(),
                 product.getSellingPrice().paise(),
-                confirmedMrpPaise(product));
+                confirmedMrpPaise(product),
+                stock.onHand(product.getId()));
     }
 
     private PrintLabelRequest labelFor(Product product) {

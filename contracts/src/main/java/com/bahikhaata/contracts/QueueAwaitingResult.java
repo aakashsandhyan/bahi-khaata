@@ -17,12 +17,9 @@
  */
 package com.bahikhaata.contracts;
 
-import java.util.UUID;
-
 /**
- * A priced shelf product still awaiting a label, with the fields its label would carry and the
- * on-hand quantity — the count set at pricing, which is how many stickers it needs (one per unit).
+ * The outcome of sending all awaiting-label products to the print queue in one go: how many
+ * products were queued and how many stickers that came to (one per unit on hand). Products already
+ * waiting in the queue are skipped, so a second press does not double up.
  */
-public record AwaitingLabelProduct(
-        UUID productId, String barcode, String name, long sellingPricePaise, Long mrpPaise,
-        long quantity) {}
+public record QueueAwaitingResult(int productsQueued, long labelsQueued) {}

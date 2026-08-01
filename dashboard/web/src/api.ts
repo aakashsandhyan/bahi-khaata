@@ -429,6 +429,7 @@ export const printer = {
 
 import type {
   AwaitingLabelProduct as _AwaitingLabelProduct,
+  QueueAwaitingResult as _QueueAwaitingResult,
   BulkPrintResult as _BulkPrintResult,
   CaptureSummary as _CaptureSummary,
   LotPhantomReport as _LotPhantomReport,
@@ -521,4 +522,8 @@ export const bulkPrint = {
   awaiting: () => get<_AwaitingLabelProduct[]>('/api/print-jobs/bulk/awaiting'),
   print: (productIds: string[]) =>
     post<_BulkPrintResult>('/api/print-jobs/bulk', { productIds }) as Promise<_BulkPrintResult>,
+  // The reviewer's one action: send every awaiting product to the spaced queue (one sticker per
+  // unit on hand, the count set at pricing).
+  queueAwaiting: () =>
+    post<_QueueAwaitingResult>('/api/print-jobs/bulk/queue-awaiting') as Promise<_QueueAwaitingResult>,
 }

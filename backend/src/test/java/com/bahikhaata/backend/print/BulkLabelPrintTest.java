@@ -45,12 +45,15 @@ class BulkLabelPrintTest {
     @Mock private BarcodeRepository barcodes;
     @Mock private com.bahikhaata.backend.catalog.BarcodeResolver barcodeResolver;
     @Mock private BatchRepository batches;
+    @Mock private com.bahikhaata.backend.inventory.StockLevels stock;
+    @Mock private PrintJobRepository printJobs;
     @Mock private LabelTemplateService labelService;
     @Mock private PrinterDriver printerDriver;
 
     private BulkLabelPrint bulk() {
         return new BulkLabelPrint(
-                products, barcodes, barcodeResolver, batches, labelService, printerDriver);
+                products, barcodes, barcodeResolver, batches, stock, printJobs, labelService,
+                printerDriver);
     }
 
     private Product priced(String name) {
@@ -125,6 +128,7 @@ class BulkLabelPrintTest {
         when(batch.getMrp()).thenReturn(Money.ofRupees(400));
         when(batch.isMrpEstimate()).thenReturn(false);
         when(batches.findByProductIdNewestFirst(p.getId())).thenReturn(List.of(batch));
+        when(stock.onHand(p.getId())).thenReturn(4L);
 
         var found = bulk().labelByBarcode("B08RWJ5MGW");
 
@@ -133,6 +137,36 @@ class BulkLabelPrintTest {
         assertThat(found.name()).isEqualTo("Cooker");
         assertThat(found.sellingPricePaise()).isEqualTo(10_000L);
         assertThat(found.mrpPaise()).isEqualTo(40_000L);
+        assertThat(found.quantity()).isEqualTo(4L);
+    }
+
+    @Test
+    void queueAllAwaitingSendsOneStickerPerUnitAndSkipsWhatIsAlreadyQueued() {
+        Product a = priced("A"); // on-hand 3, has a BBZ → queues 3
+        Product b = priced("B"); // already printing → skipped
+        Product c = priced("C"); // nothing on hand → skipped
+        when(products.findBySellingPriceIsNotNullAndLabelPrintedAtIsNullOrderByName())
+                .thenReturn(List.of(a, b, c));
+        when(printJobs.findByStatusOrderByCreatedAtAsc("queued")).thenReturn(List.of());
+        PrintJob inFlight = mock(PrintJob.class);
+        when(inFlight.getProductId()).thenReturn(b.getId());
+        when(printJobs.findByStatusOrderByCreatedAtAsc("printing")).thenReturn(List.of(inFlight));
+        when(stock.onHand(a.getId())).thenReturn(3L);
+        when(stock.onHand(c.getId())).thenReturn(0L);
+        com.bahikhaata.backend.catalog.Barcode bbzA =
+                mock(com.bahikhaata.backend.catalog.Barcode.class);
+        when(bbzA.getOrigin()).thenReturn(com.bahikhaata.contracts.Origin.INTERNAL);
+        when(bbzA.getCode()).thenReturn("BBZ-A");
+        when(barcodes.findByProductId(a.getId())).thenReturn(List.of(bbzA));
+        when(batches.findByProductIdNewestFirst(a.getId())).thenReturn(List.of());
+
+        var result = bulk().queueAllAwaiting();
+
+        assertThat(result.productsQueued()).isEqualTo(1);
+        assertThat(result.labelsQueued()).isEqualTo(3L);
+        // Three single-label jobs for A, none for the skipped B and C.
+        verify(printJobs, times(3))
+                .save(argThat(j -> j.getCopies() == 1 && "BBZ-A".equals(j.getBarcode())));
     }
 
     @Test

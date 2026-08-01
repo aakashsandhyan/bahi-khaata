@@ -433,6 +433,12 @@ export interface AwaitingLabelProduct {
   name: string
   sellingPricePaise: number
   mrpPaise: number | null
+  quantity: number
+}
+
+export interface QueueAwaitingResult {
+  productsQueued: number
+  labelsQueued: number
 }
 
 export interface PhantomLine {

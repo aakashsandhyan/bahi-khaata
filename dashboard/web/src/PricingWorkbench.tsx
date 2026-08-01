@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { shelfPricing, printer, BackendError } from './api'
+import { shelfPricing, BackendError } from './api'
 import type { ScannedItem, ShelfLot, ShelfPricedProduct } from './types'
 import { rupees } from './money'
 import { LotReconcile } from './LotReconcile'
@@ -85,7 +85,6 @@ export function PricingWorkbench() {
   return (
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
       <h1>Pricing</h1>
-      <PendingLabels />
 
       {/* TRANSIENT: direct scan of already-manifested, already-counted stock — price it in one
           scan without picking its lot. Remove this whole block when no longer needed. */}
@@ -142,39 +141,6 @@ export function PricingWorkbench() {
           onSaved={done}
         />
       )}
-    </div>
-  )
-}
-
-/**
- * Labels print two to a row, so a single one is held until a second pairs with it. This shows how
- * many are waiting and lets the operator flush a leftover — printed as a duplicate pair — when
- * they are done and want it out anyway.
- */
-function PendingLabels() {
-  const [count, setCount] = useState(0)
-  const [flushing, setFlushing] = useState(false)
-
-  const refresh = () => printer.pendingCount().then((r) => setCount(r?.count ?? 0)).catch(() => {})
-  useEffect(() => {
-    refresh()
-    const t = setInterval(refresh, 2000)
-    return () => clearInterval(t)
-  }, [])
-
-  if (count === 0) return null
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', padding: 'var(--s2) var(--s3)',
-      background: 'var(--line-soft)', borderRadius: 'var(--r1)', margin: 'var(--s2) 0' }}>
-      <span style={{ flex: 1, fontSize: 14 }}>
-        <b>{count}</b> label{count > 1 ? 's' : ''} held, waiting to pair.
-      </span>
-      <button disabled={flushing} onClick={async () => {
-        setFlushing(true)
-        try { await printer.flush() } finally { setFlushing(false); refresh() }
-      }}>
-        {flushing ? 'Printing…' : 'Print pending now'}
-      </button>
     </div>
   )
 }
@@ -282,7 +248,7 @@ function PriceForm({
     req.then(setSaved).catch((e) => setError(e instanceof BackendError ? e.message : 'Save failed.'))
   }
 
-  if (saved) return <SavedCard product={saved} copies={quantity} onDone={onSaved} />
+  if (saved) return <SavedCard product={saved} onDone={onSaved} />
 
   return (
     <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
@@ -379,52 +345,20 @@ function PriceForm({
   )
 }
 
-function SavedCard({ product, copies, onDone }: { product: ShelfPricedProduct; copies: number; onDone: () => void }) {
-  const [state, setState] = useState<'ask' | 'queued' | 'failed'>('ask')
-  const [message, setMessage] = useState('')
-
-  // Queuing a label holds it for pairing — it prints when a second label joins it, or on flush.
-  // So this confirms "queued", not "printed"; the pending banner tracks it from there.
-  const print = async () => {
-    try {
-      const job = await printer.queueLabel({
-        barcode: product.barcode,
-        productName: product.name,
-        sellingPricePaise: product.sellingPricePaise,
-        mrpPaise: product.mrpPaise,
-        copies,
-        productId: product.productId,
-      })
-      if (!job) throw new Error('Could not queue the label.')
-      // Held, not flushed: labels print two to a row, so an even count prints in full and a lone
-      // one waits to pair with the next product's label rather than wasting a sticker. So N=5
-      // prints 4 and holds 1. The pending banner tracks the held one; “Print pending now” forces
-      // a leftover out as a duplicate when the operator is done.
-      setState('queued')
-      setMessage(`${copies} label${copies > 1 ? 's' : ''} queued — printed two to a row; a lone one waits to pair with the next product (or press “Print pending now”).`)
-    } catch (e) {
-      setState('failed')
-      setMessage(e instanceof BackendError ? e.message : 'Could not queue the label.')
-    }
-  }
-
+function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: () => void }) {
+  // Pricing no longer prints. The product is now priced and waiting for a label; the reviewer sends
+  // it, and every other awaiting product, to the print queue in one go from the Review screen.
   return (
     <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', background: 'var(--good-tint)', borderRadius: 'var(--r1)' }}>
       <div style={{ fontWeight: 600 }}>✓ {product.name} saved · {product.barcode}</div>
       <div style={{ fontSize: 14, marginTop: 4 }}>
         {rupees(product.sellingPricePaise)}{product.mrpPaise ? ` · MRP ${rupees(product.mrpPaise)}` : ''}
       </div>
-      {copies === 0 && (
-        <div style={{ marginTop: 'var(--s2)', fontSize: 13, color: 'var(--ink-faint)' }}>
-          No new labels — stock unchanged. Reprint a corrected label from the Reprint screen.
-        </div>
-      )}
-      {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
+      <div style={{ marginTop: 'var(--s2)', fontSize: 13, color: 'var(--ink-faint)' }}>
+        Priced — waiting for a label. Print it from the Review screen.
+      </div>
       <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
-        {copies > 0 && state === 'ask' && <button className="btn-primary" style={{ flex: 1 }} onClick={print}>Queue {copies} label{copies > 1 ? 's' : ''}</button>}
-        <button className={copies > 0 && state === 'ask' ? '' : 'btn-primary'} style={{ flex: 1 }} onClick={onDone}>
-          {copies > 0 && state === 'ask' ? 'Skip (print later)' : 'Next product'}
-        </button>
+        <button className="btn-primary" style={{ flex: 1 }} onClick={onDone}>Next product</button>
       </div>
     </div>
   )
