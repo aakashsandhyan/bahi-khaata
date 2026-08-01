@@ -308,4 +308,26 @@ class BulkLabelPrintTest {
                 .save(argThat(j -> j.getCopies() == 1 && "queued".equals(j.getStatus())));
         verify(printJobs).delete(entry);
     }
+
+    @Test
+    void explodedQueueJobsCarryTheReviewEntrysOperatorName() {
+        // Regression test: the review entry knew who priced the product, but exploding it into
+        // queued jobs dropped the name — every print_job row that survived (queued/done) had a
+        // null operator, and the audit trail died with the deleted review row.
+        PrintJob entry = mock(PrintJob.class);
+        when(entry.getCopies()).thenReturn(2);
+        when(entry.getBarcode()).thenReturn("BBZ-A");
+        when(entry.getProductName()).thenReturn("A");
+        when(entry.getSellingPricePaise()).thenReturn(10_000L);
+        when(entry.getMrpPaise()).thenReturn(null);
+        when(entry.getProductId()).thenReturn(UUID.randomUUID());
+        when(entry.getOperatorName()).thenReturn("Sushil");
+        when(printJobs.findByStatusOrderByCreatedAtAsc("review")).thenReturn(List.of(entry));
+
+        bulk().sendAllForReview();
+
+        verify(printJobs, times(2))
+                .save(argThat(j -> "Sushil".equals(j.getOperatorName()) && "queued".equals(j.getStatus())));
+        verify(printJobs).delete(entry);
+    }
 }

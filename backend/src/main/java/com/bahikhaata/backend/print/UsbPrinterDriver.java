@@ -56,8 +56,21 @@ import org.springframework.stereotype.Component;
 public class UsbPrinterDriver implements PrinterDriver {
     private static final Logger log = LoggerFactory.getLogger(UsbPrinterDriver.class);
     private static final int NETWORK_TIMEOUT_MS = 5000;
+    /**
+     * The breather between physical rows, enforced here because this is the one place every send
+     * passes through. The queue poller, a flush, and a bulk run are independent callers sharing one
+     * printer; when their rows reached the wire together — or merely back-to-back — the stream
+     * outran the TE-244's feed and rows printed with clipped tops. Sending is therefore one-at-a-time
+     * behind {@link #sendGate}, and each send first waits out the tail of this gap since the
+     * previous send. Sized to let a row finish feeding (~1 inch of travel plus spool slack) before
+     * the next arrives; tune against the real printer if rows still clip or the queue feels slow.
+     */
+    static final long SEND_GAP_MS = 1000;
 
     private final PrinterConfigRepository configRepo;
+    private final Object sendGate = new Object();
+    /** When the last send finished, in nanoTime; MIN_VALUE before any send. Guarded by sendGate. */
+    private long lastSendEndNanos = Long.MIN_VALUE;
 
     public UsbPrinterDriver(PrinterConfigRepository configRepo) {
         this.configRepo = configRepo;
@@ -77,12 +90,35 @@ public class UsbPrinterDriver implements PrinterDriver {
         String job = zpl.repeat(Math.max(1, copies));
 
         String address = config.getAddress();
-        if (address.startsWith("/dev/")) {
-            sendViaSerial(address, zpl, copies, config.getPortSpeed());
-        } else if (address.contains(":")) {
-            sendViaNetwork(address, job);
-        } else {
-            sendViaPrintService(address, job);
+        synchronized (sendGate) {
+            waitOutSendGap();
+            try {
+                if (address.startsWith("/dev/")) {
+                    sendViaSerial(address, zpl, copies, config.getPortSpeed());
+                } else if (address.contains(":")) {
+                    sendViaNetwork(address, job);
+                } else {
+                    sendViaPrintService(address, job);
+                }
+            } finally {
+                lastSendEndNanos = System.nanoTime();
+            }
+        }
+    }
+
+    /** Sleeps out whatever remains of {@link #SEND_GAP_MS} since the previous send. */
+    private void waitOutSendGap() {
+        if (lastSendEndNanos == Long.MIN_VALUE) {
+            return;
+        }
+        long elapsedMs = (System.nanoTime() - lastSendEndNanos) / 1_000_000;
+        long remainingMs = SEND_GAP_MS - elapsedMs;
+        if (remainingMs > 0) {
+            try {
+                Thread.sleep(remainingMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

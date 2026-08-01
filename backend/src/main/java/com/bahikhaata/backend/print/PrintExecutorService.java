@@ -45,11 +45,10 @@ import com.bahikhaata.backend.catalog.ProductRepository;
 public class PrintExecutorService {
     private static final Logger log = LoggerFactory.getLogger(PrintExecutorService.class);
     private static final int MAX_RETRIES = 10;
-    // One row per poll. Firing several rows back-to-back in a burst outran the printer's feed —
-    // the last row came out with its top clipped. At one per 500ms poll the printer registers
-    // each label before the next arrives. The flush path spaces its own rows with SPACING_MS.
+    // One row per poll, to keep each transaction short. Pacing between physical rows is not this
+    // class's job: the driver serializes every send behind one gate and enforces the inter-row
+    // breather itself, for every caller — this poller, a flush, a bulk run.
     private static final int MAX_PAIRS_PER_POLL = 1;
-    private static final long SPACING_MS = 400;
 
     private final PrintJobRepository printJobRepository;
     private final PrinterDriver printerDriver;
@@ -98,17 +97,11 @@ public class PrintExecutorService {
         long printed = 0;
         int i = 0;
         for (; i + 1 < queued.size(); i += 2) {
-            if (i > 0) {
-                spaceOut(); // let the printer finish the previous row before the next
-            }
             if (printRow(queued.get(i), queued.get(i + 1))) {
                 printed += 2;
             }
         }
         if (i < queued.size()) {
-            if (i > 0) {
-                spaceOut();
-            }
             // The odd leftover: print it as a duplicate pair so no sticker is left blank.
             PrintJob lone = queued.get(i);
             if (printOne(lone)) {
@@ -116,15 +109,6 @@ public class PrintExecutorService {
             }
         }
         return printed;
-    }
-
-    /** A pause between physical rows, so a burst does not outrun the printer and clip a label. */
-    private void spaceOut() {
-        try {
-            Thread.sleep(SPACING_MS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     /** Prints two labels as one row; marks both done and their products on success. */
