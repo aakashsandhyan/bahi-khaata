@@ -376,6 +376,45 @@ tr.damaged { background: var(--warn-tint); }
 .till-actions button { flex: 1; padding: 18px; font-size: 18px; }
 .till-pay { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 700; }
 
+/* Payment picker — Cash / UPI / Card, plus who is at the till. */
+.till-pay-panel { margin: var(--s4) 0 var(--s6); }
+.till-operator { width: 100%; margin-bottom: var(--s3); }
+.till-methods { display: flex; gap: var(--s3); }
+.till-methods button.till-method {
+  flex: 1; padding: 22px; font-size: 18px; font-weight: 800;
+  background: var(--teal); border-color: var(--teal); color: #fff;
+}
+.till-methods button.till-method:disabled { opacity: 0.5; }
+.till-cancel { width: 100%; margin-top: var(--s3); padding: 14px; }
+
+/* The recorded bill, after completion. */
+.till-done { text-align: center; }
+.till-done-num { font-size: 20px; font-weight: 700; color: var(--ink-soft); margin-top: var(--s5); }
+.till-done-total { font-size: 44px; font-weight: 800; margin: var(--s2) 0; }
+.till-done-meta { color: var(--ink-soft); font-size: 15px; margin-bottom: var(--s4); }
+
+/* ---- sales record + reprint ---- */
+.sales { max-width: 860px; margin: 0 auto; }
+.sales h1 { font-size: 22px; margin: var(--s3) 0 var(--s2); }
+.sales-search { display: flex; gap: var(--s2); margin: var(--s3) 0; }
+.sales-search input { flex: 1; }
+.sales-found { margin: var(--s3) 0; }
+.sales-detail { background: var(--card); border: 1px solid var(--line); border-radius: var(--r2);
+  padding: var(--s3); margin-bottom: var(--s2); }
+.sales-detail-head { display: flex; gap: var(--s3); flex-wrap: wrap; align-items: baseline;
+  color: var(--ink-soft); font-size: 13px; margin-bottom: var(--s2); }
+.sales-detail-head strong { color: var(--ink); font-size: 15px; }
+.sales-detail-line { display: flex; gap: var(--s2); padding: 3px 0; font-size: 14px; }
+.sales-detail-line .name { flex: 1; min-width: 0; }
+.sales-detail-line .qty { color: var(--ink-soft); }
+.sales-detail-line .num { min-width: 88px; text-align: right; font-weight: 600; }
+.sales-detail-total { display: flex; justify-content: space-between; font-weight: 800;
+  border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; }
+.sales-table { width: 100%; border-collapse: collapse; margin-top: var(--s3); }
+.sales-table th, .sales-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.sales-table th.num, .sales-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sales-empty { text-align: center; color: var(--ink-faint); padding: var(--s5) 0; }
+
 /* ---- prep (remediation): backlog and state changes ---- */
 .prep, .states { max-width: 640px; margin: 0 auto; }
 .prep h1, .states h1 { font-size: 22px; margin: var(--s3) 0 var(--s2); }

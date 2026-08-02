@@ -17,6 +17,7 @@
  */
 package com.bahikhaata.backend.inventory;
 
+import com.bahikhaata.contracts.Money;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,8 +50,11 @@ public class FifoConsumer {
      * Works out which batches a consumption would draw from, and how much from each, without
      * writing anything.
      *
-     * @throws InsufficientStockException if the product does not have enough on hand, naming
-     *     what is available — the cashier has to be told which product is short
+     * <p>A sale is never refused for want of counted stock: at the counter the physical item is
+     * the truth, and a rough count must not stop it being sold. When the count comes up short, the
+     * shortfall is attributed to the <em>newest</em> batch, which is driven negative — a true,
+     * timestamped record that more was sold than the count showed, and the signal to recount. A
+     * priced product always has at least one batch to attribute to.
      */
     @Transactional(readOnly = true)
     public List<BatchDraw> plan(UUID productId, long quantity) {
@@ -58,10 +62,11 @@ public class FifoConsumer {
             throw new IllegalArgumentException("quantity to consume must be positive");
         }
 
+        List<Batch> fifo = batches.findByProductIdInFifoOrder(productId);
         List<BatchDraw> draws = new ArrayList<>();
         long outstanding = quantity;
 
-        for (Batch batch : batches.findByProductIdInFifoOrder(productId)) {
+        for (Batch batch : fifo) {
             if (outstanding == 0) {
                 break;
             }
@@ -75,8 +80,22 @@ public class FifoConsumer {
             outstanding -= taken;
         }
 
-        if (outstanding > 0) {
-            throw new InsufficientStockException(productId, quantity, quantity - outstanding);
+        if (outstanding > 0 && !fifo.isEmpty()) {
+            // Oversold against the count. Put the shortfall on the newest batch (last in FIFO
+            // order), merging into its draw if it already has one, so it goes negative.
+            Batch newest = fifo.get(fifo.size() - 1);
+            int existing = -1;
+            for (int i = 0; i < draws.size(); i++) {
+                if (draws.get(i).batch().getId().equals(newest.getId())) {
+                    existing = i;
+                    break;
+                }
+            }
+            if (existing >= 0) {
+                draws.set(existing, new BatchDraw(newest, draws.get(existing).quantity() + outstanding));
+            } else {
+                draws.add(new BatchDraw(newest, outstanding));
+            }
         }
         return draws;
     }
@@ -95,14 +114,16 @@ public class FifoConsumer {
 
         for (BatchDraw draw : plan(productId, quantity)) {
             Batch batch = draw.batch();
+            // Cost of goods sold at the batch's own cost. An uncosted batch (priced before its lot
+            // was costed) has no known cost, so it contributes zero rather than blocking the sale —
+            // margin on those units simply reads as unknown, never on the customer bill.
+            Money cogs = batch.isCosted()
+                    ? batch.getAllocatedUnitCost().times(draw.quantity())
+                    : Money.ZERO;
             movements.add(
                     ledger.save(
                             StockLedgerEntry.sale(
-                                    batch.getProduct(),
-                                    batch,
-                                    draw.quantity(),
-                                    batch.getAllocatedUnitCost().times(draw.quantity()),
-                                    effectiveAt)));
+                                    batch.getProduct(), batch, draw.quantity(), cogs, effectiveAt)));
         }
         return movements;
     }

@@ -60,4 +60,9 @@ public class Cart extends UuidEntity {
     public boolean isOpen() {
         return "OPEN".equals(state);
     }
+
+    /** Marks the cart paid once its sale is recorded, so it cannot be completed a second time. */
+    public void markPaid() {
+        this.state = "PAID";
+    }
 }
