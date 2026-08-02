@@ -46,7 +46,7 @@ export function App() {
     <>
       <nav className="topnav">
         <span className="brand" style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.1 }}>
-          Bachat Baazar
+          Bachat Bazaar
           {sandbox && (
             <small style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: '#b45309' }}>
               SANDBOX
