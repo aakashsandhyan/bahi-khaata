@@ -24,7 +24,7 @@ import javafx.scene.text.Font;
  * The shop's name, and the Devanagari font that renders it.
  *
  * <p>The shop has one name — a Hindi name. It is written two ways: in its own Devanagari
- * script, {@code बचत बाज़ार}, and romanized as {@code Bachat Baazar}. The romanization is
+ * script, {@code बचत बाज़ार}, and romanized as {@code Bachat Bazaar}. The romanization is
  * the same name in Roman letters, not a translation or a second name, and it cannot carry
  * the nuqta in {@code ज़} — which is why customer-facing surfaces use the Devanagari.
  *
@@ -42,7 +42,7 @@ public final class Branding {
      * The same Hindi name romanized, for logs, window titles, and anywhere Devanagari
      * rendering is not guaranteed. Not a translation — the name is Hindi either way.
      */
-    public static final String NAME_ROMANIZED = "Bachat Baazar";
+    public static final String NAME_ROMANIZED = "Bachat Bazaar";
 
     private static final String FONT_RESOURCE = "/fonts/NotoSansDevanagari.ttf";
 
