@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Bachat Baazar POS - start the shop (double-click this).
+REM  Bachat Bazaar POS - start the shop (double-click this).
 REM
 REM  Runs the whole app (frontend + backend) from one jar on port 80, then
 REM  opens the browser. Fast: no build, no Node, no Vite - just java -jar.
@@ -16,7 +16,7 @@ set "DBPATH=%~dp0data\bahi-khaata.db"
 set "PORT=80"
 
 echo ============================================================
-echo   Bachat Baazar POS
+echo   Bachat Bazaar POS
 echo   Database: %DBPATH%
 echo   Address:  http://localhost:%PORT%
 echo ============================================================

@@ -1,4 +1,4 @@
-# Bachat Baazar POS — shop setup (Windows)
+# Bachat Bazaar POS — shop setup (Windows)
 
 Two billing counters. **Machine A** is the *brain* (holds the database, serves the app) **and** is
 Counter 1. **Machine B** is Counter 2 — just a browser pointing at A. There is one database, on A,
