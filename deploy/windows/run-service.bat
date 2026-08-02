@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Bachat Baazar POS - headless run (for a scheduled task / remote start).
+REM  Bachat Bazaar POS - headless run (for a scheduled task / remote start).
 REM
 REM  Same as start-bachat.bat but with NO browser pop-up and NO pause, so it can
 REM  run unattended: launched by Task Scheduler at boot, or started over SSH.

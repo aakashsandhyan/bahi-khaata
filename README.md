@@ -1,6 +1,6 @@
-# बचत बाज़ार — Bachat Baazar POS
+# बचत बाज़ार — Bachat Bazaar POS
 
-An offline-first point-of-sale system for Bachat Baazar, a liquidation and
+An offline-first point-of-sale system for Bachat Bazaar, a liquidation and
 overstock retail store. Built to run on the shop's own machine: checkout never
 waits on the network, and the database is a single local file.
 

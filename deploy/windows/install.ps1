@@ -1,4 +1,4 @@
-# Bachat Baazar POS - Windows install (run ONCE per machine).
+# Bachat Bazaar POS - Windows install (run ONCE per machine).
 #
 # Installs Java 21 (the only thing the shop machine needs) and prepares the data folder.
 # The app itself is backend.jar, already built - nothing is compiled here.
@@ -10,7 +10,7 @@
 $ErrorActionPreference = "Stop"
 $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-Write-Host "== Bachat Baazar POS - install ==" -ForegroundColor Cyan
+Write-Host "== Bachat Bazaar POS - install ==" -ForegroundColor Cyan
 Write-Host "App folder: $AppDir"
 
 # --- 1. Java 21 -------------------------------------------------------------------------------
