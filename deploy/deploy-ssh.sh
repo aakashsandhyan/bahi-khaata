@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy Bachat Baazar POS to the Windows shop machine over SSH, from the Mac.
+# Deploy Bachat Bazaar POS to the Windows shop machine over SSH, from the Mac.
 #
 # It builds the release here (fast), copies it to Windows with scp, installs Java there, and either
 # starts the app now or registers it to run on boot. Nothing is compiled on Windows.

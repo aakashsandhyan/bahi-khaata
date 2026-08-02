@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Bachat Baazar POS - SANDBOX (double-click this).
+REM  Bachat Bazaar POS - SANDBOX (double-click this).
 REM
 REM  The SAME app as the shop, but pointed at a throwaway copy of the database
 REM  on a different port. Only the database is different - everything else (the
@@ -37,7 +37,7 @@ if exist "%SBX%-wal" del "%SBX%-wal"
 if exist "%SBX%-shm" del "%SBX%-shm"
 
 echo ============================================================
-echo   Bachat Baazar POS - SANDBOX  (throwaway data)
+echo   Bachat Bazaar POS - SANDBOX  (throwaway data)
 echo   Database: %SBX%
 echo   Address:  http://localhost:%PORT%
 echo ============================================================

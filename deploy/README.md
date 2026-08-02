@@ -1,4 +1,4 @@
-# Bachat Baazar POS — shop setup (Windows)
+# Bachat Bazaar POS — shop setup (Windows)
 
 Two billing counters. **Machine A** is the *brain* (holds the database, serves the app) **and** is
 Counter 1. **Machine B** is Counter 2 — just a browser pointing at A. There is one database, on A,
@@ -40,17 +40,21 @@ Copy the whole `deploy/release/` folder to **Machine A**, e.g. to `C:\BachatBaaz
 3. **Bring your stock over** — copy your existing `bahi-khaata.db` into `C:\BachatBaazar\data\`.
    Skip this to start with an empty shop (the database builds itself on first start).
 4. **Start it** — double-click `start-bachat.bat`. A window opens (keep it open while trading) and
-   the browser opens to `http://localhost:8080`.
-5. **Fix Machine A's network address** so Counter 2 can always find it. On the router, give A a
-   reserved IP such as `192.168.1.10` (or set a static IP in Windows). Write it down.
+   the browser opens to `http://localhost`. (The app serves on **port 80**, so no `:8080` in the URL.)
+5. **Give Machine A a stable address** so the counters always find it. The PC is named
+   `BACHATBAAZAR`, so counters reach it by name at **`http://bachatbazaar`** — this survives an IP
+   change. Belt-and-suspenders: also give A a **reserved IP** on the router (or a static IP), e.g.
+   `192.168.1.10`, as a fallback URL. Write it down.
 
 > Keep the `start-bachat.bat` window open while the shop is trading — closing it stops **both**
 > counters.
 
 ## Step 3 — Machine B (Counter 2)
 
-Nothing to install. Open a browser and go to **`http://192.168.1.10:8080`** (Machine A's address).
-Bookmark it / set it as the home page. Plug in the scanner. Done.
+Nothing to install. Open a browser to **`http://bachatbazaar`** (Machine A by name — no port, the
+app serves on port 80). If the name doesn't resolve on some device, try `http://bachatbazaar.local`
+or Machine A's reserved IP (e.g. `http://192.168.1.10`). Bookmark it / set it as the home page. Plug
+in the scanner. Done.
 
 ---
 
@@ -111,7 +115,7 @@ ssh $WINHOST schtasks /query /tn BachatBaazar           # is it set to auto-star
 Before a new `backend.jar` touches the live shop, try it on a **throwaway copy of the real data**.
 `start-sandbox.bat` runs the same app on **`http://localhost:8081`**, badged **SANDBOX**, against
 `data\sandbox.db` — a fresh copy of `data\bahi-khaata.db` made on every launch. The live shop keeps
-running on `:8080`, untouched; anything you do in the sandbox is discarded next launch.
+running on port 80, untouched; anything you do in the sandbox is discarded next launch.
 
 **Test a new build without disturbing the live shop** — the running shop holds `backend.jar` open
 (Windows locks it), so you cannot overwrite it while trading. Instead stage the new jar beside it:
@@ -123,7 +127,7 @@ scp deploy/release/backend.jar "$WINHOST:C:/BachatBaazar/backend-sandbox.jar"
 
 On the shop, double-click `start-sandbox.bat`: if `backend-sandbox.jar` is present it runs **that**
 (otherwise it falls back to the live `backend.jar`). So you can exercise a new build — new screens,
-and **any migrations, against a copy of live data** — on `:8081` while the shop bills on `:8080`. If
+and **any migrations, against a copy of live data** — on `:8081` while the shop bills on port 80. If
 it starts clean and behaves, promote it (see below). If not, just delete `backend-sandbox.jar`.
 
 ## Check which version the shop's database is on (migrations)
@@ -171,5 +175,7 @@ start: **back up first** and test in the sandbox before going live.
   `192.168.1.10`? (A reserved/static IP prevents this.) Same shop network / cable in?
 - **"java is not recognized"** → Java didn't install or PATH didn't refresh. Close and reopen the
   window, or re-run `install.ps1`.
-- **Port 8080 in use** → something else grabbed it. Edit `start-bachat.bat`, change `set PORT=8080`
-  to another port (e.g. `8090`), and use that in Counter 2's address.
+- **Port 80 in use / won't bind** → something else (IIS / http.sys) grabbed it. Free it, or edit
+  `run-service.bat` and `start-bachat.bat`, change `set PORT=80` to another port (e.g. `8080`), and
+  use that **with the port** in the counters' address (e.g. `http://bachatbazaar:8080`). Also ensure
+  an inbound firewall rule allows the chosen port.

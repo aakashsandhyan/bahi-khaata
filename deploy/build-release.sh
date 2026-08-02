@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build a Windows-ready release of Bachat Baazar POS.
+# Build a Windows-ready release of Bachat Bazaar POS.
 #
 # Run this on the Mac (or any dev machine), where building is fast. It produces a self-contained
 # `deploy/release/` folder you copy to the shop's Windows machine. That machine then runs a single

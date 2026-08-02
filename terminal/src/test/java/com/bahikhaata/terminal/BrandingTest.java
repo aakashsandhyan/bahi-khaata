@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -73,6 +73,6 @@ class BrandingTest {
         // The shop name is Hindi. Romanized "Baazar" cannot carry the nuqta on ja; the
         // Devanagari form must. Guards against the name being silently retyped without it.
         assertThat(Branding.NAME_DEVANAGARI).contains(NUQTA_JA);
-        assertThat(Branding.NAME_ROMANIZED).isEqualTo("Bachat Baazar");
+        assertThat(Branding.NAME_ROMANIZED).isEqualTo("Bachat Bazaar");
     }
 }

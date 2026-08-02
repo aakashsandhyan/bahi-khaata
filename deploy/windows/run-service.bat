@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Bachat Baazar POS - headless run (for a scheduled task / remote start).
+REM  Bachat Bazaar POS - headless run (for a scheduled task / remote start).
 REM
 REM  Same as start-bachat.bat but with NO browser pop-up and NO pause, so it can
 REM  run unattended: launched by Task Scheduler at boot, or started over SSH.
@@ -11,7 +11,7 @@ setlocal
 cd /d "%~dp0"
 
 set "DBPATH=%~dp0data\bahi-khaata.db"
-set "PORT=8080"
+set "PORT=80"
 
 REM Prefer Java 21 explicitly: the app needs it, and an older Java may also be on this machine.
 call :findjava
