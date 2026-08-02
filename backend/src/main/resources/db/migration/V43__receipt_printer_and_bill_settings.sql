@@ -23,7 +23,7 @@ INSERT INTO receipt_printer_config (id, address, transport, enabled, created_at,
 
 CREATE TABLE bill_settings (
     id            CHAR(36) PRIMARY KEY,
-    shop_name     TEXT     NOT NULL DEFAULT 'Bachat Baazar',
+    shop_name     TEXT     NOT NULL DEFAULT 'Bachat Bazaar',
     address       TEXT     NOT NULL DEFAULT '',
     gstin         TEXT     NOT NULL DEFAULT '',
     bill_title    TEXT     NOT NULL DEFAULT 'Bill of Supply',

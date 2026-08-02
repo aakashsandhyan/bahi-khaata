@@ -15,3 +15,12 @@ UPDATE receipt_printer_config
        enabled    = 1,
        updated_at = '2026-08-02T00:00:00.000Z'
  WHERE id = '00000000-0000-0000-0000-000000000002';
+
+-- The shop name in its own Devanagari script, so the bill header prints the brand as the shop
+-- writes it. The romanized "Bachat Bazaar" (the V43 default) cannot carry the nuqta on ja (ज़); the
+-- receipt template renders this as a bitmap, since a thermal printer has no Devanagari font. Editable
+-- on the Bill admin screen. Stored UTF-8 (Flyway reads migrations UTF-8; SQLite TEXT is UTF-8).
+UPDATE bill_settings
+   SET shop_name  = 'बचत बाज़ार',
+       updated_at = '2026-08-02T00:00:00.000Z'
+ WHERE id = '00000000-0000-0000-0000-000000000003';

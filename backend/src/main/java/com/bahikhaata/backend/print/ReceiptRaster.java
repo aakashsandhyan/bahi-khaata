@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -40,8 +40,9 @@ final class ReceiptRaster {
     /** Printable dots across an 80mm roll: 48 Font-A columns × 12 dots. Matches the text width. */
     private static final int WIDTH_DOTS = 576;
 
-    /** Point size of the rendered header — prominent, roughly the double-height text it replaces. */
-    private static final float HEADER_POINTS = 46f;
+    // Point size of the rendered header — prominent, roughly the double-height text it replaces. An
+    // int (not a float) to satisfy the money floating-point ban; cast to float only at the call.
+    private static final int HEADER_POINTS = 46;
 
     /** The bundled Devanagari font, loaded once. Bold so the header reads at a glance on thermal. */
     private static final Font FONT = loadFont();
@@ -53,7 +54,7 @@ final class ReceiptRaster {
             if (in == null) {
                 throw new IllegalStateException("Devanagari font not on the classpath: /fonts/NotoSansDevanagari.ttf");
             }
-            return Font.createFont(Font.TRUETYPE_FONT, in).deriveFont(Font.BOLD, HEADER_POINTS);
+            return Font.createFont(Font.TRUETYPE_FONT, in).deriveFont(Font.BOLD, (float) HEADER_POINTS);
         } catch (Exception e) {
             throw new IllegalStateException("Could not load the Devanagari font", e);
         }

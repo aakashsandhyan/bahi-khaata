@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@ class ReceiptTemplateServiceTest {
 
     private BillSettings compositionSettings() {
         BillSettings s = new BillSettings();
-        s.setShopName("Bachat Baazar");
+        s.setShopName("Bachat Bazaar");
         s.setAddress("Shop 12, MP Nagar, Bhopal");
         s.setGstin("23ABCDE1234F1Z5");
         s.setBillTitle("Bill of Supply");
@@ -74,7 +74,7 @@ class ReceiptTemplateServiceTest {
 
         // Header, identity, and the composition wording — the legally required bits.
         assertThat(bill)
-                .contains("Bachat Baazar")
+                .contains("Bachat Bazaar")
                 .contains("GSTIN: 23ABCDE1234F1Z5")
                 .contains("Bill of Supply")
                 .contains("BB-000042")
@@ -120,7 +120,7 @@ class ReceiptTemplateServiceTest {
     @Test
     void aLatinShopNameStaysFastText() {
         when(settings.findById(BillSettings.SINGLETON_ID))
-                .thenReturn(Optional.of(compositionSettings())); // "Bachat Baazar"
+                .thenReturn(Optional.of(compositionSettings())); // "Bachat Bazaar"
         ReceiptTemplateService template = new ReceiptTemplateService(settings);
 
         byte[] bytes = template.render(sampleSale());

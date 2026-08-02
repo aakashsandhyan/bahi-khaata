@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Bachat Baazar POS - SANDBOX headless run (for a scheduled task / SSH start).
+REM  Bachat Bazaar POS - SANDBOX headless run (for a scheduled task / SSH start).
 REM
 REM  Same throwaway sandbox as start-sandbox.bat, but with NO browser pop-up and
 REM  NO pause, so it survives an SSH disconnect when launched by Task Scheduler.
