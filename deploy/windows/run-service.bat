@@ -11,7 +11,7 @@ setlocal
 cd /d "%~dp0"
 
 set "DBPATH=%~dp0data\bahi-khaata.db"
-set "PORT=8080"
+set "PORT=80"
 
 REM Prefer Java 21 explicitly: the app needs it, and an older Java may also be on this machine.
 call :findjava
