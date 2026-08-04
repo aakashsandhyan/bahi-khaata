@@ -94,9 +94,8 @@ export function PricingWorkbench() {
 
   return (
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
-      <h1>Pricing</h1>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', marginBottom: 'var(--s2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
         <label style={{ fontSize: 13, fontWeight: 600 }}>Operator</label>
         <input
           value={operator}
@@ -111,21 +110,21 @@ export function PricingWorkbench() {
       {!item && !manual && (
         <div
           style={{
-            marginTop: 'var(--s3)',
-            padding: 'var(--s3)',
-            border: '1px dashed var(--line)',
-            borderRadius: 'var(--r1)',
-            background: 'var(--card)',
+            marginTop: 'var(--space-3)',
+            padding: 'var(--space-3)',
+            border: '1px dashed var(--color-divider)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--color-surface)',
           }}
         >
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 'var(--s2)' }}>
-            Direct scan <span style={{ color: 'var(--ink-faint)', fontWeight: 400 }}>(temporary — any counted item, no lot needed)</span>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 'var(--space-2)' }}>
+            Direct scan <span style={{ color: 'var(--color-neutral-500)', fontWeight: 400 }}>(temporary — any counted item, no lot needed)</span>
           </label>
           <ScanBox onScan={scanDirect} />
         </div>
       )}
 
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginTop: 'var(--s3)' }}>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginTop: 'var(--space-3)' }}>
         Lot
       </label>
       <select
@@ -142,10 +141,10 @@ export function PricingWorkbench() {
       </select>
 
       {lotId && !item && !manual && (
-        <div style={{ marginTop: 'var(--s3)' }}>
+        <div style={{ marginTop: 'var(--space-3)' }}>
           <ScanBox onScan={scan} />
-          {error && <p className="stop" style={{ marginTop: 'var(--s2)' }}>{error}</p>}
-          <button style={{ marginTop: 'var(--s2)' }} onClick={() => { setManual(true); setError(null) }}>
+          {error && <p className="stop" style={{ marginTop: 'var(--space-2)' }}>{error}</p>}
+          <button style={{ marginTop: 'var(--space-2)' }} onClick={() => { setManual(true); setError(null) }}>
             + Add by hand (not counted / no code)
           </button>
           <LotReconcile lotId={lotId} />
@@ -276,7 +275,7 @@ function PriceForm({
   if (saved) return <SavedCard product={saved} onDone={onSaved} />
 
   return (
-    <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
+    <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)' }}>
       <h2 style={{ marginTop: 0 }}>{item ? 'Price this item' : 'New product'}</h2>
 
       <Field label="Name">
@@ -296,9 +295,9 @@ function PriceForm({
               'noopener,noreferrer',
             )
           }
-          style={{ marginBottom: 'var(--s2)', fontSize: 13 }}
+          style={{ marginBottom: 'var(--space-2)', fontSize: 13 }}
         >
-          🔍 Check price on Amazon
+          Check price on Amazon
         </button>
       )}
 
@@ -312,7 +311,7 @@ function PriceForm({
       </Field>
 
       {!item && (
-        <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <Field label="Condition">
             <select value={condition} onChange={(e) => setCondition(e.target.value)} style={{ width: '100%', padding: 8 }}>
               {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -326,7 +325,7 @@ function PriceForm({
 
       {item && (
         <>
-          <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 'var(--s2)' }}>
+          <div style={{ fontSize: 13, color: 'var(--color-neutral-500)', marginBottom: 'var(--space-2)' }}>
             {item.expectedQuantity != null && <>Manifest expected <b>{item.expectedQuantity}</b>. </>}
             {firstPricing
               ? <>Counted at unpacking <b>{item.quantity}</b>.</>
@@ -350,19 +349,19 @@ function PriceForm({
           placeholder={costed ? '₹' : '₹ (no suggestion — cost not known)'}
           style={{ width: '100%', padding: 8 }} />
         {costed && unitCost != null && (
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--color-neutral-500)', marginTop: 4 }}>
             Cost {rupees(unitCost)}{suggested != null ? ` · suggested ${rupees(suggested)}` : ''}
           </div>
         )}
         {!costed && (
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--color-neutral-500)', marginTop: 4 }}>
             This lot is not costed yet — price it by hand.
           </div>
         )}
       </Field>
 
       {error && <p className="stop">{error}</p>}
-      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <button className="btn-primary" style={{ flex: 1 }} onClick={save}>Save product</button>
         <button style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
       </div>
@@ -374,15 +373,15 @@ function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: (
   // Pricing no longer prints. The product is now priced and waiting for a label; the reviewer sends
   // it, and every other awaiting product, to the print queue in one go from the Review screen.
   return (
-    <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', background: 'var(--good-tint)', borderRadius: 'var(--r1)' }}>
+    <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--color-neutral-100)', borderRadius: 'var(--radius-md)' }}>
       <div style={{ fontWeight: 600 }}>✓ {product.name} saved · {product.barcode}</div>
       <div style={{ fontSize: 14, marginTop: 4 }}>
         {rupees(product.sellingPricePaise)}{product.mrpPaise ? ` · MRP ${rupees(product.mrpPaise)}` : ''}
       </div>
-      <div style={{ marginTop: 'var(--s2)', fontSize: 13, color: 'var(--ink-faint)' }}>
+      <div style={{ marginTop: 'var(--space-2)', fontSize: 13, color: 'var(--color-neutral-500)' }}>
         Priced — waiting for a label. Print it from the Review screen.
       </div>
-      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <button className="btn-primary" style={{ flex: 1 }} onClick={onDone}>Next product</button>
       </div>
     </div>
@@ -391,7 +390,7 @@ function SavedCard({ product, onDone }: { product: ShelfPricedProduct; onDone: (
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 'var(--s2)', flex: 1 }}>
+    <div style={{ marginBottom: 'var(--space-2)', flex: 1 }}>
       <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{label}</label>
       {children}
     </div>

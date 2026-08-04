@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-0255bf9c-2722-4b6a-b3c5-f0e21a8fa37b/styles.css">
+<script src="_ds/modernist-0255bf9c-2722-4b6a-b3c5-f0e21a8fa37b/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#f3f2f2}
+a{color:var(--color-accent)}a:hover{color:var(--color-accent-700)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--color-neutral-400)}
+</style>
+</helmet>
+
+<div style="display:grid;grid-template-columns:236px 1fr;min-height:100vh;font-family:Archivo,system-ui,sans-serif;color:#201e1d">
+
+<aside style="border-right:2px solid var(--color-divider);background:#eae9e9;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto">
+<div style="padding:16px;border-bottom:2px solid var(--color-divider)">
+<div style="font:800 19px/1 Archivo,sans-serif;letter-spacing:-.02em">PALLETWORKS</div>
+<div style="font:400 11px/1.4 Archivo,sans-serif;color:#7d7979;margin-top:4px">Open Box Bazaar · Sector 14 · 5,000 sq ft</div>
+</div>
+<nav style="padding:8px 0;flex:1">
+<sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
+<div style="padding:14px 16px 5px;font:600 10px/1 Archivo,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9b9797">{{ g.label }}</div>
+<sc-for list="{{ g.items }}" as="n" hint-placeholder-count="4">
+<button type="button" onClick="{{ n.onClick }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:7px 14px;border:0;border-left:3px solid {{ n.bar }};background:{{ n.bg }};color:{{ n.fg }};font:600 13px/1.35 Archivo,sans-serif;cursor:pointer;text-align:left">
+<span>{{ n.label }}</span><span style="font:400 10px/1 Archivo,sans-serif;color:{{ n.badgeFg }}">{{ n.badge }}</span>
+</button>
+</sc-for>
+</sc-for>
+</nav>
+<div style="padding:12px 16px;border-top:2px solid var(--color-divider);font:400 11px/1.5 Archivo,sans-serif;color:#7d7979">
+Signed in as <strong style="color:#201e1d">Shakti R.</strong><br>Owner · Register 1 open
+</div>
+</aside>
+
+<main style="min-width:0;display:flex;flex-direction:column">
+<header style="display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:2px solid var(--color-divider);background:#f3f2f2;position:sticky;top:0;z-index:5">
+<div style="min-width:0">
+<div style="font:600 10px/1 Archivo,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">{{ screenKicker }}</div>
+<h4 style="margin:4px 0 0;font-size:21px">{{ screenTitle }}</h4>
+</div>
+<div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+<div style="position:relative">
+<input class="input" placeholder="Search SKU, lot, invoice…" style="width:250px;padding-left:30px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7d7979" stroke-width="2" style="position:absolute;left:9px;top:11px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+</div>
+<button type="button" class="btn btn-secondary" onClick="{{ goPos }}">Open register</button>
+<button type="button" class="btn btn-primary" onClick="{{ goIntake }}">Receive lot</button>
+</div>
+</header>
+<div style="flex:1;min-width:0">
+
+<sc-if value="{{ isBrief }}" hint-placeholder-val="{{ true }}">
+<div style="padding:28px 24px;max-width:1000px">
+<div style="border-left:3px solid var(--color-accent);padding-left:16px;margin-bottom:24px">
+<h2 style="margin:0 0 8px">Before you click through — here's what I assumed.</h2>
+<p style="margin:0;font-size:15px;max-width:70ch">You uploaded seven Amazon liquidation manifests, so I dropped the generic placeholders and built every screen on your actual numbers: 3,326 units across 513 tracking numbers, ₹21.3L of MRP bought for ₹5.83L. Everything below is real data from that file.</p>
+</div>
+<hr class="hr">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--color-divider)">
+<div style="padding:16px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent);margin-bottom:8px">The unit of work</div>
+<p style="margin:0;font-size:13px;line-height:1.6">A <strong>lot</strong> is one tracking number, broken into individual SKUs — nothing sells whole. Three kinds arrive: <strong>manifested and matching</strong>, <strong>manifested with a variance</strong> (short, over, or both), and <strong>blind</strong> — no manifest at all. The intake screen has a tab for each so you can see how differently they behave.</p>
+</div>
+<div style="padding:16px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent);margin-bottom:8px">Cost basis is earned, not given</div>
+<p style="margin:0;font-size:13px;line-height:1.6">A manifested lot spreads its cost across expected units. A short lot re-spreads that cost over fewer units and files a claim. Over-shipped units enter at <strong>zero cost</strong>. A blind lot divides what you paid by whatever you have counted so far — so its cost per unit is provisional and falls as counting continues.</p>
+</div>
+<div style="padding:16px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent);margin-bottom:8px">One number rules</div>
+<p style="margin:0;font-size:13px;line-height:1.6">Because you buy at a % of MRP, <strong>recovery</strong> — revenue earned as a share of what you paid — is the spine of the dashboard and the analytics page. Revenue and orders today sit on top; units received vs. listed sits right beside them.</p>
+</div>
+</div>
+<hr class="hr">
+<h5 style="margin:0 0 12px">What's in here</h5>
+<table class="table" style="margin-bottom:24px">
+<thead><tr><th style="width:180px">Screen</th><th>What it does</th><th style="width:90px">State</th></tr></thead>
+<tbody>
+<sc-for list="{{ screenMap }}" as="sm" hint-placeholder-count="13">
+<tr><td><a href="#" onClick="{{ sm.onClick }}" style="font-weight:600;text-decoration:none">{{ sm.name }}</a></td><td style="font-size:13px">{{ sm.note }}</td><td><span class="tag {{ sm.tagClass }}">{{ sm.state }}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+<div style="background:#eae9e9;padding:16px;border-left:3px solid #201e1d">
+<h5 style="margin:0 0 8px">Open questions for you</h5>
+<ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.7">
+<li>How long is your claim window with each seller? I hard-coded 15 days from receipt — past that, shorts are absorbed silently.</li>
+<li>Is GST charged on the sale price, or are you selling MRP-inclusive? I've shown 18% broken out of an inclusive price.</li>
+<li>Do unlisted units age out into a clearance rule automatically, or does someone decide? The aging panel currently just flags them.</li>
+<li>On a blind lot, do you want a target cost-per-unit set before counting starts, so the screen can warn you the moment the count falls short of it?</li>
+<li>Should over-shipped units be flagged on the shelf label, or do they just melt into normal stock? Right now they are invisible after publishing.</li>
+</ol>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+<div style="padding:0 0 32px">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid var(--color-divider)">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+<div style="padding:20px 24px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979">{{ k.label }}</div>
+<div style="font:800 34px/1.05 Archivo;letter-spacing:-.03em;margin:10px 0 6px;color:{{ k.color }}">{{ k.value }}</div>
+<div style="font:400 12px/1.4 Archivo;color:#605d5d">{{ k.sub }}</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px">
+<section style="padding:20px 24px;border-right:1px solid var(--color-divider)">
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px">
+<h5 style="margin:0">Received → Listed → Sold</h5>
+<span style="font:400 11px/1 Archivo;color:#7d7979;margin-left:auto">All lots, last 90 days</span>
+</div>
+<p style="font-size:13px;color:#605d5d;margin:0 0 16px;max-width:60ch">622 units are counted but not yet priced. That's ₹3.1L of MRP sitting in the back room doing nothing.</p>
+<div style="display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ funnel }}" as="f" hint-placeholder-count="3">
+<div>
+<div style="display:flex;font:600 12px/1 Archivo;margin-bottom:5px"><span>{{ f.label }}</span><span style="margin-left:auto;color:#605d5d">{{ f.right }}</span></div>
+<div style="height:26px;background:#e0dede"><div style="height:100%;width:{{ f.pct }}%;background:{{ f.fill }}"></div></div>
+</div>
+</sc-for>
+</div>
+<hr class="hr">
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">
+<h5 style="margin:0">Recovery by product line</h5>
+<span style="font:400 11px/1 Archivo;color:#7d7979;margin-left:auto">Revenue ÷ cost paid</span>
+</div>
+<table class="table">
+<thead><tr><th>Product line</th><th style="text-align:right">Units</th><th style="text-align:right">SKUs</th><th style="text-align:right">MRP value</th><th style="text-align:right">Paid</th><th style="width:150px">Recovery</th></tr></thead>
+<tbody>
+<sc-for list="{{ cats }}" as="c" hint-placeholder-count="6">
+<tr>
+<td style="font-weight:600">{{ c.label }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.units }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#605d5d">{{ c.skus }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.mrpF }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.paidF }}</td>
+<td>
+<div style="display:flex;align-items:center;gap:8px">
+<div style="flex:1;height:8px;background:#e0dede"><div style="height:100%;width:{{ c.recPct }}%;background:{{ c.recFill }}"></div></div>
+<span style="font:600 12px/1 Archivo;width:38px;text-align:right;font-variant-numeric:tabular-nums">{{ c.recLabel }}</span>
+</div>
+</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+
+<aside style="padding:20px 20px 24px">
+<h5 style="margin:0 0 12px">Needs a decision</h5>
+<div style="display:flex;flex-direction:column;gap:2px;margin-bottom:20px">
+<sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4">
+<div style="background:#eae9e9;border-left:3px solid {{ a.bar }};padding:11px 12px">
+<div style="font:600 13px/1.3 Archivo">{{ a.title }}</div>
+<div style="font:400 12px/1.45 Archivo;color:#605d5d;margin-top:3px">{{ a.note }}</div>
+</div>
+</sc-for>
+</div>
+<h5 style="margin:0 0 12px">Today at the register</h5>
+<div style="border:1px solid var(--color-divider)">
+<sc-for list="{{ recentSales }}" as="s" hint-placeholder-count="5">
+<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid var(--color-divider);align-items:baseline">
+<span style="font:600 12px/1.3 Archivo;width:58px;color:var(--color-accent)">{{ s.inv }}</span>
+<span style="flex:1;font:400 12px/1.35 Archivo;min-width:0">{{ s.who }}<br><span style="color:#7d7979">{{ s.what }}</span></span>
+<span style="font:600 13px/1.3 Archivo;font-variant-numeric:tabular-nums">{{ s.amt }}</span>
+</div>
+</sc-for>
+<button type="button" class="btn btn-ghost" onClick="{{ goInvoices }}" style="margin:8px 12px">All invoices →</button>
+</div>
+</aside>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isIntake }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px">
+<div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start">
+<div>
+<div style="display:flex;gap:2px;margin-bottom:18px;border-bottom:2px solid var(--color-divider)">
+<sc-for list="{{ lotTabs }}" as="t" hint-placeholder-count="3">
+<button type="button" onClick="{{ t.onClick }}" style="text-align:left;border:0;border-top:3px solid {{ t.bar }};background:{{ t.bg }};color:{{ t.fg }};padding:10px 14px;cursor:pointer;min-width:216px">
+<div style="display:flex;align-items:center;gap:10px"><span style="font:800 14px/1.2 Archivo">{{ t.id }}</span><span class="tag {{ t.tag }}" style="margin-left:auto">{{ t.badge }}</span></div>
+<div style="font:400 11px/1.4 Archivo;opacity:.75;margin-top:4px">{{ t.sub }}</div>
+</button>
+</sc-for>
+</div>
+<div style="border:1px solid var(--color-divider);background:#eae9e9;padding:16px;margin-bottom:18px">
+<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+<div>
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979">Tracking number</div>
+<div style="font:800 26px/1.1 Archivo;letter-spacing:-.02em;margin-top:6px">{{ lotId }}</div>
+<div style="font:400 12px/1.4 Archivo;color:#605d5d;margin-top:4px">Received {{ lotReceived }} · {{ lotBay }} · {{ lotLine }}</div>
+</div>
+<div style="display:flex;gap:0;border:1px solid var(--color-divider);margin-left:auto">
+<sc-for list="{{ lotStats }}" as="st" hint-placeholder-count="4">
+<div style="padding:10px 16px;border-right:1px solid var(--color-divider);background:#f3f2f2;min-width:118px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">{{ st.k }}</div>
+<div style="font:800 19px/1.2 Archivo;margin-top:4px;color:{{ st.color }}">{{ st.v }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<hr class="hr" style="margin:16px 0 12px">
+<div style="display:flex;gap:2px">
+<sc-for list="{{ intakeSteps }}" as="s" hint-placeholder-count="4">
+<div style="flex:1;padding:9px 12px;background:{{ s.bg }};color:{{ s.fg }}">
+<div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;opacity:.75">Step {{ s.n }}</div>
+<div style="font:600 13px/1.3 Archivo;margin-top:4px">{{ s.label }}</div>
+<div style="font:400 11px/1.3 Archivo;opacity:.8;margin-top:2px">{{ s.note }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{ lotHasManifest }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--color-divider);margin-bottom:18px">
+<sc-for list="{{ reconCells }}" as="r" hint-placeholder-count="4">
+<div style="padding:13px 16px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">{{ r.k }}</div>
+<div style="font:800 22px/1.1 Archivo;margin-top:5px;color:{{ r.color }}">{{ r.v }}</div>
+<div style="font:400 11px/1.35 Archivo;color:#605d5d;margin-top:2px">{{ r.note }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ lotBlind }}" hint-placeholder-val="{{ false }}">
+<div style="border-left:3px solid var(--color-accent);background:#eae9e9;padding:14px 16px;margin-bottom:18px">
+<div style="font:800 15px/1.2 Archivo">No manifest came with this lot — so counting <em>is</em> the manifest.</div>
+<p style="font-size:13px;line-height:1.6;color:#605d5d;margin:6px 0 0;max-width:84ch">Scan each unit and Palletworks looks the barcode up to fill in name, category and MRP. Anything without a readable barcode goes to the unknown pile at the bottom, where you set the MRP by hand. Two consequences worth knowing: cost per unit is <strong>provisional</strong> — it drops every time you count another unit — and there is nobody to claim against, so a light lot is simply a bad buy.</p>
+</div>
+</sc-if>
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+<h5 style="margin:0">{{ lineHeading }}</h5>
+<div class="seg" style="margin-left:auto">
+<sc-for list="{{ lineFilters }}" as="f" hint-placeholder-count="3">
+<label class="seg-opt" style="background:{{ f.bg }};color:{{ f.fg }}">{{ f.label }}</label>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{ lotHasManifest }}" hint-placeholder-val="{{ true }}">
+<table class="table">
+<thead><tr><th style="width:34px"></th><th>ASIN / Product</th><th style="text-align:right;width:56px">Mfst</th><th style="text-align:right;width:64px">Counted</th><th style="text-align:right;width:74px">Δ</th><th style="width:96px">Grade</th><th style="text-align:right;width:82px">MRP</th><th style="text-align:right;width:92px">List price</th></tr></thead>
+<tbody>
+<sc-for list="{{ manifest }}" as="m" hint-placeholder-count="9">
+<tr>
+<td><input type="checkbox" defaultChecked="{{ m.done }}" style="accent-color:var(--color-accent)"></td>
+<td><div style="font:600 13px/1.35 Archivo">{{ m.name }}</div><div style="font:400 11px/1.3 Archivo;color:{{ m.subColor }}">{{ m.sub }}</div></td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#605d5d">{{ m.mfst }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ m.counted }}</td>
+<td style="text-align:right"><span class="tag {{ m.dTag }}" style="font-variant-numeric:tabular-nums">{{ m.delta }}</span></td>
+<td><span class="tag {{ m.gradeTag }}">{{ m.grade }}</span></td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#605d5d">{{ m.mrp }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ m.list }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</sc-if>
+<sc-if value="{{ lotBlind }}" hint-placeholder-val="{{ false }}">
+<table class="table">
+<thead><tr><th style="width:44px">#</th><th>Scanned item</th><th style="width:104px">Lookup</th><th style="text-align:right;width:56px">Qty</th><th style="width:96px">Grade</th><th style="text-align:right;width:82px">MRP</th><th style="text-align:right;width:92px">List price</th></tr></thead>
+<tbody>
+<sc-for list="{{ blindLines }}" as="b" hint-placeholder-count="7">
+<tr>
+<td style="font:600 12px/1.3 Archivo;color:#7d7979">{{ b.n }}</td>
+<td><div style="font:600 13px/1.35 Archivo;color:{{ b.nameColor }}">{{ b.name }}</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ b.sub }}</div></td>
+<td><span class="tag {{ b.srcTag }}">{{ b.src }}</span></td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ b.qty }}</td>
+<td><span class="tag {{ b.gradeTag }}">{{ b.grade }}</span></td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#605d5d">{{ b.mrp }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ b.list }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="display:flex;gap:10px;align-items:center;margin-top:12px;padding:12px;border:1px dashed var(--color-divider)">
+<input class="input" placeholder="Scan the next unit, or type an ASIN / product name…" style="flex:1">
+<button type="button" class="btn btn-secondary">No barcode — enter by hand</button>
+</div>
+</sc-if>
+</div>
+<aside style="border:1px solid var(--color-divider);padding:16px;position:sticky;top:96px">
+<h5 style="margin:0 0 10px">Pricing rule applied</h5>
+<p style="font-size:12px;color:#605d5d;margin:0 0 14px">{{ ruleNote }}</p>
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+<sc-for list="{{ gradeRules }}" as="r" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:#eae9e9">
+<span class="tag {{ r.tag }}">{{ r.grade }}</span>
+<span style="font:400 12px/1.3 Archivo;flex:1">{{ r.desc }}</span>
+<span style="font:800 15px/1 Archivo">{{ r.pct }}</span>
+</div>
+</sc-for>
+</div>
+<hr class="hr" style="margin:0 0 14px">
+<sc-for list="{{ lotMath }}" as="m" hint-placeholder-count="5">
+<div style="display:flex;justify-content:space-between;font:400 13px/1.6 Archivo"><span>{{ m.k }}</span><strong style="color:{{ m.color }}">{{ m.v }}</strong></div>
+</sc-for>
+<button type="button" class="btn btn-primary btn-block">{{ publishLabel }}</button>
+<button type="button" class="btn btn-secondary btn-block">Save count &amp; finish later</button>
+<p style="font-size:11px;color:#7d7979;margin:12px 0 0">{{ publishNote }}</p>
+</aside>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInventory }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px">
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+<div class="seg">
+<label class="seg-opt"><input type="radio" name="ivf" defaultChecked>On floor 2,704</label>
+<label class="seg-opt"><input type="radio" name="ivf">Back room 622</label>
+<label class="seg-opt"><input type="radio" name="ivf">Aging 90d+ 418</label>
+<label class="seg-opt"><input type="radio" name="ivf">Quarantine 31</label>
+</div>
+<select class="input" style="width:180px"><option>All product lines</option><option>Wireless Accessories</option><option>Home</option><option>Kitchen</option></select>
+<select class="input" style="width:130px"><option>All grades</option><option>A — Sealed</option><option>B — Open box</option><option>C — Tested</option></select>
+<button type="button" class="btn btn-secondary" style="margin-left:auto">Export CSV</button>
+<button type="button" class="btn btn-primary">Print shelf labels</button>
+</div>
+<table class="table">
+<thead><tr><th style="width:104px">SKU</th><th>Product</th><th style="width:96px">Grade</th><th style="width:112px">Lot</th><th style="width:70px">Bin</th><th style="text-align:right;width:52px">Qty</th><th style="text-align:right;width:80px">MRP</th><th style="text-align:right;width:80px">Price</th><th style="text-align:right;width:74px">Margin</th><th style="width:78px">Age</th><th style="width:34px"></th></tr></thead>
+<tbody>
+<sc-for list="{{ inventory }}" as="i" hint-placeholder-count="12">
+<tr>
+<td style="font:600 12px/1.3 Archivo;color:var(--color-accent)">{{ i.sku }}</td>
+<td><div style="font:600 13px/1.35 Archivo">{{ i.name }}</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ i.cat }} · {{ i.asin }}</div></td>
+<td><span class="tag {{ i.gradeTag }}">{{ i.grade }}</span></td>
+<td style="font:400 12px/1.3 Archivo;color:#605d5d">{{ i.lot }}</td>
+<td style="font:600 12px/1.3 Archivo">{{ i.bin }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ i.qty }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#7d7979;text-decoration:line-through">{{ i.mrp }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ i.price }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:{{ i.marginColor }};font-weight:600">{{ i.margin }}</td>
+<td><span style="font:400 11px/1.3 Archivo;color:{{ i.ageColor }}">{{ i.age }}</span></td>
+<td><a href="#" onClick="{{ i.onClick }}" style="font:600 12px/1 Archivo;text-decoration:none">Open</a></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="display:flex;align-items:center;gap:12px;margin-top:16px;font:400 12px/1 Archivo;color:#605d5d">
+<span>Showing 12 of 2,704 units</span>
+<div style="display:flex;gap:2px;margin-left:auto">
+<button type="button" class="btn btn-secondary">Previous</button>
+<button type="button" class="btn btn-secondary">Next</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isItem }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px;display:grid;grid-template-columns:300px 1fr 260px;gap:24px;align-items:start">
+<div>
+<div class="grayscale" style="aspect-ratio:1;background:#e0dede;display:grid;place-items:center;border:1px solid var(--color-divider)">
+<div style="text-align:center;color:#9b9797;font:600 11px/1.5 Archivo;letter-spacing:.08em;text-transform:uppercase">Product photo<br><span style="font-weight:400;text-transform:none;letter-spacing:0">Shot at intake · 1:1</span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px">
+<div style="aspect-ratio:1;background:#e0dede;border:1px solid var(--color-divider)"></div>
+<div style="aspect-ratio:1;background:#e0dede;border:1px solid var(--color-divider)"></div>
+<div style="aspect-ratio:1;background:#e0dede;border:1px solid var(--color-divider)"></div>
+<div style="aspect-ratio:1;background:#eae9e9;border:1px dashed var(--color-divider);display:grid;place-items:center;font:600 18px/1 Archivo;color:#9b9797">+</div>
+</div>
+<p style="font-size:11px;color:#7d7979;margin:8px 0 0">Grade C requires at least one damage photo before publishing.</p>
+</div>
+<div style="min-width:0">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+<span class="tag tag-neutral">Grade A · Sealed</span><span class="tag tag-outline">On floor</span>
+<span style="font:400 12px/1 Archivo;color:#7d7979">ASIN B0GDTRYXYF</span>
+</div>
+<h3 style="margin:0 0 6px;max-width:36ch">HAMMER Airflow Neo Earbuds with 80H Playtime, 13mm Titanium Driver</h3>
+<p style="font-size:13px;color:#605d5d;margin:0 0 16px;max-width:64ch">Wireless Accessories · came in on lot 52109919050, a 60-unit earbuds pallet bought at 25% of MRP. Nine of the twelve units are still on shelf W-12.</p>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--color-divider);margin-bottom:20px">
+<div style="padding:12px;border-right:1px solid var(--color-divider)"><div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">Cost basis</div><div style="font:800 20px/1.2 Archivo;margin-top:5px">₹500</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">lot cost ÷ 60 units</div></div>
+<div style="padding:12px;border-right:1px solid var(--color-divider)"><div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">Shelf price</div><div style="font:800 20px/1.2 Archivo;margin-top:5px">₹899</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">MRP ₹1,999 · 55% off</div></div>
+<div style="padding:12px;border-right:1px solid var(--color-divider)"><div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">Margin</div><div style="font:800 20px/1.2 Archivo;margin-top:5px;color:var(--color-accent)">44%</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">₹399 per unit</div></div>
+<div style="padding:12px"><div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">Sold / received</div><div style="font:800 20px/1.2 Archivo;margin-top:5px">3 / 12</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">first sale 4 days ago</div></div>
+</div>
+<h5 style="margin:0 0 10px">Movement</h5>
+<table class="table" style="margin-bottom:20px">
+<thead><tr><th style="width:96px">Date</th><th style="width:120px">Event</th><th>Detail</th><th style="text-align:right;width:60px">Qty</th><th style="text-align:right;width:90px">Value</th></tr></thead>
+<tbody>
+<sc-for list="{{ movement }}" as="m" hint-placeholder-count="6">
+<tr><td style="font:400 12px/1.3 Archivo;color:#605d5d">{{ m.date }}</td><td><span class="tag {{ m.tag }}">{{ m.event }}</span></td><td style="font-size:13px">{{ m.detail }}</td><td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:{{ m.qtyColor }}">{{ m.qty }}</td><td style="text-align:right;font-variant-numeric:tabular-nums">{{ m.value }}</td></tr>
+</sc-for>
+</tbody>
+</table>
+<h5 style="margin:0 0 10px">Price history</h5>
+<div style="border:1px solid var(--color-divider);padding:16px;background:#eae9e9">
+<svg viewBox="0 0 620 120" style="width:100%;height:120px;display:block">
+<line x1="0" y1="100" x2="620" y2="100" stroke="#bab6b6" stroke-width="1"/>
+<line x1="0" y1="60" x2="620" y2="60" stroke="#d7d3d3" stroke-width="1" stroke-dasharray="3 3"/>
+<polyline points="{{ priceLine }}" fill="none" stroke="#ec3013" stroke-width="2"/>
+<polyline points="{{ costLine }}" fill="none" stroke="#7d7979" stroke-width="2" stroke-dasharray="4 3"/>
+<sc-for list="{{ priceDots }}" as="d" hint-placeholder-count="5"><circle cx="{{ d.x }}" cy="{{ d.y }}" r="3.5" fill="#ec3013"/></sc-for>
+</svg>
+<div style="display:flex;gap:20px;font:400 11px/1 Archivo;color:#605d5d;margin-top:8px">
+<span><span style="display:inline-block;width:14px;height:2px;background:#ec3013;vertical-align:middle;margin-right:6px"></span>Shelf price</span>
+<span><span style="display:inline-block;width:14px;height:2px;background:#7d7979;vertical-align:middle;margin-right:6px"></span>Cost basis ₹500</span>
+<span style="margin-left:auto">Listed 28 Jul → today</span>
+</div>
+</div>
+</div>
+<aside style="border:1px solid var(--color-divider);padding:16px;position:sticky;top:96px">
+<h5 style="margin:0 0 12px">Actions</h5>
+<button type="button" class="btn btn-primary btn-block" onClick="{{ addThis }}">Add to register cart</button>
+<button type="button" class="btn btn-secondary btn-block">Reprice · currently ₹899</button>
+<button type="button" class="btn btn-secondary btn-block">Move bin · W-12</button>
+<button type="button" class="btn btn-secondary btn-block">Print label ×9</button>
+<button type="button" class="btn btn-secondary btn-block">Send to quarantine</button>
+<hr class="hr">
+<h5 style="margin:0 0 8px">Same lot</h5>
+<p style="font-size:12px;color:#605d5d;margin:0 0 10px">42 more SKUs from 52109919050, 51 units unsold.</p>
+<a href="#" onClick="{{ goIntake }}" style="font:600 12px/1 Archivo;text-decoration:none">Open lot →</a>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isFloor }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px">
+<div style="background:#ec3013;color:#f3f2f2;padding:20px 24px;margin-bottom:20px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;opacity:.85">Fresh off the pallet</div>
+<h2 style="margin:8px 0 6px;color:#f3f2f2;font-size:36px">Nine new lots landed this week.</h2>
+<p style="margin:0;font-size:15px;max-width:56ch;opacity:.92">Everything on this floor came from a returned or overstocked shipment. Same brands, checked by hand, priced at what it's actually worth today.</p>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+<sc-for list="{{ floorChips }}" as="c" hint-placeholder-count="7">
+<button type="button" style="padding:7px 14px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};font:600 13px/1.2 Archivo;cursor:pointer">{{ c.label }} <span style="font-weight:400;opacity:.7">{{ c.count }}</span></button>
+</sc-for>
+<select class="input" style="width:170px;margin-left:auto"><option>Newest first</option><option>Biggest discount</option><option>Price: low to high</option></select>
+</div>
+<div style="display:grid;grid-template-columns:{{ floorGrid }};gap:16px">
+<sc-for list="{{ floorItems }}" as="p" hint-placeholder-count="8">
+<article style="border:1px solid var(--color-divider);background:#eae9e9;display:flex;flex-direction:column">
+<div class="grayscale" style="aspect-ratio:4/3;background:#e0dede;display:grid;place-items:center;position:relative;border-bottom:1px solid var(--color-divider)">
+<span style="color:#9b9797;font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase">Photo</span>
+<span style="position:absolute;top:0;left:0;background:#ec3013;color:#f3f2f2;font:800 13px/1 Archivo;padding:6px 9px">{{ p.off }}</span>
+</div>
+<div style="padding:12px;display:flex;flex-direction:column;flex:1;gap:6px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979">{{ p.cat }}</div>
+<div style="font:600 13px/1.35 Archivo;flex:1">{{ p.name }}</div>
+<div style="font:400 11px/1.3 Archivo;color:#605d5d">{{ p.condition }} · {{ p.stock }}</div>
+<div style="display:flex;align-items:baseline;gap:8px;margin-top:2px">
+<span style="font:800 21px/1 Archivo">{{ p.price }}</span>
+<span style="font:400 12px/1 Archivo;color:#7d7979;text-decoration:line-through">{{ p.mrp }}</span>
+</div>
+<button type="button" class="btn btn-primary btn-block" onClick="{{ p.onClick }}" style="margin-top:6px">Add to cart</button>
+</div>
+</article>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isProduct }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px;max-width:1080px">
+<div style="font:400 12px/1 Archivo;color:#7d7979;margin-bottom:14px"><a href="#" onClick="{{ goFloor }}" style="text-decoration:none">Shop floor</a> · Wireless Accessories · Earbuds</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start">
+<div>
+<div class="grayscale" style="aspect-ratio:1;background:#e0dede;display:grid;place-items:center;border:1px solid var(--color-divider);position:relative">
+<span style="color:#9b9797;font:600 11px/1 Archivo;letter-spacing:.08em;text-transform:uppercase">Product photo</span>
+<span style="position:absolute;top:0;left:0;background:#ec3013;color:#f3f2f2;font:800 16px/1 Archivo;padding:9px 12px">55% off</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">
+<div style="aspect-ratio:1;background:#e0dede;border:2px solid #201e1d"></div>
+<div style="aspect-ratio:1;background:#e0dede;border:1px solid var(--color-divider)"></div>
+<div style="aspect-ratio:1;background:#e0dede;border:1px solid var(--color-divider)"></div>
+<div style="aspect-ratio:1;background:#e0dede;border:1px solid var(--color-divider)"></div>
+</div>
+</div>
+<div>
+<div style="font:600 10px/1 Archivo;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent);margin-bottom:8px">Hammer</div>
+<h2 style="margin:0 0 10px;font-size:30px;max-width:26ch">Airflow Neo Earbuds — 80 hour playtime, titanium driver</h2>
+<div style="display:flex;align-items:baseline;gap:12px;margin:0 0 6px">
+<span style="font:800 40px/1 Archivo;letter-spacing:-.03em">₹899</span>
+<span style="font:400 17px/1 Archivo;color:#7d7979;text-decoration:line-through">₹1,999</span>
+<span class="tag tag-accent" style="font-weight:600">You save ₹1,100</span>
+</div>
+<p style="font-size:13px;color:#605d5d;margin:0 0 18px">Price includes GST. Nine on the shelf right now — take it to the counter, no hold needed.</p>
+<hr class="hr">
+<h5 style="margin:0 0 10px">Condition: sealed</h5>
+<p style="font-size:14px;line-height:1.6;margin:0 0 14px;max-width:56ch">Factory-sealed box from a returned bulk shipment. Never opened, never used. We charge less because the carton has shelf wear, not because the product does.</p>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0;border:1px solid var(--color-divider);margin-bottom:20px">
+<sc-for list="{{ productSpecs }}" as="sp" hint-placeholder-count="6">
+<div style="padding:10px 12px;border-bottom:1px solid var(--color-divider);border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#7d7979">{{ sp.k }}</div>
+<div style="font:600 13px/1.3 Archivo;margin-top:3px">{{ sp.v }}</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:10px;align-items:center">
+<button type="button" class="btn btn-primary" onClick="{{ addThis }}" style="padding:12px 22px;font-size:15px">Add to cart</button>
+<button type="button" class="btn btn-secondary" style="padding:12px 18px">Ask for a demo</button>
+</div>
+<p style="font-size:12px;color:#7d7979;margin:14px 0 0">7-day exchange on anything electronic. Bring the bill. No refunds on Tested-grade goods — those are marked on the shelf label.</p>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPos }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:1fr 380px;min-height:calc(100vh - 68px)">
+<section style="padding:16px 20px;border-right:2px solid var(--color-divider)">
+<div style="display:flex;gap:10px;margin-bottom:14px">
+<div style="position:relative;flex:1">
+<input class="input" placeholder="Scan barcode or type SKU / product name…" style="height:46px;font-size:15px;padding-left:38px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#201e1d" stroke-width="2" style="position:absolute;left:12px;top:14px"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+</div>
+<button type="button" class="btn btn-secondary" style="height:46px">Manual entry</button>
+</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+<sc-for list="{{ posTabs }}" as="t" hint-placeholder-count="6">
+<button type="button" style="padding:6px 13px;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.fg }};font:600 12px/1.2 Archivo;cursor:pointer">{{ t.label }}</button>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+<sc-for list="{{ posTiles }}" as="p" hint-placeholder-count="12">
+<button type="button" onClick="{{ p.onClick }}" style="text-align:left;border:1px solid var(--color-divider);background:#eae9e9;padding:0;cursor:pointer;display:flex;flex-direction:column" style-hover="border-color:#ec3013">
+<div class="grayscale" style="aspect-ratio:16/9;background:#e0dede;width:100%;display:grid;place-items:center;font:600 9px/1 Archivo;letter-spacing:.08em;text-transform:uppercase;color:#9b9797">{{ p.cat }}</div>
+<div style="padding:9px 10px;display:flex;flex-direction:column;gap:4px;flex:1;width:100%">
+<div style="font:600 12px/1.35 Archivo;flex:1">{{ p.short }}</div>
+<div style="display:flex;align-items:baseline;gap:6px">
+<span style="font:800 16px/1 Archivo">{{ p.price }}</span>
+<span style="font:400 10px/1 Archivo;color:#7d7979;margin-left:auto">{{ p.bin }} · {{ p.qty }} left</span>
+</div>
+</div>
+</button>
+</sc-for>
+</div>
+</section>
+<aside style="background:#eae9e9;display:flex;flex-direction:column;position:sticky;top:68px;height:calc(100vh - 68px)">
+<div style="padding:14px 16px;border-bottom:2px solid var(--color-divider);display:flex;align-items:center;gap:10px">
+<div><div style="font:800 17px/1.1 Archivo">Cart</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">Walk-in customer · Register 1</div></div>
+<button type="button" class="btn btn-ghost" onClick="{{ clearCart }}" style="margin-left:auto">Clear</button>
+</div>
+<div style="flex:1;overflow:auto">
+<sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding:40px 20px;text-align:center;color:#9b9797">
+<div style="font:600 13px/1.5 Archivo">Nothing scanned yet.</div>
+<div style="font:400 12px/1.5 Archivo;margin-top:4px">Scan a shelf label or tap a tile on the left.</div>
+</div>
+</sc-if>
+<sc-for list="{{ cart }}" as="c" hint-placeholder-count="3">
+<div style="padding:11px 16px;border-bottom:1px solid var(--color-divider);display:flex;gap:10px;align-items:flex-start">
+<div style="flex:1;min-width:0">
+<div style="font:600 13px/1.35 Archivo">{{ c.short }}</div>
+<div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ c.sku }} · {{ c.priceEach }} each · {{ c.condition }}</div>
+<div style="display:flex;align-items:center;gap:0;margin-top:6px;border:1px solid var(--color-divider);width:fit-content">
+<button type="button" onClick="{{ c.dec }}" style="width:26px;height:26px;border:0;background:#f3f2f2;cursor:pointer;font:600 14px/1 Archivo">−</button>
+<span style="width:34px;text-align:center;font:600 13px/1 Archivo;font-variant-numeric:tabular-nums">{{ c.qty }}</span>
+<button type="button" onClick="{{ c.inc }}" style="width:26px;height:26px;border:0;background:#f3f2f2;cursor:pointer;font:600 14px/1 Archivo">+</button>
+</div>
+</div>
+<div style="text-align:right">
+<div style="font:800 15px/1.2 Archivo;font-variant-numeric:tabular-nums">{{ c.lineTotal }}</div>
+<button type="button" onClick="{{ c.remove }}" style="border:0;background:none;color:#ec3013;font:600 11px/1 Archivo;cursor:pointer;padding:4px 0">Remove</button>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="border-top:2px solid var(--color-divider);padding:14px 16px">
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo"><span>Items</span><span style="font-variant-numeric:tabular-nums">{{ cartCount }}</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo"><span>MRP total</span><span style="font-variant-numeric:tabular-nums;text-decoration:line-through;color:#7d7979">{{ cartMrp }}</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo"><span>Customer saves</span><span style="font-variant-numeric:tabular-nums;color:var(--color-accent);font-weight:600">{{ cartSaves }}</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo;color:#605d5d"><span>GST 18% (included)</span><span style="font-variant-numeric:tabular-nums">{{ cartTax }}</span></div>
+<hr class="hr" style="margin:8px 0">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:800 17px/1 Archivo">To pay</span><span style="font:800 30px/1 Archivo;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ cartTotal }}</span></div>
+<div style="font:400 11px/1.4 Archivo;color:#7d7979;margin-top:4px">Margin on this basket {{ cartMargin }}</div>
+<button type="button" class="btn btn-primary btn-block" onClick="{{ goCheckout }}" style="height:46px;font-size:16px;margin-top:12px">Take payment</button>
+<div style="display:flex;gap:6px;margin-top:6px">
+<button type="button" class="btn btn-secondary" style="flex:1">Hold</button>
+<button type="button" class="btn btn-secondary" style="flex:1">Discount</button>
+<button type="button" class="btn btn-secondary" style="flex:1">Add customer</button>
+</div>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ true }}">
+<div style="padding:24px;display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start;max-width:1200px">
+<div>
+<h5 style="margin:0 0 12px">Who's buying?</h5>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
+<div style="border:2px solid #201e1d;background:#eae9e9;padding:14px">
+<div style="font:800 15px/1.2 Archivo">Walk-in</div>
+<div style="font:400 12px/1.4 Archivo;color:#605d5d;margin-top:4px">No details taken. Invoice prints without a name.</div>
+</div>
+<div style="border:1px solid var(--color-divider);padding:14px">
+<div style="font:800 15px/1.2 Archivo">Look up a regular</div>
+<input class="input" placeholder="Phone number" style="margin-top:8px">
+</div>
+</div>
+<hr class="hr">
+<h5 style="margin:0 0 12px">How are they paying?</h5>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+<sc-for list="{{ payMethods }}" as="p" hint-placeholder-count="4">
+<button type="button" style="border:{{ p.border }};background:{{ p.bg }};color:{{ p.fg }};padding:16px 12px;text-align:left;cursor:pointer">
+<div style="font:800 15px/1.2 Archivo">{{ p.label }}</div>
+<div style="font:400 11px/1.4 Archivo;opacity:.75;margin-top:4px">{{ p.note }}</div>
+</button>
+</sc-for>
+</div>
+<div style="border:1px solid var(--color-divider);padding:16px;background:#eae9e9;margin-bottom:16px">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><h5 style="margin:0">Split across two methods</h5><span style="font:400 11px/1 Archivo;color:#7d7979;margin-left:auto">Common for big-ticket inverters and dinner sets</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<div class="field"><label>UPI — collected</label><input class="input" defaultValue="₹2,000"></div>
+<div class="field"><label>Cash — balance due</label><input class="input" defaultValue="₹764"></div>
+</div>
+</div>
+<h5 style="margin:0 0 10px">Basket</h5>
+<table class="table">
+<thead><tr><th>Item</th><th style="width:80px">Condition</th><th style="text-align:right;width:50px">Qty</th><th style="text-align:right;width:86px">Price</th><th style="text-align:right;width:90px">Line</th></tr></thead>
+<tbody>
+<sc-for list="{{ cart }}" as="c" hint-placeholder-count="3">
+<tr><td><div style="font:600 13px/1.35 Archivo">{{ c.short }}</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ c.sku }}</div></td><td style="font-size:12px">{{ c.condition }}</td><td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.qty }}</td><td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.priceEach }}</td><td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ c.lineTotal }}</td></tr>
+</sc-for>
+</tbody>
+</table>
+<sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+<p style="font-size:13px;color:#7d7979;margin:12px 0 0">The cart is empty — <a href="#" onClick="{{ goPos }}" style="text-decoration:none">go back to the register</a> and scan something to see this fill in.</p>
+</sc-if>
+</div>
+<aside style="border:2px solid #201e1d;padding:18px;position:sticky;top:96px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">Amount due</div>
+<div style="font:800 46px/1 Archivo;letter-spacing:-.035em;margin:8px 0 14px;font-variant-numeric:tabular-nums">{{ cartTotal }}</div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo"><span>{{ cartCount }} items</span><span style="font-variant-numeric:tabular-nums">{{ cartSubtotal }}</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo;color:#605d5d"><span>GST 18% (included)</span><span style="font-variant-numeric:tabular-nums">{{ cartTax }}</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.7 Archivo"><span>Customer saves</span><span style="font-variant-numeric:tabular-nums;color:var(--color-accent);font-weight:600">{{ cartSaves }}</span></div>
+<hr class="hr" style="margin:10px 0">
+<div class="field" style="margin-bottom:10px"><label>Print or send the invoice</label>
+<div class="seg" style="width:100%"><label class="seg-opt" style="flex:1"><input type="radio" name="dl" defaultChecked>Print</label><label class="seg-opt" style="flex:1"><input type="radio" name="dl">WhatsApp</label><label class="seg-opt" style="flex:1"><input type="radio" name="dl">Both</label></div>
+</div>
+<button type="button" class="btn btn-primary btn-block" onClick="{{ goInvoice }}" style="height:48px;font-size:16px">Complete sale</button>
+<button type="button" class="btn btn-secondary btn-block" onClick="{{ goPos }}">Back to cart</button>
+<p style="font-size:11px;color:#7d7979;margin:14px 0 0">Completing the sale drops stock at the bin, writes the margin against lot 52109919050, and files the invoice under today's register close.</p>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInvoices }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--color-divider);margin-bottom:18px">
+<sc-for list="{{ invoiceStats }}" as="k" hint-placeholder-count="4">
+<div style="padding:14px 16px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979">{{ k.label }}</div>
+<div style="font:800 24px/1.1 Archivo;margin-top:6px">{{ k.value }}</div>
+<div style="font:400 11px/1.3 Archivo;color:#605d5d;margin-top:2px">{{ k.sub }}</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+<div class="seg"><label class="seg-opt"><input type="radio" name="inf" defaultChecked>Today</label><label class="seg-opt"><input type="radio" name="inf">This week</label><label class="seg-opt"><input type="radio" name="inf">August</label></div>
+<select class="input" style="width:150px"><option>All payments</option><option>Cash</option><option>UPI</option><option>Card</option></select>
+<select class="input" style="width:150px"><option>All registers</option><option>Register 1</option><option>Register 2</option></select>
+<button type="button" class="btn btn-secondary" style="margin-left:auto">Export for GST filing</button>
+</div>
+<table class="table">
+<thead><tr><th style="width:96px">Invoice</th><th style="width:64px">Time</th><th>Customer</th><th style="text-align:right;width:52px">Items</th><th style="width:96px">Payment</th><th style="text-align:right;width:88px">MRP</th><th style="text-align:right;width:88px">Charged</th><th style="text-align:right;width:80px">Margin</th><th style="width:88px">Status</th><th style="width:44px"></th></tr></thead>
+<tbody>
+<sc-for list="{{ invoices }}" as="v" hint-placeholder-count="10">
+<tr>
+<td><a href="#" onClick="{{ v.onClick }}" style="font:600 12px/1.3 Archivo;text-decoration:none">{{ v.id }}</a></td>
+<td style="font:400 12px/1.3 Archivo;color:#605d5d">{{ v.time }}</td>
+<td style="font-size:13px">{{ v.who }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ v.items }}</td>
+<td><span class="tag tag-neutral">{{ v.pay }}</span></td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#7d7979">{{ v.mrp }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ v.amt }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:{{ v.mColor }};font-weight:600">{{ v.margin }}</td>
+<td><span class="tag {{ v.stTag }}">{{ v.status }}</span></td>
+<td><a href="#" onClick="{{ v.onClick }}" style="font:600 11px/1 Archivo;text-decoration:none">View</a></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInvoice }}" hint-placeholder-val="{{ true }}">
+<div style="padding:24px;display:grid;grid-template-columns:1fr 280px;gap:24px;align-items:start;max-width:1160px">
+<div style="background:#fff;border:1px solid var(--color-divider);padding:36px 40px">
+<div style="display:flex;align-items:flex-start;gap:24px;border-bottom:2px solid #201e1d;padding-bottom:18px">
+<div>
+<div style="font:800 24px/1 Archivo;letter-spacing:-.02em">OPEN BOX BAZAAR</div>
+<div style="font:400 12px/1.6 Archivo;color:#605d5d;margin-top:8px">Shop 14, Sector 14 Market<br>Gurugram 122001 · +91 98110 44231<br>GSTIN 06ABCDE1234F1Z5</div>
+</div>
+<div style="margin-left:auto;text-align:right">
+<div style="font:600 10px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent)">Tax invoice</div>
+<div style="font:800 30px/1.1 Archivo;margin-top:6px">INV-2841</div>
+<div style="font:400 12px/1.6 Archivo;color:#605d5d;margin-top:6px">3 August 2026 · 14:22<br>Register 1 · Shakti R.<br>Walk-in customer</div>
+</div>
+</div>
+<table class="table" style="margin:20px 0">
+<thead><tr><th style="width:32px">#</th><th>Description</th><th style="width:104px">HSN</th><th style="text-align:right;width:44px">Qty</th><th style="text-align:right;width:80px">Rate</th><th style="text-align:right;width:74px">GST</th><th style="text-align:right;width:88px">Amount</th></tr></thead>
+<tbody>
+<sc-for list="{{ invoiceLines }}" as="l" hint-placeholder-count="3">
+<tr>
+<td style="color:#7d7979">{{ l.n }}</td>
+<td><div style="font:600 13px/1.35 Archivo">{{ l.name }}</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ l.sku }} · {{ l.condition }} · MRP {{ l.mrp }}</div></td>
+<td style="font:400 12px/1.3 Archivo;color:#605d5d">{{ l.hsn }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ l.qty }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ l.rate }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#605d5d">{{ l.gst }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ l.amount }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="display:flex;gap:32px;align-items:flex-start">
+<div style="flex:1;max-width:44ch">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979;margin-bottom:6px">Terms</div>
+<p style="font-size:12px;line-height:1.6;color:#605d5d;margin:0">Goods sold are surplus or customer-returned stock, sold in the condition marked on the shelf label. Sealed and Open-box items carry a 7-day exchange with this bill. Tested items are sold as-is. Prices are MRP-inclusive of GST.</p>
+<div style="margin-top:20px;padding-top:8px;border-top:1px solid var(--color-divider);font:400 11px/1.4 Archivo;color:#7d7979;width:180px">Authorised signatory</div>
+</div>
+<div style="width:270px">
+<div style="display:flex;justify-content:space-between;font:400 13px/1.8 Archivo"><span>Taxable value</span><span style="font-variant-numeric:tabular-nums">₹2,342.37</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.8 Archivo"><span>CGST 9%</span><span style="font-variant-numeric:tabular-nums">₹210.81</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.8 Archivo"><span>SGST 9%</span><span style="font-variant-numeric:tabular-nums">₹210.81</span></div>
+<div style="display:flex;justify-content:space-between;font:400 13px/1.8 Archivo;color:#605d5d"><span>MRP value</span><span style="font-variant-numeric:tabular-nums;text-decoration:line-through">₹5,948</span></div>
+<div style="background:#201e1d;color:#f3f2f2;padding:12px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:baseline"><span style="font:800 14px/1 Archivo">Total paid</span><span style="font:800 24px/1 Archivo;font-variant-numeric:tabular-nums">₹2,764</span></div>
+<div style="font:400 11px/1.5 Archivo;color:#7d7979;margin-top:8px">Card · HDFC ****4417 · approved 14:22:38<br>Customer saved ₹3,184 against MRP</div>
+</div>
+</div>
+</div>
+<aside style="border:1px solid var(--color-divider);padding:16px;position:sticky;top:96px">
+<h5 style="margin:0 0 12px">Invoice actions</h5>
+<button type="button" class="btn btn-primary btn-block">Print · thermal 80mm</button>
+<button type="button" class="btn btn-secondary btn-block">Print · A4 tax invoice</button>
+<button type="button" class="btn btn-secondary btn-block">Send on WhatsApp</button>
+<button type="button" class="btn btn-secondary btn-block">Start a return</button>
+<button type="button" class="btn btn-secondary btn-block">Void &amp; restock</button>
+<hr class="hr">
+<h5 style="margin:0 0 8px">Behind the sale</h5>
+<div style="display:flex;justify-content:space-between;font:400 12px/1.8 Archivo"><span>Cost of goods</span><strong>₹1,290</strong></div>
+<div style="display:flex;justify-content:space-between;font:400 12px/1.8 Archivo"><span>Gross margin</span><strong style="color:var(--color-accent)">53%</strong></div>
+<div style="display:flex;justify-content:space-between;font:400 12px/1.8 Archivo"><span>Lots touched</span><strong>2</strong></div>
+<p style="font-size:11px;color:#7d7979;margin:10px 0 0">Margin is booked against each item's own lot, so lot-level recovery on the analysis page stays honest.</p>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAnalytics }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px">
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid var(--color-divider)">
+<div class="seg"><label class="seg-opt"><input type="radio" name="an" defaultChecked>90 days</label><label class="seg-opt"><input type="radio" name="an">30 days</label><label class="seg-opt"><input type="radio" name="an">This year</label></div>
+<select class="input" style="width:180px"><option>All product lines</option><option>Wireless Accessories</option></select>
+<select class="input" style="width:150px"><option>All lots</option><option>Top 20 by cost</option></select>
+<select class="input" style="width:160px"><option>Compare: previous 90 d</option><option>Compare: none</option></select>
+<button type="button" class="btn btn-secondary" style="margin-left:auto">Download workbook</button>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+<section>
+<h5 style="margin:0 0 4px">Money in vs. money out</h5>
+<p style="font-size:12px;color:#605d5d;margin:0 0 12px">Weekly revenue against the cost of the lots you bought that week. The gap is what the shop actually earned.</p>
+<div style="border:1px solid var(--color-divider);padding:16px;background:#eae9e9">
+<svg viewBox="0 0 560 200" style="width:100%;height:200px;display:block">
+<line x1="0" y1="170" x2="560" y2="170" stroke="#bab6b6"/>
+<line x1="0" y1="115" x2="560" y2="115" stroke="#d7d3d3" stroke-dasharray="3 3"/>
+<line x1="0" y1="60" x2="560" y2="60" stroke="#d7d3d3" stroke-dasharray="3 3"/>
+<line x1="0" y1="8" x2="560" y2="8" stroke="#d7d3d3" stroke-dasharray="3 3"/>
+<sc-for list="{{ weekBars }}" as="b" hint-placeholder-count="12">
+<rect x="{{ b.x }}" y="{{ b.ry }}" width="18" height="{{ b.rh }}" fill="#ec3013"/>
+<rect x="{{ b.x2 }}" y="{{ b.cy }}" width="18" height="{{ b.ch }}" fill="#7d7979"/>
+<text x="{{ b.lx }}" y="186" font-size="9" font-family="Archivo" fill="#7d7979" text-anchor="middle">{{ b.label }}</text>
+</sc-for>
+</svg>
+<div style="display:flex;gap:20px;font:400 11px/1 Archivo;color:#605d5d;margin-top:6px">
+<span><span style="display:inline-block;width:10px;height:10px;background:#ec3013;vertical-align:-1px;margin-right:6px"></span>Revenue</span>
+<span><span style="display:inline-block;width:10px;height:10px;background:#7d7979;vertical-align:-1px;margin-right:6px"></span>Lot cost</span>
+<span style="margin-left:auto">Peak week ₹1.42L · W28</span>
+</div>
+</div>
+</section>
+<section>
+<h5 style="margin:0 0 4px">Sell-through by product line</h5>
+<p style="font-size:12px;color:#605d5d;margin:0 0 12px">Share of units sold within 30, 60 and 90 days of hitting the floor. Kitchen is the drag — 718 SKUs, mostly low-ticket.</p>
+<div style="border:1px solid var(--color-divider);padding:16px;background:#eae9e9">
+<svg viewBox="0 0 560 200" style="width:100%;height:200px;display:block">
+<line x1="0" y1="170" x2="560" y2="170" stroke="#bab6b6"/>
+<line x1="0" y1="90" x2="560" y2="90" stroke="#d7d3d3" stroke-dasharray="3 3"/>
+<sc-for list="{{ curves }}" as="c" hint-placeholder-count="4">
+<polyline points="{{ c.points }}" fill="none" stroke="{{ c.stroke }}" stroke-width="{{ c.width }}"/>
+</sc-for>
+<text x="6" y="188" font-size="9" font-family="Archivo" fill="#7d7979">Day 0</text>
+<text x="266" y="188" font-size="9" font-family="Archivo" fill="#7d7979">Day 45</text>
+<text x="524" y="188" font-size="9" font-family="Archivo" fill="#7d7979">Day 90</text>
+</svg>
+<div style="display:flex;gap:14px;flex-wrap:wrap;font:400 11px/1.6 Archivo;color:#605d5d;margin-top:6px">
+<sc-for list="{{ curves }}" as="c" hint-placeholder-count="4">
+<span><span style="display:inline-block;width:14px;height:2px;background:{{ c.stroke }};vertical-align:middle;margin-right:6px"></span>{{ c.label }} {{ c.end }}</span>
+</sc-for>
+</div>
+</div>
+</section>
+</div>
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:10px">
+<h5 style="margin:0">Lot ledger</h5>
+<span style="font:400 12px/1 Archivo;color:#605d5d">Every lot's own P&amp;L. Recovery under 1.20× means the buy price was wrong, not the shelf price.</span>
+</div>
+<table class="table" style="margin-bottom:24px">
+<thead><tr><th style="width:116px">Lot</th><th>Product line</th><th style="text-align:right;width:56px">Units</th><th style="text-align:right;width:88px">Paid</th><th style="text-align:right;width:88px">MRP</th><th style="text-align:right;width:96px">Revenue</th><th style="text-align:right;width:60px">Sold</th><th style="width:104px">Source</th><th style="width:116px">Recovery</th><th style="width:90px">Verdict</th></tr></thead>
+<tbody>
+<sc-for list="{{ lots }}" as="l" hint-placeholder-count="8">
+<tr>
+<td style="font:600 12px/1.3 Archivo;color:var(--color-accent)">{{ l.id }}</td>
+<td style="font-size:13px">{{ l.line }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ l.units }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ l.paid }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;color:#7d7979">{{ l.mrp }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ l.rev }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ l.sold }}</td>
+<td><span class="tag {{ l.srcTag }}">{{ l.src }}</span></td>
+<td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:#e0dede"><div style="height:100%;width:{{ l.pct }}%;background:{{ l.fill }}"></div></div><span style="font:600 12px/1 Archivo;width:36px;text-align:right;font-variant-numeric:tabular-nums">{{ l.rec }}</span></div></td>
+<td><span class="tag {{ l.tag }}">{{ l.verdict }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+<section>
+<h5 style="margin:0 0 10px">Aging cohorts</h5>
+<table class="table">
+<thead><tr><th>Age on floor</th><th style="text-align:right">Units</th><th style="text-align:right">MRP tied up</th><th style="text-align:right">Cost tied up</th><th>What to do</th></tr></thead>
+<tbody>
+<sc-for list="{{ cohorts }}" as="c" hint-placeholder-count="4">
+<tr><td style="font-weight:600">{{ c.age }}</td><td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.units }}</td><td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.mrp }}</td><td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.cost }}</td><td style="font-size:12px;color:{{ c.color }}">{{ c.action }}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+<section>
+<h5 style="margin:0 0 10px">What sells first</h5>
+<p style="font-size:12px;color:#605d5d;margin:0 0 12px">Median days to sell, by shelf price band. Anything over ₹3,000 needs a conversation, not a shelf.</p>
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ bands }}" as="b" hint-placeholder-count="5">
+<div>
+<div style="display:flex;font:600 12px/1 Archivo;margin-bottom:4px"><span>{{ b.label }}</span><span style="margin-left:auto;color:#605d5d;font-weight:400">{{ b.days }} · {{ b.units }} units</span></div>
+<div style="height:18px;background:#e0dede"><div style="height:100%;width:{{ b.pct }}%;background:{{ b.fill }}"></div></div>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReturns }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px;display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start">
+<div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--color-divider);margin-bottom:18px">
+<sc-for list="{{ returnStats }}" as="k" hint-placeholder-count="4">
+<div style="padding:14px 16px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979">{{ k.label }}</div>
+<div style="font:800 24px/1.1 Archivo;margin-top:6px;color:{{ k.color }}">{{ k.value }}</div>
+<div style="font:400 11px/1.3 Archivo;color:#605d5d;margin-top:2px">{{ k.sub }}</div>
+</div>
+</sc-for>
+</div>
+<div class="seg" style="margin-bottom:14px">
+<label class="seg-opt"><input type="radio" name="rt" defaultChecked>Customer returns 6</label>
+<label class="seg-opt"><input type="radio" name="rt">Damaged at intake 31</label>
+<label class="seg-opt"><input type="radio" name="rt">Seller claims 4</label>
+</div>
+<table class="table">
+<thead><tr><th style="width:88px">Ref</th><th>Item</th><th style="width:96px">From invoice</th><th style="width:130px">Reason</th><th style="width:86px">Grade now</th><th style="text-align:right;width:80px">Paid</th><th style="width:120px">Disposition</th></tr></thead>
+<tbody>
+<sc-for list="{{ returns }}" as="r" hint-placeholder-count="6">
+<tr>
+<td style="font:600 12px/1.3 Archivo;color:var(--color-accent)">{{ r.ref }}</td>
+<td><div style="font:600 13px/1.35 Archivo">{{ r.name }}</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ r.sku }} · lot {{ r.lot }}</div></td>
+<td style="font:400 12px/1.3 Archivo;color:#605d5d">{{ r.inv }}</td>
+<td style="font-size:12px">{{ r.reason }}</td>
+<td><span class="tag {{ r.gradeTag }}">{{ r.grade }}</span></td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ r.amt }}</td>
+<td><span class="tag {{ r.dispTag }}">{{ r.disp }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<aside style="border:2px solid #201e1d;padding:16px;position:sticky;top:96px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">Deciding on RET-118</div>
+<h5 style="margin:8px 0 4px">Pigeon 3L Pressure Cooker</h5>
+<p style="font-size:12px;color:#605d5d;margin:0 0 14px">Returned 2 Aug against INV-2812. Customer says the gasket doesn't seat. Bought at ₹725, cost basis ₹218.</p>
+<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+<sc-for list="{{ dispositions }}" as="d" hint-placeholder-count="4">
+<button type="button" style="text-align:left;border:{{ d.border }};background:{{ d.bg }};color:{{ d.fg }};padding:11px 12px;cursor:pointer">
+<div style="display:flex;align-items:baseline;gap:8px"><span style="font:800 13px/1.2 Archivo">{{ d.label }}</span><span style="font:600 12px/1 Archivo;margin-left:auto">{{ d.value }}</span></div>
+<div style="font:400 11px/1.4 Archivo;opacity:.78;margin-top:3px">{{ d.note }}</div>
+</button>
+</sc-for>
+</div>
+<div class="field" style="margin-bottom:12px"><label>Note for the log</label><textarea class="input" style="min-height:64px">Gasket swapped from spares. Regrade C, reprice ₹425.</textarea></div>
+<button type="button" class="btn btn-primary btn-block">Apply &amp; refund ₹725 cash</button>
+<button type="button" class="btn btn-secondary btn-block">Hold for owner review</button>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCustomers }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 32px">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--color-divider);margin-bottom:18px">
+<sc-for list="{{ customerStats }}" as="k" hint-placeholder-count="4">
+<div style="padding:14px 16px;border-right:1px solid var(--color-divider)">
+<div style="font:600 10px/1 Archivo;letter-spacing:.1em;text-transform:uppercase;color:#7d7979">{{ k.label }}</div>
+<div style="font:800 24px/1.1 Archivo;margin-top:6px">{{ k.value }}</div>
+<div style="font:400 11px/1.3 Archivo;color:#605d5d;margin-top:2px">{{ k.sub }}</div>
+</div>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start">
+<div>
+<div style="display:flex;gap:10px;margin-bottom:12px">
+<input class="input" placeholder="Search name or phone" style="width:240px">
+<select class="input" style="width:170px"><option>All customers</option><option>Repeat buyers</option><option>Lapsed 60 d+</option></select>
+<button type="button" class="btn btn-primary" style="margin-left:auto">Add customer</button>
+</div>
+<table class="table">
+<thead><tr><th>Name</th><th style="width:120px">Phone</th><th style="text-align:right;width:58px">Visits</th><th style="text-align:right;width:90px">Spent</th><th style="text-align:right;width:88px">Avg basket</th><th style="width:150px">Buys mostly</th><th style="width:86px">Last seen</th></tr></thead>
+<tbody>
+<sc-for list="{{ customers }}" as="c" hint-placeholder-count="8">
+<tr>
+<td><div style="font:600 13px/1.35 Archivo">{{ c.name }}</div><div style="font:400 11px/1.3 Archivo;color:#7d7979">{{ c.tag }}</div></td>
+<td style="font:400 12px/1.3 Archivo;color:#605d5d">{{ c.phone }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.visits }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">{{ c.spent }}</td>
+<td style="text-align:right;font-variant-numeric:tabular-nums">{{ c.avg }}</td>
+<td style="font-size:12px">{{ c.likes }}</td>
+<td style="font:400 12px/1.3 Archivo;color:{{ c.lastColor }}">{{ c.last }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<aside style="border:1px solid var(--color-divider);padding:16px;position:sticky;top:96px">
+<div style="font:600 10px/1 Archivo;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">Regular since March</div>
+<h5 style="margin:8px 0 2px">Meera Joshi</h5>
+<div style="font:400 12px/1.5 Archivo;color:#605d5d;margin-bottom:14px">+91 98214 55120 · 11 visits · ₹34,120 spent</div>
+<div style="display:flex;gap:0;border:1px solid var(--color-divider);margin-bottom:14px">
+<div style="flex:1;padding:10px;border-right:1px solid var(--color-divider)"><div style="font:600 10px/1 Archivo;text-transform:uppercase;letter-spacing:.08em;color:#7d7979">Avg basket</div><div style="font:800 17px/1.2 Archivo;margin-top:4px">₹3,102</div></div>
+<div style="flex:1;padding:10px"><div style="font:600 10px/1 Archivo;text-transform:uppercase;letter-spacing:.08em;color:#7d7979">Returns</div><div style="font:800 17px/1.2 Archivo;margin-top:4px">1</div></div>
+</div>
+<h5 style="margin:0 0 8px;font-size:13px">Last four visits</h5>
+<div style="display:flex;flex-direction:column;gap:0;border-top:1px solid var(--color-divider)">
+<sc-for list="{{ customerVisits }}" as="v" hint-placeholder-count="4">
+<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--color-divider);font:400 12px/1.4 Archivo"><span style="color:#7d7979;width:52px">{{ v.date }}</span><span style="flex:1">{{ v.what }}</span><span style="font-weight:600;font-variant-numeric:tabular-nums">{{ v.amt }}</span></div>
+</sc-for>
+</div>
+<p style="font-size:12px;color:#605d5d;margin:14px 0 0">She buys kitchen and home, always on the first weekend after a lot lands. Worth a message when the next Kitchen pallet is priced.</p>
+<button type="button" class="btn btn-primary btn-block">Message about new Kitchen lot</button>
+</aside>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 24px 40px;max-width:1000px">
+<div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:2px solid var(--color-divider);padding-bottom:0">
+<sc-for list="{{ settingsTabs }}" as="t" hint-placeholder-count="5">
+<div style="padding:9px 15px;background:{{ t.bg }};color:{{ t.fg }};font:600 13px/1.2 Archivo;cursor:pointer">{{ t.label }}</div>
+</sc-for>
+</div>
+<section style="margin-bottom:28px">
+<h5 style="margin:0 0 4px">Grades &amp; pricing rules</h5>
+<p style="font-size:13px;color:#605d5d;margin:0 0 14px;max-width:66ch">These three rules price every unit you receive. Grades are internal — pick the words customers see on the shelf label and the invoice.</p>
+<table class="table">
+<thead><tr><th style="width:70px">Grade</th><th style="width:170px">Customer-facing word</th><th>When to use it</th><th style="text-align:right;width:100px">% of MRP</th><th style="width:100px">Exchange</th></tr></thead>
+<tbody>
+<sc-for list="{{ gradeSettings }}" as="g" hint-placeholder-count="3">
+<tr>
+<td><span class="tag {{ g.tag }}">{{ g.grade }}</span></td>
+<td><input class="input" defaultValue="{{ g.word }}"></td>
+<td style="font-size:13px">{{ g.when }}</td>
+<td><input class="input" defaultValue="{{ g.pct }}" style="text-align:right"></td>
+<td><select class="input"><option>{{ g.exchange }}</option></select></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+<hr class="hr">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+<section>
+<h5 style="margin:0 0 14px">Shop &amp; tax</h5>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div class="field"><label>Shop name on invoices</label><input class="input" defaultValue="Open Box Bazaar"></div>
+<div class="field"><label>GSTIN</label><input class="input" defaultValue="06ABCDE1234F1Z5"></div>
+<div class="field"><label>Default GST rate</label>
+<div class="seg" style="width:100%"><label class="seg-opt" style="flex:1"><input type="radio" name="gst">5%</label><label class="seg-opt" style="flex:1"><input type="radio" name="gst">12%</label><label class="seg-opt" style="flex:1"><input type="radio" name="gst" defaultChecked>18%</label><label class="seg-opt" style="flex:1"><input type="radio" name="gst">28%</label></div>
+</div>
+<div class="field"><label>Prices on shelf labels are</label>
+<div class="seg" style="width:100%"><label class="seg-opt" style="flex:1"><input type="radio" name="incl" defaultChecked>GST inclusive</label><label class="seg-opt" style="flex:1"><input type="radio" name="incl">Plus GST</label></div>
+</div>
+</div>
+</section>
+<section>
+<h5 style="margin:0 0 14px">Floor &amp; bins</h5>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div class="field"><label>Bin prefixes by product line</label><input class="input" defaultValue="W- wireless · H- home · K- kitchen · A- apparel · P- personal care · L- lawn"></div>
+<div class="field"><label>Flag a unit as aging after</label><input class="input" defaultValue="90 days on floor"></div>
+<div class="field"><label>Auto-clearance</label>
+<label class="radio" style="margin-top:4px"><input type="radio" name="ac" defaultChecked><span class="dot"></span>Ask me before repricing aged stock</label>
+<label class="radio" style="margin-top:8px"><input type="radio" name="ac"><span class="dot"></span>Cut 20% automatically at 120 days</label>
+</div>
+</div>
+</section>
+</div>
+<hr class="hr">
+<section>
+<h5 style="margin:0 0 4px">Registers &amp; staff</h5>
+<p style="font-size:13px;color:#605d5d;margin:0 0 14px">Who can price, who can only sell, and who can void an invoice.</p>
+<table class="table">
+<thead><tr><th>Person</th><th style="width:130px">Role</th><th style="width:110px">Register</th><th style="width:120px">Can reprice</th><th style="width:120px">Can void</th></tr></thead>
+<tbody>
+<sc-for list="{{ staff }}" as="p" hint-placeholder-count="4">
+<tr><td style="font-weight:600">{{ p.name }}</td><td style="font-size:13px">{{ p.role }}</td><td style="font-size:13px">{{ p.reg }}</td><td><span class="tag {{ p.rpTag }}">{{ p.rp }}</span></td><td><span class="tag {{ p.vdTag }}">{{ p.vd }}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+</section>
+<div style="display:flex;gap:8px;margin-top:20px">
+<button type="button" class="btn btn-primary">Save settings</button>
+<button type="button" class="btn btn-secondary">Discard changes</button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:940},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;pos&quot;,&quot;options&quot;:[&quot;brief&quot;,&quot;dash&quot;,&quot;intake&quot;,&quot;inventory&quot;,&quot;item&quot;,&quot;floor&quot;,&quot;product&quot;,&quot;pos&quot;,&quot;checkout&quot;,&quot;invoices&quot;,&quot;invoice&quot;,&quot;analytics&quot;,&quot;returns&quot;,&quot;customers&quot;,&quot;settings&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;agingDays&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:90,&quot;min&quot;:30,&quot;max&quot;:180,&quot;step&quot;:15,&quot;unit&quot;:&quot;days&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Rules&quot;},&quot;floorColumns&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4,&quot;min&quot;:2,&quot;max&quot;:6,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shop floor&quot;}}">
+const INR = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const K = n => n >= 100000 ? '₹' + (n / 100000).toFixed(2) + 'L' : INR(n);
+
+const CATS = [
+  { label: 'Wireless Accessories', units: 902, skus: 421, mrp: 662622, paid: 165656, rec: 1.62 },
+  { label: 'Home', units: 748, skus: 147, mrp: 465804, paid: 116451, rec: 1.94 },
+  { label: 'Apparel', units: 345, skus: 291, mrp: 406202, paid: 101551, rec: 1.38 },
+  { label: 'Kitchen', units: 1208, skus: 718, mrp: 352243, paid: 126808, rec: 1.21 },
+  { label: 'Personal Care Appl.', units: 83, skus: 61, mrp: 156505, paid: 54777, rec: 1.71 },
+  { label: 'Lawn & Garden', units: 40, skus: 28, mrp: 89289, paid: 17858, rec: 2.31 },
+];
+
+const GRADE_TAG = { A: 'tag-neutral', B: 'tag-accent-2', C: 'tag-accent' };
+
+const INVENTORY = [
+  { sku: 'OB-4417', asin: 'B0GDTRYXYF', name: 'HAMMER Airflow Neo Earbuds, 80H playtime, Type-C', cat: 'Wireless', grade: 'A', lot: '52109919050', bin: 'W-12', qty: 9, mrp: 1999, price: 899, age: '6 d' },
+  { sku: 'OB-4402', asin: 'B0CG9H3BB7', name: 'Lifelong Callus Remover, 14-in-1 pedicure kit', cat: 'Personal Care', grade: 'B', lot: '52109594246', bin: 'P-03', qty: 2, mrp: 2499, price: 1140, age: '1 d' },
+  { sku: 'OB-4390', asin: 'B097MV3VL6', name: 'Larah by Borosil Opalware Dinner Set, 47 pieces', cat: 'Kitchen', grade: 'A', lot: '52108641292', bin: 'K-21', qty: 1, mrp: 3499, price: 1899, age: '11 d' },
+  { sku: 'OB-4371', asin: 'B0C2HNBNNM', name: 'Xtore Hand Crafted Swan Pair Figurine, pack of 2', cat: 'Home', grade: 'C', lot: '52074708232', bin: 'H-07', qty: 4, mrp: 1899, price: 649, age: '97 d' },
+  { sku: 'OB-4368', asin: 'B0D147K592', name: 'VERO MODA Skinny Fit High Rise Ankle Jeans', cat: 'Apparel', grade: 'A', lot: '52101111344', bin: 'A-14', qty: 3, mrp: 2799, price: 1120, age: '22 d' },
+  { sku: 'OB-4355', asin: 'B08RWJ5MGW', name: 'Pigeon Hard Anodised 3L Pressure Cooker, induction', cat: 'Kitchen', grade: 'B', lot: '52108466513', bin: 'K-04', qty: 6, mrp: 1450, price: 725, age: '11 d' },
+  { sku: 'OB-4342', asin: 'B0DSBZXDJR', name: 'Eastman Solar Pro 1000VA/12V Sinewave Inverter', cat: 'Lawn & Garden', grade: 'A', lot: '52107553046', bin: 'L-01', qty: 1, mrp: 12999, price: 6944, age: '14 d' },
+  { sku: 'OB-4330', asin: 'B0BXNVPRGS', name: 'Philips SkinProtect Beard Trimmer, cordless', cat: 'Personal Care', grade: 'A', lot: '52109594246', bin: 'P-05', qty: 5, mrp: 1795, price: 875, age: '1 d' },
+  { sku: 'OB-4318', asin: 'B0CP5WQ77N', name: 'Solimo Knit Laundry Basket, 55L, dark grey', cat: 'Home', grade: 'B', lot: '52070312324', bin: 'H-19', qty: 7, mrp: 1499, price: 605, age: '104 d' },
+  { sku: 'OB-4306', asin: 'B07XQ9BPXS', name: 'adidas Classic 3S Tee, polyester, medium', cat: 'Apparel', grade: 'A', lot: '52101087533', bin: 'A-02', qty: 11, mrp: 1499, price: 762, age: '29 d' },
+  { sku: 'OB-4291', asin: 'B09F6QGDYK', name: 'SIMPARTE 3-Layer Slim Storage Rack with wheels', cat: 'Home', grade: 'C', lot: '52074491276', bin: 'H-11', qty: 2, mrp: 1299, price: 449, age: '104 d' },
+  { sku: 'OB-4287', asin: 'B0B4JH8441', name: 'Pigeon Favourite 7-Piece Non-Stick Gift Set', cat: 'Kitchen', grade: 'B', lot: '52108641292', bin: 'K-16', qty: 3, mrp: 2299, price: 999, age: '11 d' },
+];
+
+const MANIFEST = [
+  { asin: 'B0CG9H3BB7', name: 'Lifelong Callus Remover for Feet, 14-in-1 pedicure tool kit', mfst: 2, counted: 2, grade: 'B', mrp: 2499, list: 1140 },
+  { asin: 'B0C7W1RX6F', name: 'Lifelong Callus Remover, Type-C rechargeable foot scrubber', mfst: 2, counted: 2, grade: 'B', mrp: 1799, list: 797 },
+  { asin: 'B0G7Y5BL4C', name: 'Lifelong Backrest & Seat Cushion Combo, memory foam', mfst: 1, counted: 1, grade: 'A', mrp: 2999, list: 1549 },
+  { asin: 'B0CN3D3243', name: 'Careforce Electric Hot Water Bag, heating pad', mfst: 3, counted: 2, grade: 'C', mrp: 899, list: 436 },
+  { asin: 'B0FM7TG86D', name: 'BLACK OLIVE Facial Hair Remover, USB rechargeable epilator', mfst: 2, counted: 2, grade: 'A', mrp: 599, list: 266 },
+  { asin: 'B0BXNVPRGS', name: 'Philips Battery Powered SkinProtect Beard Trimmer', mfst: 2, counted: 2, grade: 'A', mrp: 1795, list: 875 },
+  { asin: 'B0CQ8YV2LM', name: 'Agaro Rechargeable Body Massager, 6 heads', mfst: 2, counted: 1, grade: 'C', mrp: 2199, list: 720 },
+  { asin: 'B0D9XKR41P', name: 'Havells Hair Dryer 1200W with cool shot', mfst: 1, counted: 0, grade: 'B', mrp: 1699, list: 749 },
+];
+
+const KITCHEN_LINES = [
+  { asin: 'B08RWJ5MGW', name: 'Pigeon Hard Anodised 3L Pressure Cooker, induction base', mfst: 8, counted: 8, grade: 'B', mrp: 1450, list: 725 },
+  { asin: 'B097MV3VL6', name: 'Larah by Borosil 47-Piece Opalware Dinner Set', mfst: 4, counted: 4, grade: 'A', mrp: 3499, list: 1899 },
+  { asin: 'B0B4JH8441', name: 'Pigeon Favourite 7-Piece Non-Stick Gift Set', mfst: 6, counted: 6, grade: 'B', mrp: 2299, list: 999 },
+  { asin: 'B0FH238MG7', name: 'ATTRO Linear Deluxe 1.5L Water Bottle, BPA-free', mfst: 24, counted: 22, grade: 'A', mrp: 349, list: 168 },
+  { asin: 'B0C7VG11SL', name: 'Clazkit Toothbrush & Travel Organizer Case', mfst: 18, counted: 18, grade: 'B', mrp: 299, list: 114 },
+  { asin: 'B0CB5Q1S11', name: 'Solimo 360° Revolving 5-Layer Storage Rack', mfst: 3, counted: 3, grade: 'A', mrp: 2199, list: 1055 },
+  { asin: 'B0DFM177QB', name: 'ATTRO Smasher 2L Sports Bottle with straw', mfst: 0, counted: 5, grade: 'A', mrp: 399, list: 192, extra: true },
+  { asin: 'B0DK9WQ2ZT', name: 'Milton Thermosteel Flask 1L — not on manifest', mfst: 0, counted: 2, grade: 'B', mrp: 1299, list: 494, extra: true },
+];
+
+const BLIND_LINES = [
+  { name: 'HAMMER Airflow Neo Earbuds, 80H playtime', asin: 'B0GDTRYXYF', qty: 6, grade: 'A', mrp: 1999, list: 899, src: 'Barcode' },
+  { name: 'adidas Classic 3S Tee, polyester, medium', asin: 'B07XQ9BPXS', qty: 4, grade: 'A', mrp: 1499, list: 762, src: 'Barcode' },
+  { name: 'Solimo Knit Laundry Basket 55L, dark grey', asin: 'B0CP5WQ77N', qty: 2, grade: 'B', mrp: 1499, list: 605, src: 'Barcode' },
+  { name: 'ATTRO Linear Deluxe 1.5L Water Bottle', asin: 'B0FH238MG7', qty: 5, grade: 'A', mrp: 349, list: 168, src: 'Barcode' },
+  { name: 'Pigeon Hard Anodised 3L Pressure Cooker', asin: 'B08RWJ5MGW', qty: 1, grade: 'C', mrp: 1450, list: 425, src: 'Barcode' },
+  { name: 'Generic 3-tier plastic shelf, unbranded', asin: '', qty: 3, grade: 'C', mrp: 0, list: 0, src: 'Photo match' },
+  { name: 'Unreadable label — 3 units set aside', asin: '', qty: 3, grade: 'C', mrp: 0, list: 0, src: 'Manual' },
+];
+
+const LOT_DATA = {
+  '52109594246': {
+    id: '52109594246', line: 'Personal Care Appliances', bay: 'Bay 3', received: '2 Aug',
+    manifest: true, badge: 'Manifested', tag: 'tag-neutral', sub: '40 units · counting · 3 short',
+    skus: 34, mfstUnits: 40, mrp: 96223, paid: 33678, counted: 37,
+    matched: 33, short: 3, over: 1, claimMrp: 2140, retail: 57730, rec: 1.71, be: 18,
+    lines: MANIFEST.concat([{ asin: 'B0FKJ7X2QP', name: 'Agaro Steam Iron 1400W — not on manifest', mfst: 0, counted: 1, grade: 'B', mrp: 1299, list: 494, extra: true }]),
+  },
+  '52108641292': {
+    id: '52108641292', line: 'Kitchen', bay: 'Bay 2', received: '23 Jul',
+    manifest: true, badge: '+7 over', tag: 'tag-accent', sub: '214 units · 7 extra, 2 short',
+    skus: 118, mfstUnits: 214, mrp: 112200, paid: 44880, counted: 219,
+    matched: 205, short: 2, over: 7, claimMrp: 698, retail: 92640, rec: 2.06, be: 104,
+    lines: KITCHEN_LINES,
+  },
+  '52111782004': {
+    id: '52111782004', line: 'Mixed — unsorted', bay: 'Bay 1', received: '3 Aug',
+    manifest: false, badge: 'No manifest', tag: 'tag-outline', sub: 'blind buy · 24 counted so far',
+    paid: 18500, counted: 24, foundMrp: 22140, retail: 11062, rec: 0.60,
+    lines: BLIND_LINES,
+  },
+};
+
+class Component extends DCLogic {
+  state = {
+    screen: 'brief',
+    lot: '52109594246',
+    cart: [{ sku: 'OB-4417', qty: 1 }, { sku: 'OB-4402', qty: 1 }, { sku: 'OB-4355', qty: 1 }],
+  };
+
+  go = k => () => { this.setState({ screen: k }); window.scrollTo(0, 0); };
+
+  add = sku => () => this.setState(st => {
+    const hit = st.cart.find(c => c.sku === sku);
+    return { cart: hit ? st.cart.map(c => c.sku === sku ? { ...c, qty: c.qty + 1 } : c) : [...st.cart, { sku, qty: 1 }] };
+  });
+
+  bump = (sku, d) => () => this.setState(st => ({
+    cart: st.cart.map(c => c.sku === sku ? { ...c, qty: Math.max(1, c.qty + d) } : c),
+  }));
+
+  remove = sku => () => this.setState(st => ({ cart: st.cart.filter(c => c.sku !== sku) }));
+
+  pickLot = k => () => this.setState({ lot: k });
+
+  renderVals() {
+    const s = this.state.screen || this.props.startScreen || 'brief';
+    const L = LOT_DATA[this.state.lot];
+    const blind = !L.manifest;
+    const agingDays = this.props.agingDays ?? 90;
+    const floorCols = this.props.floorColumns ?? 4;
+    const meta = {
+      brief: ['Design brief', 'Assumptions, decisions, and what to look at'],
+      dash: ['Monday, 3 August', 'Good morning, Shakti'],
+      intake: ['Lot ' + L.id, blind ? 'Receiving · no manifest supplied' : 'Receiving · ' + L.line],
+      inventory: ['3,326 units', 'Inventory'],
+      item: ['OB-4417', 'HAMMER Airflow Neo Earbuds'],
+      floor: ['Shop floor', "What's on the shelves today"],
+      product: ['Shop floor', 'Product page'],
+      pos: ['Register 1', 'Point of sale'],
+      checkout: ['Register 1', 'Take payment'],
+      invoices: ['August', 'Invoices'],
+      invoice: ['INV-2841', 'Invoice detail'],
+      analytics: ['Last 90 days', 'Sales & recovery analysis'],
+      returns: ['Returns desk', 'Returns & damaged goods'],
+      customers: ['1,284 people', 'Customers'],
+      settings: ['Configuration', 'Settings'],
+    }[s] || ['', ''];
+
+    const groups = [
+      { label: 'Start here', items: [['brief', 'Design brief', '']] },
+      { label: 'Operations', items: [['dash', 'Dashboard', ''], ['intake', 'Pallet intake', '4 open'], ['inventory', 'Inventory', '3,326'], ['item', 'Item detail', '']] },
+      { label: 'Selling', items: [['floor', 'Shop floor', ''], ['product', 'Product page', ''], ['pos', 'Register', 'open'], ['checkout', 'Checkout', ''], ['invoices', 'Invoices', '37']] },
+      { label: 'Back office', items: [['analytics', 'Analysis', ''], ['returns', 'Returns', '6'], ['customers', 'Customers', ''], ['settings', 'Settings', '']] },
+    ];
+
+    const navGroups = groups.map(g => ({
+      label: g.label,
+      items: g.items.map(([key, label, badge]) => {
+        const on = key === s;
+        return {
+          key, label, badge,
+          onClick: this.go(key),
+          bg: on ? '#201e1d' : 'transparent',
+          fg: on ? '#f3f2f2' : '#201e1d',
+          bar: on ? '#ec3013' : 'transparent',
+          badgeFg: on ? 'rgba(243,242,242,.7)' : '#9b9797',
+        };
+      }),
+    }));
+
+    const cats = CATS.map(c => ({
+      ...c,
+      mrpF: K(c.mrp), paidF: K(c.paid),
+      recPct: Math.min(100, (c.rec / 2.6) * 100),
+      recFill: c.rec >= 1.6 ? '#ec3013' : '#7d7979',
+      recLabel: c.rec.toFixed(2) + '×',
+    }));
+
+    const COND = { A: 'Sealed', B: 'Open box', C: 'Tested' };
+    const bySku = k => INVENTORY.find(i => i.sku === k);
+    const cartRows = this.state.cart.map(c => {
+      const it = bySku(c.sku);
+      return { ...it, ...c, short: it.name.split(',')[0], condition: COND[it.grade] };
+    });
+    const subtotal = cartRows.reduce((a, c) => a + c.price * c.qty, 0);
+    const mrpTotal = cartRows.reduce((a, c) => a + c.mrp * c.qty, 0);
+    const cogs = cartRows.reduce((a, c) => a + c.mrp * 0.3 * c.qty, 0);
+
+    const lotStats = blind
+      ? [
+        { k: 'Manifest', v: 'None', color: '#ec3013' },
+        { k: 'You paid', v: INR(L.paid), color: '#201e1d' },
+        { k: 'Cost / unit', v: INR(L.paid / L.counted) + '*', color: '#201e1d' },
+        { k: 'Counted', v: String(L.counted), color: '#201e1d' },
+      ]
+      : [
+        { k: 'Manifest MRP', v: INR(L.mrp), color: '#201e1d' },
+        { k: 'You paid', v: INR(L.paid), color: '#201e1d' },
+        { k: 'Cost of MRP', v: Math.round((L.paid / L.mrp) * 100) + '%', color: '#ec3013' },
+        { k: 'Counted', v: L.counted + ' / ' + L.mfstUnits, color: L.counted === L.mfstUnits ? '#201e1d' : '#ec3013' },
+      ];
+    const steps = blind
+      ? [
+        { n: '1', label: 'No manifest', note: 'Nothing to import', bg: '#eae9e9', fg: '#7d7979' },
+        { n: '2', label: 'Discovering', note: '24 units identified', bg: '#ec3013', fg: '#f3f2f2' },
+        { n: '3', label: 'Grade & price', note: '6 units need a hand-set MRP', bg: '#eae9e9', fg: '#7d7979' },
+        { n: '4', label: 'Publish to floor', note: 'Bins + shelf labels', bg: '#eae9e9', fg: '#7d7979' },
+      ]
+      : [
+        { n: '1', label: 'Manifest imported', note: L.skus + ' SKUs, ' + L.mfstUnits + ' units', bg: '#201e1d', fg: '#f3f2f2' },
+        { n: '2', label: 'Counting', note: L.counted + ' of ' + L.mfstUnits + ' scanned', bg: '#ec3013', fg: '#f3f2f2' },
+        { n: '3', label: 'Reconcile', note: L.short + ' short · ' + L.over + ' over', bg: '#eae9e9', fg: '#7d7979' },
+        { n: '4', label: 'Publish to floor', note: 'Bins + shelf labels', bg: '#eae9e9', fg: '#7d7979' },
+      ];
+
+    const cats2 = [
+      { label: 'Wireless', stroke: '#ec3013', width: '2.5', pts: [0, 22, 41, 56, 64], end: '64%' },
+      { label: 'Home', stroke: '#201e1d', width: '2', pts: [0, 18, 34, 47, 55], end: '55%' },
+      { label: 'Apparel', stroke: '#7d7979', width: '2', pts: [0, 14, 27, 36, 42], end: '42%' },
+      { label: 'Kitchen', stroke: '#bab6b6', width: '2', pts: [0, 9, 17, 24, 29], end: '29%' },
+    ];
+
+    const LOTS = [
+      { id: '52109594246', line: 'Personal Care Appl.', units: 40, paid: 33678, mrp: 96223, rev: 57730, sold: '29', rec: 1.71, src: '3 short' },
+      { id: '52110402820', line: 'Apparel', units: 50, paid: 20937, mrp: 83749, rev: 24460, sold: '38', rec: 1.17, src: 'Manifested' },
+      { id: '52110360175', line: 'Apparel', units: 41, paid: 19024, mrp: 76096, rev: 30060, sold: '34', rec: 1.58, src: 'Manifested' },
+      { id: '1211218745612', line: 'Wireless Accessories', units: 60, paid: 14471, mrp: 57883, rev: 28942, sold: '52', rec: 2.00, src: '+4 over' },
+      { id: '52109617405', line: 'Wireless Accessories', units: 60, paid: 13023, mrp: 52092, rev: 22800, sold: '47', rec: 1.75, src: 'Manifested' },
+      { id: '52108641292', line: 'Kitchen', units: 219, paid: 44880, mrp: 112200, rev: 41180, sold: '96', rec: 0.92, src: '+7 over' },
+      { id: '52111782004', line: 'Mixed — unsorted', units: 24, paid: 18500, mrp: 22140, rev: 4180, sold: '6', rec: 0.23, src: 'Blind' },
+      { id: '52070312324', line: 'Home', units: 96, paid: 24140, mrp: 96560, rev: 51900, sold: '71', rec: 2.15, src: 'Blind' },
+      { id: '52074491276', line: 'Home', units: 62, paid: 15810, mrp: 63240, rev: 14320, sold: '24', rec: 0.91, src: '2 short' },
+    ];
+
+    return {
+      isItem: s === 'item', isFloor: s === 'floor', isProduct: s === 'product',
+      isPos: s === 'pos', isCheckout: s === 'checkout', isInvoices: s === 'invoices',
+      isInvoice: s === 'invoice', isAnalytics: s === 'analytics', isReturns: s === 'returns',
+      isCustomers: s === 'customers', isSettings: s === 'settings',
+      goFloor: this.go('floor'), goCheckout: this.go('checkout'), goInvoice: this.go('invoice'),
+      addThis: this.add('OB-4417'), clearCart: () => this.setState({ cart: [] }),
+
+      movement: [
+        { date: '28 Jul', event: 'Received', detail: 'Lot 52109919050 counted into bay 3', qty: '+12', value: '₹6,000', tag: 'tag-neutral', qtyColor: '#201e1d' },
+        { date: '28 Jul', event: 'Priced', detail: 'Grade A rule · 45% of MRP', qty: '', value: '₹899', tag: 'tag-neutral', qtyColor: '#201e1d' },
+        { date: '29 Jul', event: 'To floor', detail: 'Binned W-12 · 12 shelf labels printed', qty: '', value: '', tag: 'tag-neutral', qtyColor: '#201e1d' },
+        { date: '30 Jul', event: 'Sold', detail: 'INV-2788 · walk-in · cash', qty: '−1', value: '₹899', tag: 'tag-accent', qtyColor: '#ec3013' },
+        { date: '1 Aug', event: 'Sold', detail: 'INV-2814 · Rakesh V. · UPI', qty: '−1', value: '₹899', tag: 'tag-accent', qtyColor: '#ec3013' },
+        { date: '3 Aug', event: 'Sold', detail: 'INV-2841 · walk-in · card', qty: '−1', value: '₹899', tag: 'tag-accent', qtyColor: '#ec3013' },
+      ],
+      priceLine: '20,40 160,40 300,40 440,52 600,52',
+      costLine: '20,78 600,78',
+      priceDots: [{ x: 20, y: 40 }, { x: 160, y: 40 }, { x: 300, y: 40 }, { x: 440, y: 52 }, { x: 600, y: 52 }],
+
+      floorChips: [
+        ['Everything', '2,704'], ['Wireless', '689'], ['Kitchen', '812'], ['Home', '511'],
+        ['Apparel', '284'], ['Personal care', '54'], ['Lawn & garden', '31'],
+      ].map(([label, count], i) => ({
+        label, count,
+        bg: i === 0 ? '#201e1d' : 'transparent',
+        fg: i === 0 ? '#f3f2f2' : '#201e1d',
+        border: i === 0 ? '#201e1d' : 'var(--color-divider)',
+      })),
+      floorItems: INVENTORY.slice(0, 8).map(i => ({
+        name: i.name.split(',')[0], cat: i.cat,
+        price: INR(i.price), mrp: INR(i.mrp),
+        off: Math.round((1 - i.price / i.mrp) * 100) + '% off',
+        condition: COND[i.grade],
+        stock: i.qty > 1 ? i.qty + ' on shelf' : 'last one',
+        onClick: this.add(i.sku),
+      })),
+      productSpecs: [
+        { k: 'Brand', v: 'Hammer' }, { k: 'Battery', v: '80 hours with case' },
+        { k: 'Driver', v: '13 mm titanium' }, { k: 'Charging', v: 'Type-C, fast charge' },
+        { k: 'In the box', v: 'Buds, case, cable' }, { k: 'On the shelf', v: 'Aisle W, bin 12' },
+      ],
+
+      posTabs: ['Quick picks', 'Wireless', 'Kitchen', 'Home', 'Apparel', 'Just landed'].map((label, i) => ({
+        label,
+        bg: i === 0 ? '#201e1d' : '#eae9e9',
+        fg: i === 0 ? '#f3f2f2' : '#201e1d',
+        border: i === 0 ? '#201e1d' : 'var(--color-divider)',
+      })),
+      posTiles: INVENTORY.map(i => ({
+        short: i.name.split(',')[0], cat: i.cat, price: INR(i.price),
+        bin: i.bin, qty: i.qty, onClick: this.add(i.sku),
+      })),
+
+      cart: cartRows.map(c => ({
+        sku: c.sku, short: c.short, qty: c.qty, condition: c.condition,
+        priceEach: INR(c.price), lineTotal: INR(c.price * c.qty),
+        inc: this.bump(c.sku, 1), dec: this.bump(c.sku, -1), remove: this.remove(c.sku),
+      })),
+      cartEmpty: cartRows.length === 0,
+      cartCount: cartRows.reduce((a, c) => a + c.qty, 0),
+      cartMrp: INR(mrpTotal), cartSubtotal: INR(subtotal), cartTotal: INR(subtotal),
+      cartSaves: INR(mrpTotal - subtotal),
+      cartTax: INR(subtotal - subtotal / 1.18),
+      cartMargin: subtotal ? Math.round(((subtotal - cogs) / subtotal) * 100) + '%' : '—',
+
+      payMethods: [
+        { label: 'Cash', note: 'Drawer opens', on: false },
+        { label: 'UPI', note: 'QR on the counter screen', on: true },
+        { label: 'Card', note: 'Tap or insert', on: false },
+        { label: 'Split', note: 'Two methods, one bill', on: false },
+      ].map(p => ({
+        ...p,
+        bg: p.on ? '#201e1d' : '#eae9e9',
+        fg: p.on ? '#f3f2f2' : '#201e1d',
+        border: p.on ? '2px solid #201e1d' : '1px solid var(--color-divider)',
+      })),
+
+      invoiceStats: [
+        { label: 'Taken today', value: '₹48,320', sub: '37 invoices · 1 voided' },
+        { label: 'Average basket', value: '₹1,306', sub: '2.4 items per invoice' },
+        { label: 'Payment mix', value: 'UPI 61%', sub: 'Cash 27% · Card 12%' },
+        { label: 'GST collected', value: '₹7,371', sub: 'Filed weekly' },
+      ],
+      invoices: [
+        { id: 'INV-2841', time: '14:22', who: 'Walk-in', items: 3, pay: 'Card', mrp: 5948, amt: 2764, margin: 53, status: 'Paid' },
+        { id: 'INV-2840', time: '13:58', who: 'Meera Joshi', items: 1, pay: 'UPI', mrp: 12999, amt: 6944, margin: 44, status: 'Paid' },
+        { id: 'INV-2839', time: '13:31', who: 'Walk-in', items: 5, pay: 'Cash', mrp: 7495, amt: 3180, margin: 51, status: 'Paid' },
+        { id: 'INV-2838', time: '12:47', who: 'Rakesh Verma', items: 2, pay: 'UPI', mrp: 3498, amt: 1624, margin: 39, status: 'Paid' },
+        { id: 'INV-2837', time: '12:19', who: 'Walk-in', items: 1, pay: 'Cash', mrp: 1999, amt: 899, margin: 44, status: 'Paid' },
+        { id: 'INV-2836', time: '11:52', who: 'Anjali Nair', items: 4, pay: 'UPI', mrp: 6296, amt: 2870, margin: 47, status: 'Paid' },
+        { id: 'INV-2835', time: '11:40', who: 'Walk-in', items: 2, pay: 'Cash', mrp: 2949, amt: 1350, margin: 31, status: 'Drawer +₹120' },
+        { id: 'INV-2834', time: '11:04', who: 'Walk-in', items: 3, pay: 'Card', mrp: 4497, amt: 2044, margin: 42, status: 'Paid' },
+        { id: 'INV-2833', time: '10:38', who: 'Sunil Kapoor', items: 1, pay: 'UPI', mrp: 3499, amt: 1899, margin: 46, status: 'Exchanged' },
+        { id: 'INV-2832', time: '10:12', who: 'Walk-in', items: 6, pay: 'Cash', mrp: 8394, amt: 3420, margin: 36, status: 'Paid' },
+      ].map(v => ({
+        ...v, mrp: INR(v.mrp), amt: INR(v.amt), margin: v.margin + '%',
+        mColor: v.margin >= 40 ? '#201e1d' : '#ae1800',
+        stTag: v.status === 'Paid' ? 'tag-neutral' : 'tag-accent',
+        onClick: this.go('invoice'),
+      })),
+      invoiceLines: [
+        { n: 1, name: 'HAMMER Airflow Neo Earbuds, 80H playtime', sku: 'OB-4417', condition: 'Sealed', mrp: '₹1,999', hsn: '8518 30 00', qty: 1, rate: '₹761.86', gst: '₹137.14', amount: '₹899.00' },
+        { n: 2, name: 'Lifelong Callus Remover, 14-in-1 pedicure kit', sku: 'OB-4402', condition: 'Open box', mrp: '₹2,499', hsn: '8510 30 00', qty: 1, rate: '₹966.10', gst: '₹173.90', amount: '₹1,140.00' },
+        { n: 3, name: 'Pigeon Hard Anodised 3L Pressure Cooker', sku: 'OB-4355', condition: 'Open box', mrp: '₹1,450', hsn: '7615 10 00', qty: 1, rate: '₹614.41', gst: '₹110.59', amount: '₹725.00' },
+      ],
+
+      weekBars: [
+        [58, 92], [71, 40], [96, 118], [82, 36], [104, 62], [142, 88],
+        [118, 44], [96, 71], [131, 52], [88, 96], [112, 38], [76, 64],
+      ].map(([rev, cost], i) => {
+        const sc = 160 / 150;
+        return {
+          x: 12 + i * 46, x2: 32 + i * 46, lx: 26 + i * 46,
+          label: 'W' + (22 + i),
+          ry: 170 - rev * sc, rh: rev * sc,
+          cy: 170 - cost * sc, ch: cost * sc,
+        };
+      }),
+      curves: cats2.map(c => ({
+        label: c.label, stroke: c.stroke, width: c.width, end: c.end,
+        points: c.pts.map((v, i) => (10 + i * 135) + ',' + (170 - v * 2.2)).join(' '),
+      })),
+      lots: LOTS.map(l => ({
+        ...l, paid: INR(l.paid), mrp: INR(l.mrp), rev: INR(l.rev),
+        sold: l.sold + '/' + l.units,
+        rec: l.rec.toFixed(2) + '×',
+        pct: Math.min(100, (l.rec / 2.4) * 100),
+        fill: l.rec >= 1.5 ? '#ec3013' : l.rec >= 1.2 ? '#7d7979' : '#bab6b6',
+        verdict: l.rec >= 1.5 ? 'Buy again' : l.rec >= 1.2 ? 'Thin' : 'Overpaid',
+        tag: l.rec >= 1.5 ? 'tag-accent' : l.rec >= 1.2 ? 'tag-neutral' : 'tag-outline',
+        srcTag: l.src === 'Manifested' ? 'tag-neutral' : l.src === 'Blind' ? 'tag-outline' : 'tag-accent',
+      })),
+      cohorts: [
+        { age: '0–30 days', units: '1,104', mrp: '₹7.4L', cost: '₹2.0L', action: 'Healthy — leave it alone', color: '#605d5d' },
+        { age: '31–60 days', units: '742', mrp: '₹4.9L', cost: '₹1.3L', action: 'Watch Kitchen, it is slowing', color: '#605d5d' },
+        { age: '61–90 days', units: '440', mrp: '₹3.1L', cost: '₹0.8L', action: 'Bundle the low-ticket lines', color: '#201e1d' },
+        { age: '90+ days', units: '418', mrp: '₹2.8L', cost: '₹0.7L', action: 'Cut 25% or move to the clearance rack', color: '#ec3013' },
+      ],
+      bands: [
+        { label: 'Under ₹500', days: '6 days', units: '892', pct: 12, fill: '#ec3013' },
+        { label: '₹500 – ₹1,000', days: '11 days', units: '1,046', pct: 22, fill: '#ec3013' },
+        { label: '₹1,000 – ₹2,000', days: '24 days', units: '588', pct: 48, fill: '#7d7979' },
+        { label: '₹2,000 – ₹3,000', days: '41 days', units: '142', pct: 82, fill: '#7d7979' },
+        { label: 'Over ₹3,000', days: '63 days', units: '36', pct: 100, fill: '#201e1d' },
+      ],
+
+      returnStats: [
+        { label: 'Open returns', value: '6', sub: '₹8,240 of shelf value', color: '#ec3013' },
+        { label: 'Return rate, 30 d', value: '2.1%', sub: 'Down from 3.4% in June', color: '#201e1d' },
+        { label: 'Damaged at intake', value: '31 units', sub: '₹9,180 claimable from sellers', color: '#201e1d' },
+        { label: 'Written off, month', value: '₹4,120', sub: '0.7% of cost of goods', color: '#201e1d' },
+      ],
+      returns: [
+        { ref: 'RET-118', name: 'Pigeon Hard Anodised 3L Pressure Cooker', sku: 'OB-4355', lot: '52108466513', inv: 'INV-2812', reason: 'Gasket does not seat', grade: 'C', amt: 725, disp: 'Deciding' },
+        { ref: 'RET-117', name: 'HAMMER Airflow Neo Earbuds', sku: 'OB-4417', lot: '52109919050', inv: 'INV-2788', reason: 'Left bud silent', grade: 'C', amt: 899, disp: 'Write off' },
+        { ref: 'RET-116', name: 'VERO MODA Skinny Fit Ankle Jeans', sku: 'OB-4368', lot: '52101111344', inv: 'INV-2776', reason: 'Size exchange', grade: 'A', amt: 1120, disp: 'Back to floor' },
+        { ref: 'RET-115', name: 'Solimo Knit Laundry Basket 55L', sku: 'OB-4318', lot: '52070312324', inv: 'INV-2759', reason: 'Hairline crack', grade: 'C', amt: 605, disp: 'Clearance' },
+        { ref: 'RET-114', name: 'Eastman Solar Pro 1000VA Inverter', sku: 'OB-4342', lot: '52107553046', inv: 'INV-2741', reason: 'Not charging', grade: 'C', amt: 6944, disp: 'Seller claim' },
+        { ref: 'RET-113', name: 'Larah by Borosil 47-Piece Dinner Set', sku: 'OB-4390', lot: '52108641292', inv: 'INV-2730', reason: '2 plates chipped', grade: 'C', amt: 1899, disp: 'Clearance' },
+      ].map(r => ({
+        ...r, amt: INR(r.amt), gradeTag: GRADE_TAG[r.grade],
+        dispTag: r.disp === 'Back to floor' ? 'tag-neutral' : r.disp === 'Deciding' ? 'tag-outline' : 'tag-accent',
+      })),
+      dispositions: [
+        { label: 'Repair & back to floor', value: '₹425', note: 'Regrade C, reprice, keep the margin', on: true },
+        { label: 'Clearance rack', value: '₹299', note: 'As-is, no exchange, sold in a week', on: false },
+        { label: 'Claim against seller', value: '₹218', note: 'Only if the lot is inside its 15-day window', on: false },
+        { label: 'Write off', value: '−₹218', note: 'Cost hits this month, unit leaves stock', on: false },
+      ].map(d => ({
+        ...d,
+        bg: d.on ? '#201e1d' : '#eae9e9',
+        fg: d.on ? '#f3f2f2' : '#201e1d',
+        border: d.on ? '2px solid #201e1d' : '1px solid var(--color-divider)',
+      })),
+
+      customerStats: [
+        { label: 'People on file', value: '1,284', sub: '412 with two or more visits' },
+        { label: 'Repeat share of revenue', value: '38%', sub: '₹3.5L of ₹9.21L' },
+        { label: 'Average repeat basket', value: '₹2,180', sub: '67% above a walk-in' },
+        { label: 'Lapsed 60 days+', value: '196', sub: 'Worth a message when lots land' },
+      ],
+      customers: [
+        { name: 'Meera Joshi', tag: 'Regular · since March', phone: '+91 98214 55120', visits: 11, spent: 34120, avg: 3102, likes: 'Kitchen, Home', last: '2 days' },
+        { name: 'Rakesh Verma', tag: 'Regular', phone: '+91 99105 88214', visits: 8, spent: 18640, avg: 2330, likes: 'Wireless', last: '2 days' },
+        { name: 'Anjali Nair', tag: 'Regular', phone: '+91 98730 11902', visits: 7, spent: 15980, avg: 2283, likes: 'Apparel, Home', last: 'Today' },
+        { name: 'Sunil Kapoor', tag: 'Buys big-ticket', phone: '+91 90045 72310', visits: 4, spent: 22400, avg: 5600, likes: 'Lawn, Appliances', last: 'Today' },
+        { name: 'Farida Sheikh', tag: 'Reseller', phone: '+91 97188 40021', visits: 14, spent: 61200, avg: 4371, likes: 'Wireless, Apparel', last: '6 days' },
+        { name: 'Deepak Rao', tag: 'Lapsed', phone: '+91 98999 23104', visits: 3, spent: 5240, avg: 1747, likes: 'Kitchen', last: '74 days' },
+        { name: 'Priya Menon', tag: 'New', phone: '+91 90876 51203', visits: 1, spent: 899, avg: 899, likes: 'Wireless', last: '4 days' },
+        { name: 'Imran Qureshi', tag: 'Lapsed', phone: '+91 98450 33127', visits: 5, spent: 11080, avg: 2216, likes: 'Home', last: '81 days' },
+      ].map(c => ({
+        ...c, spent: INR(c.spent), avg: INR(c.avg),
+        lastColor: parseInt(c.last, 10) > 60 ? '#ec3013' : '#605d5d',
+      })),
+      customerVisits: [
+        { date: '1 Aug', what: 'Solar inverter, Eastman', amt: '₹6,944' },
+        { date: '19 Jul', what: 'Dinner set + 2 storage racks', amt: '₹2,797' },
+        { date: '28 Jun', what: 'Pressure cooker, non-stick set', amt: '₹1,724' },
+        { date: '14 Jun', what: 'Laundry basket, floor lamp', amt: '₹1,252' },
+      ],
+
+      settingsTabs: ['Grades & pricing', 'Shop & tax', 'Floor & bins', 'Registers & staff', 'Data import'].map((label, i) => ({
+        label, bg: i === 0 ? '#201e1d' : 'transparent', fg: i === 0 ? '#f3f2f2' : '#605d5d',
+      })),
+      gradeSettings: [
+        { grade: 'A', tag: 'tag-neutral', word: 'Sealed', when: 'Factory seal intact, manifest matches, no shelf damage', pct: '48%', exchange: '7-day exchange' },
+        { grade: 'B', tag: 'tag-accent-2', word: 'Open box', when: 'Box opened, all parts present, tested working', pct: '38%', exchange: '7-day exchange' },
+        { grade: 'C', tag: 'tag-accent', word: 'Tested', when: 'Cosmetic marks or missing accessory, works as expected', pct: '26%', exchange: 'Sold as-is' },
+      ],
+      staff: [
+        { name: 'Shakti R.', role: 'Owner', reg: 'Any', rp: 'Yes', vd: 'Yes' },
+        { name: 'Nitin B.', role: 'Floor manager', reg: 'Register 1', rp: 'Yes', vd: 'With PIN' },
+        { name: 'Asha K.', role: 'Cashier', reg: 'Register 1', rp: 'No', vd: 'No' },
+        { name: 'Vikram S.', role: 'Receiving', reg: 'None', rp: 'Grades only', vd: 'No' },
+      ].map(p => ({
+        ...p,
+        rpTag: p.rp === 'Yes' ? 'tag-accent' : 'tag-neutral',
+        vdTag: p.vd === 'Yes' ? 'tag-accent' : 'tag-neutral',
+      })),
+
+      screenKicker: meta[0], screenTitle: meta[1],
+      floorGrid: 'repeat(' + floorCols + ',1fr)',
+      navGroups, cats,
+      goPos: this.go('pos'), goIntake: this.go('intake'), goInvoices: this.go('invoices'),
+      isBrief: s === 'brief', isDash: s === 'dash', isIntake: s === 'intake', isInventory: s === 'inventory',
+
+      screenMap: [
+        ['Dashboard', 'Revenue and orders today, plus the received → listed → sold funnel and recovery per product line.', 'Built', 'tag-accent'],
+        ['Pallet intake', 'Three lots side by side: one manifested, one over-shipped, one blind. Shorts, overs, and hand-priced unknowns.', 'Built', 'tag-accent'],
+        ['Inventory', '3,326 units with grade, bin, lot, margin and age. Filters for aging and quarantine.', 'Built', 'tag-accent'],
+        ['Item detail', 'One SKU: photo, cost basis, price history, movement log, where it lives.', 'Built', 'tag-accent'],
+        ['Shop floor', 'The browse view your staff and walk-ins share on the floor tablet. No grades shown.', 'Built', 'tag-accent'],
+        ['Product page', 'What a customer reads before they carry it to the counter.', 'Built', 'tag-accent'],
+        ['Register', 'Scan-first point of sale with a live cart and quick-pick tiles.', 'Interactive', 'tag-outline'],
+        ['Checkout', 'Split payment, customer lookup, GST-inclusive breakdown.', 'Built', 'tag-accent'],
+        ['Invoices', 'Every sale, filterable, with a printable invoice detail.', 'Built', 'tag-accent'],
+        ['Analysis', 'Recovery by lot and line, sell-through curves, aging cohort table.', 'Built', 'tag-accent'],
+        ['Returns', 'Intake a return, decide resell / clearance / write-off.', 'Built', 'tag-accent'],
+        ['Customers', 'Walk-in regulars, spend, and what they keep coming back for.', 'Built', 'tag-accent'],
+        ['Settings', 'Pricing rules, grades, tax, bins, register and staff.', 'Built', 'tag-accent'],
+      ].map(([name, note, state, tagClass], i) => ({
+        name, note, state, tagClass,
+        onClick: this.go(['dash', 'intake', 'inventory', 'item', 'floor', 'product', 'pos', 'checkout', 'invoices', 'analytics', 'returns', 'customers', 'settings'][i]),
+      })),
+
+      kpis: [
+        { label: 'Revenue today', value: '₹48,320', sub: '37 orders · ₹1,306 average basket', color: '#201e1d' },
+        { label: 'Units received vs. listed', value: '2,704 / 3,326', sub: '622 counted but not yet priced', color: '#201e1d' },
+        { label: 'Recovery on cost', value: '1.58×', sub: '₹9.21L earned on ₹5.83L paid', color: '#ec3013' },
+        { label: 'Sell-through, 30 d', value: '43%', sub: '418 units now past 90 days on floor', color: '#201e1d' },
+      ],
+
+      funnel: [
+        { label: 'Received against manifest', right: '3,326 units · ₹21.3L MRP', pct: 100, fill: '#201e1d' },
+        { label: 'Graded, priced, on the floor', right: '2,704 units · ₹18.2L MRP', pct: 81, fill: '#605d5d' },
+        { label: 'Sold', right: '1,182 units · ₹9.21L taken', pct: 36, fill: '#ec3013' },
+      ],
+
+      alerts: [
+        { title: '3 variance lines on lot 52109594246', note: 'Manifest says 40, floor counted 37. ₹2,140 of MRP short — file a claim before you publish.', bar: '#ec3013' },
+        { title: '418 units are 90+ days old', note: 'Mostly Home decor from the April lots. Clearance table is ready when you are.', bar: '#ec3013' },
+        { title: 'Blind lot 52111782004 is counting at 0.60×', note: '24 of an unknown total identified. No manifest, so no claim — decide whether to keep buying blind from this seller.', bar: '#ec3013' },
+        { title: 'Kitchen lot 52108641292 came 7 units over', note: 'Free stock at zero cost basis. Its claim window closed, so the 2 short units are absorbed.', bar: '#7d7979' },
+        { title: '622 units counted, never priced', note: 'Kitchen lot 52108641292 is the biggest chunk — 214 units waiting on grades.', bar: '#7d7979' },
+        { title: 'Register 1 drawer over by ₹120', note: 'Since the 11:40 cash sale. Recount at close.', bar: '#7d7979' },
+      ],
+
+      recentSales: [
+        { inv: 'INV-2841', who: 'Walk-in', what: '3 items · Card', amt: '₹2,764' },
+        { inv: 'INV-2840', who: 'Meera Joshi', what: '1 item · UPI', amt: '₹6,944' },
+        { inv: 'INV-2839', who: 'Walk-in', what: '5 items · Cash', amt: '₹3,180' },
+        { inv: 'INV-2838', who: 'Rakesh V.', what: '2 items · UPI', amt: '₹1,624' },
+        { inv: 'INV-2837', who: 'Walk-in', what: '1 item · Cash', amt: '₹899' },
+      ],
+
+      intakeSteps: steps,
+      lotId: L.id, lotReceived: L.received, lotBay: L.bay, lotLine: L.line,
+      lotStats, lotHasManifest: !blind, lotBlind: blind,
+      lotTabs: Object.keys(LOT_DATA).map(k => {
+        const d = LOT_DATA[k], on = k === this.state.lot;
+        return {
+          id: d.id, badge: d.badge, sub: d.sub,
+          tag: on && d.tag === 'tag-neutral' ? 'tag-outline' : d.tag,
+          onClick: this.pickLot(k),
+          bg: on ? '#eae9e9' : 'transparent',
+          fg: on ? '#201e1d' : '#605d5d',
+          bar: on ? '#ec3013' : 'transparent',
+        };
+      }),
+      reconCells: blind ? [] : [
+        { k: 'Matched the manifest', v: String(L.matched), color: '#201e1d', note: 'counted = expected' },
+        { k: 'Short', v: String(L.short), color: '#ec3013', note: INR(L.claimMrp) + ' of MRP missing' },
+        { k: 'Over — free units', v: '+' + L.over, color: '#201e1d', note: 'no cost basis, all margin' },
+        { k: 'Claim window', v: L.id === '52108641292' ? 'Closed' : '13 days left', color: L.id === '52108641292' ? '#ec3013' : '#201e1d', note: L.id === '52108641292' ? 'past 15 days — absorb it' : 'file before 17 Aug' },
+      ],
+      lineHeading: blind
+        ? 'Discovered lines · 7 groups, ' + L.counted + ' units counted'
+        : 'Manifest lines · ' + L.skus + ' SKUs, ' + L.mfstUnits + ' units expected',
+      lineFilters: (blind
+        ? [['Identified 18', true], ['Needs MRP 6', false], ['Set aside 3', false]]
+        : [['All ' + L.skus, true], ['Short ' + L.short, false], ['Over ' + L.over, false]]
+      ).map(([label, on]) => ({ label, bg: on ? '#ec3013' : 'transparent', fg: on ? '#f3f2f2' : '#201e1d' })),
+      manifest: L.lines.map(m => {
+        const d = m.counted - m.mfst;
+        return {
+          ...m,
+          mrp: INR(m.mrp), list: INR(m.list),
+          gradeTag: GRADE_TAG[m.grade],
+          done: m.counted >= m.mfst && m.counted > 0,
+          sub: m.extra ? 'Not on the manifest · ' + (m.asin || 'no ASIN') : m.asin,
+          subColor: m.extra ? '#ae1800' : '#7d7979',
+          delta: d === 0 ? '—' : (d > 0 ? '+' + d : String(d)),
+          dTag: d === 0 ? 'tag-neutral' : d > 0 ? 'tag-accent-2' : 'tag-accent',
+        };
+      }),
+      blindLines: L.lines.map((b, i) => ({
+        n: i + 1, name: b.name, qty: b.qty, grade: b.grade,
+        sub: b.asin ? b.asin + ' · looked up from Amazon listing' : 'no barcode — priced by hand',
+        nameColor: b.mrp ? '#201e1d' : '#ae1800',
+        src: b.src,
+        srcTag: b.src === 'Barcode' ? 'tag-neutral' : b.src === 'Photo match' ? 'tag-accent-2' : 'tag-accent',
+        mrp: b.mrp ? INR(b.mrp) : 'set by hand',
+        list: b.list ? INR(b.list) : '—',
+        gradeTag: GRADE_TAG[b.grade],
+      })),
+      ruleNote: blind
+        ? 'With no manifest MRP, the rule prices off the MRP we look up per barcode. Six units have no readable label — set those by hand before publishing.'
+        : 'Every counted unit gets a list price from its grade. Over-shipped units carry zero cost, so they price the same but earn full margin.',
+      lotMath: blind
+        ? [
+          { k: 'Counted so far', v: String(L.counted), color: '#201e1d' },
+          { k: 'MRP identified', v: INR(L.foundMrp), color: '#201e1d' },
+          { k: 'Cost / unit (provisional)', v: INR(L.paid / L.counted), color: '#ec3013' },
+          { k: 'Projected retail', v: INR(L.retail), color: '#201e1d' },
+          { k: 'Recovery at this count', v: L.rec.toFixed(2) + '×', color: '#ae1800' },
+        ]
+        : [
+          { k: 'Counted units', v: L.counted + ' / ' + L.mfstUnits, color: '#201e1d' },
+          { k: 'Short / over', v: '−' + L.short + ' / +' + L.over, color: '#ec3013' },
+          { k: 'Effective cost / unit', v: INR(L.paid / L.counted), color: '#201e1d' },
+          { k: 'Projected retail', v: INR(L.retail), color: '#201e1d' },
+          { k: 'Projected recovery', v: L.rec.toFixed(2) + '×', color: '#ec3013' },
+          { k: 'Break-even units', v: String(L.be), color: '#201e1d' },
+        ],
+      publishLabel: 'Publish ' + L.counted + ' units to floor',
+      publishNote: blind
+        ? 'A blind lot has no seller to claim against. Recovery sits at 0.60× on what is counted so far — keep counting before you judge the buy.'
+        : L.short > 0 && L.id !== '52108641292'
+          ? L.short + ' lines came up short. Publishing files a claim for ' + INR(L.claimMrp) + ' of MRP against the seller.'
+          : 'The claim window closed on 7 Aug, so the 2 short units are absorbed. The 7 extra units enter stock at zero cost.',
+
+      gradeRules: [
+        { grade: 'A', tag: 'tag-neutral', desc: 'Sealed, manifest-perfect', pct: '48%' },
+        { grade: 'B', tag: 'tag-accent-2', desc: 'Open box, all parts', pct: '38%' },
+        { grade: 'C', tag: 'tag-accent', desc: 'Tested, cosmetic marks', pct: '26%' },
+      ],
+
+      inventory: INVENTORY.map(i => {
+        const margin = Math.round(((i.price - i.mrp * 0.3) / i.price) * 100);
+        const days = parseInt(i.age, 10);
+        return {
+          ...i,
+          mrp: INR(i.mrp), price: INR(i.price),
+          gradeTag: GRADE_TAG[i.grade],
+          margin: margin + '%',
+          marginColor: margin >= 40 ? '#201e1d' : '#ae1800',
+          age: i.age + (days > agingDays ? ' · aging' : ''),
+          ageColor: days > agingDays ? '#ec3013' : '#7d7979',
+          onClick: this.go('item'),
+        };
+      }),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
