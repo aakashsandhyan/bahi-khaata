@@ -17,15 +17,6 @@ const EMPTY_FORM = {
   notes: '',
 }
 
-const inputStyle = {
-  width: '100%',
-  padding: '8px',
-  border: '1px solid var(--color-divider)',
-  borderRadius: 'var(--radius-md)',
-  fontSize: '14px',
-  fontFamily: 'inherit',
-} as const
-
 export function Suppliers() {
   const [list, setList] = useState<Supplier[] | null>(null)
   const [search, setSearch] = useState('')
@@ -199,7 +190,7 @@ export function Suppliers() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name or GSTIN"
-          style={{ ...inputStyle, maxWidth: '320px' }}
+          className="input" style={{ maxWidth: '320px' }}
         />
         <label style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center', fontSize: '14px', color: 'var(--color-neutral-700)' }}>
           <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
@@ -241,22 +232,22 @@ export function Suppliers() {
           <div className="modal-header">{editingId ? 'Edit Supplier' : 'Add Supplier'}</div>
           <div className="modal-body">
             <FormRow label="Name" required>
-              <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Supplier name" style={inputStyle} />
+              <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Supplier name" className="input" />
             </FormRow>
             <FormRow label="GSTIN">
-              <input type="text" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} placeholder="15-character GSTIN (optional)" style={inputStyle} />
+              <input type="text" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} placeholder="15-character GSTIN (optional)" className="input" />
             </FormRow>
             <FormRow label="Phone">
-              <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Optional" style={inputStyle} />
+              <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Optional" className="input" />
             </FormRow>
             <FormRow label="Address">
-              <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Optional" style={inputStyle} />
+              <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Optional" className="input" />
             </FormRow>
             <FormRow label="Contact person">
-              <input type="text" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Optional" style={inputStyle} />
+              <input type="text" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Optional" className="input" />
             </FormRow>
             <FormRow label="Notes">
-              <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional" style={inputStyle} />
+              <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional" className="input" />
             </FormRow>
           </div>
           <div className="modal-footer">
