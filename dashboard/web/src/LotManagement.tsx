@@ -168,8 +168,8 @@ export function LotManagement() {
                       </div>
                       {lot.expected > 0 && (
                         <>
-                          <div style={{ height: '4px', background: 'var(--color-neutral-200)', borderRadius: '2px', marginBottom: 'var(--space-2)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-accent)', borderRadius: '2px' }} />
+                          <div style={{ height: '4px', background: 'var(--color-neutral-200)', marginBottom: 'var(--space-2)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-accent)' }} />
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--color-neutral-700)' }}>
                             {done}/{lot.expected} boxes

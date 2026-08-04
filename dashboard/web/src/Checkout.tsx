@@ -105,7 +105,7 @@ export function Checkout() {
           </div>
 
           {cart.savingPaise > 0 && (
-            <div className="till-saved">💰 You saved {rupees(cart.savingPaise)}</div>
+            <div className="till-saved">You saved {rupees(cart.savingPaise)}</div>
           )}
 
           <div className="till-actions">

@@ -345,13 +345,13 @@ export function Receiving() {
 
           <div className="button-group" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             <button className="btn-primary" onClick={receiveBox} style={{ flex: 1 }}>
-              📦 Receive
+              Receive
             </button>
             <button className="btn-warn" onClick={markNotReceived} style={{ flex: 1 }}>
               ✗ Not Received
             </button>
             <button className="btn-warn" onClick={rejectBox} style={{ flex: 1 }}>
-              📦 Damaged
+              Damaged
             </button>
           </div>
         </>
@@ -387,7 +387,7 @@ export function Receiving() {
                             ? 'var(--color-neutral-800)'
                             : 'var(--color-accent-700)',
                       padding: '2px 8px',
-                      borderRadius: '10px',
+                      borderRadius: 0,
                       fontSize: '11px',
                       fontWeight: '600',
                     }}

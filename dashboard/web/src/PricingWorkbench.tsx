@@ -298,7 +298,7 @@ function PriceForm({
           }
           style={{ marginBottom: 'var(--space-2)', fontSize: 13 }}
         >
-          🔍 Check price on Amazon
+          Check price on Amazon
         </button>
       )}
 
