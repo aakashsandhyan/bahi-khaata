@@ -282,7 +282,7 @@ function FormRow({ label, required, children }: { label: string; required?: bool
   return (
     <div style={{ marginBottom: 'var(--space-3)' }}>
       <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>
-        {label}{required && <span style={{ color: 'var(--stop, #c0392b)' }}> *</span>}
+        {label}{required && <span style={{ color: 'var(--color-accent-700)' }}> *</span>}
       </label>
       {children}
     </div>

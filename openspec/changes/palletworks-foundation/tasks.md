@@ -21,20 +21,20 @@
 
 ## 4. Screen sweep — Operations
 
-- [ ] 4.1 Receiving: lot picker, box list, state badges as `tag` variants, progress counter styling
-- [ ] 4.2 Unpacking: two-column layout with dividers, recent rail as bordered list, condition/issue grids on `seg`/`tag`, floating pane restyle
-- [ ] 4.3 Prep: backlog/review/extras modes, state mover buttons, tags
-- [ ] 4.4 Pricing + PricingWorkbench: category rules, MRP confirm, per-item flow; KPI-strip treatment where counters already exist
-- [ ] 4.5 Lots (+ LotReconcile): lot list, create form, reconcile table
-- [ ] 4.6 Review queue: capture cards, assign controls, awaiting-labels section
-- [ ] 4.7 Capture (phone): tokens + form classes on existing stacked layout
+- [x] 4.1 Receiving: lot picker, box list, state badges as `tag` variants, progress counter styling
+- [x] 4.2 Unpacking: two-column layout with dividers, recent rail as bordered list, condition/issue grids on `seg`/`tag`, floating pane restyle
+- [x] 4.3 Prep: backlog/review/extras modes, state mover buttons, tags
+- [x] 4.4 Pricing + PricingWorkbench: category rules, MRP confirm, per-item flow; KPI-strip treatment where counters already exist
+- [x] 4.5 Lots (+ LotReconcile): lot list, create form, reconcile table
+- [x] 4.6 Review queue: capture cards, assign controls, awaiting-labels section
+- [x] 4.7 Capture (phone): tokens + form classes on existing stacked layout
 
 ## 5. Screen sweep — Back office
 
-- [ ] 5.1 Catalog (+ ProductCountPane): dense table with tag chips, detail panel, counting grid
-- [ ] 5.2 Suppliers: table + CRUD form + lot history
-- [ ] 5.3 Printer config: form + test-print section
-- [ ] 5.4 Shared components (`QtyInput`, `BulkPrint`): design-system controls; commit remaining sweep
+- [x] 5.1 Catalog (+ ProductCountPane): dense table with tag chips, detail panel, counting grid
+- [x] 5.2 Suppliers: table + CRUD form + lot history
+- [x] 5.3 Printer config: form + test-print section
+- [x] 5.4 Shared components (`QtyInput`, `BulkPrint`): design-system controls; commit remaining sweep
 
 ## 6. e2e harness
 
@@ -62,6 +62,6 @@
 
 ## 8. Verify & finish
 
-- [ ] 8.1 Grep-audit spec scenarios: no retired palette/tokens anywhere; no external font request; radii zero
-- [ ] 8.2 Manual walk-through of all screens at desktop + 760px + phone width; fix visual fallout
-- [ ] 8.3 `npm run e2e` green + backend `mvn test` green; update change tasks checkboxes; ready for review/PR
+- [x] 8.1 Grep-audit spec scenarios: no retired palette/tokens anywhere; no external font request; radii zero
+- [x] 8.2 Manual walk-through of all screens at desktop + 760px + phone width; fix visual fallout
+- [x] 8.3 `npm run e2e` green + backend `mvn test` green; update change tasks checkboxes; ready for review/PR

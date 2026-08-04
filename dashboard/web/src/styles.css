@@ -175,7 +175,7 @@ button:disabled { opacity: 0.45; cursor: default; background: transparent; }
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 .input,
-input[type='text'], input[type='number'], input[type='tel'], input[type='date'],
+input:not([type]), input[type='text'], input[type='number'], input[type='tel'], input[type='date'],
 select, textarea {
   min-height: 36px;
   padding: 6px 10px;
@@ -188,7 +188,7 @@ select, textarea {
   border-radius: var(--radius-md);
 }
 .input:hover,
-input[type='text']:hover, input[type='number']:hover, select:hover, textarea:hover {
+input:not([type]):hover, input[type='text']:hover, input[type='number']:hover, select:hover, textarea:hover {
   border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
 }
 .input:focus-visible,
