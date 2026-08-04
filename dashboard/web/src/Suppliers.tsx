@@ -187,8 +187,7 @@ export function Suppliers() {
   // --- list view ---
   return (
     <div className="suppliers">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-        <h1>Suppliers</h1>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-4)' }}>
         <button onClick={openCreate} className="btn-primary">+ Add Supplier</button>
       </div>
 

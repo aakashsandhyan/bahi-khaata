@@ -112,7 +112,6 @@ export function Catalog() {
   return (
     <div className="page">
       <header>
-        <h1>Catalog</h1>
         <p className="sub">
           Every product the shop knows of, whether the goods have been laid hands on yet, and
           whether it carries a price. On paper is the gap to close — a marketplace reference with

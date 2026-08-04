@@ -749,6 +749,11 @@ tr.damaged { background: var(--color-accent-2-100); }
 .receiving { max-width: 560px; margin: 0 auto; padding: var(--space-4); }
 
 /* ============================================================================
+   Suppliers (desktop admin)
+   ============================================================================ */
+.suppliers { max-width: 900px; margin: 0 auto; padding: var(--space-6); }
+
+/* ============================================================================
    Lot Management (create + manage lots)
    ============================================================================ */
 .lot-management { max-width: 560px; margin: 0 auto; padding: var(--space-4); }

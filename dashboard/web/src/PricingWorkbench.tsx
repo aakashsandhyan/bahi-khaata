@@ -94,7 +94,6 @@ export function PricingWorkbench() {
 
   return (
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
-      <h1>Pricing</h1>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
         <label style={{ fontSize: 13, fontWeight: 600 }}>Operator</label>

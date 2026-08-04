@@ -27,7 +27,6 @@ export function ReviewQueue() {
 
   return (
     <div className="pad" style={{ maxWidth: 760, margin: '0 auto' }}>
-      <h1>Review</h1>
 
       <AwaitingLabels />
 
