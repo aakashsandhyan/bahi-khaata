@@ -76,16 +76,16 @@ export function LotManagement() {
 
   return (
     <div className="lot-management">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s4)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <h1>Lot Management</h1>
         <button
           onClick={() => setShowCreateModal(true)}
           style={{
             padding: '8px 16px',
-            background: 'var(--brand)',
+            background: 'var(--color-accent)',
             color: 'white',
             border: 'none',
-            borderRadius: 'var(--r2)',
+            borderRadius: 'var(--radius-md)',
             cursor: 'pointer',
             fontWeight: 600,
             fontSize: '14px',
@@ -103,17 +103,17 @@ export function LotManagement() {
         <p>No lots yet.</p>
       ) : (
         <>
-          <div className="tab-group" style={{ display: 'flex', gap: 'var(--s2)', marginBottom: 'var(--s3)', borderBottom: '1px solid var(--line-soft)' }}>
+          <div className="tab-group" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', borderBottom: '1px solid var(--color-neutral-200)' }}>
             <button
               onClick={() => setState('in-progress')}
               style={{
                 padding: '8px 16px',
-                borderBottom: state === 'in-progress' ? '2px solid var(--brand)' : 'none',
+                borderBottom: state === 'in-progress' ? '2px solid var(--color-accent)' : 'none',
                 background: 'transparent',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: state === 'in-progress' ? '600' : '400',
-                color: state === 'in-progress' ? 'var(--brand)' : 'var(--ink-faint)',
+                color: state === 'in-progress' ? 'var(--color-accent)' : 'var(--color-neutral-500)',
               }}
             >
               In Progress ({inProgress.length})
@@ -122,12 +122,12 @@ export function LotManagement() {
               onClick={() => setState('complete')}
               style={{
                 padding: '8px 16px',
-                borderBottom: state === 'complete' ? '2px solid var(--brand)' : 'none',
+                borderBottom: state === 'complete' ? '2px solid var(--color-accent)' : 'none',
                 background: 'transparent',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: state === 'complete' ? '600' : '400',
-                color: state === 'complete' ? 'var(--brand)' : 'var(--ink-faint)',
+                color: state === 'complete' ? 'var(--color-accent)' : 'var(--color-neutral-500)',
               }}
             >
               Complete ({complete.length})
@@ -135,7 +135,7 @@ export function LotManagement() {
           </div>
 
           {filtered.length === 0 ? (
-            <p style={{ color: 'var(--ink-faint)' }}>No lots in this category.</p>
+            <p style={{ color: 'var(--color-neutral-500)' }}>No lots in this category.</p>
           ) : (
             <div className="overview-cards">
               {filtered.map((lot) => {
@@ -145,19 +145,19 @@ export function LotManagement() {
                   <div key={lot.id} className="ov">
                     <div
                       style={{
-                        padding: 'var(--s3)',
-                        borderRadius: 'var(--r1)',
-                        background: 'var(--card)',
-                        border: '1px solid var(--line)',
+                        padding: 'var(--space-3)',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-divider)',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--s2)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--space-2)' }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 600, marginBottom: '2px' }}>
                             {lot.supplier}
-                            {lot.isManual && <span style={{ marginLeft: 'var(--s2)', fontSize: '12px', color: 'var(--ink-faint)' }}>(M)</span>}
+                            {lot.isManual && <span style={{ marginLeft: 'var(--space-2)', fontSize: '12px', color: 'var(--color-neutral-500)' }}>(M)</span>}
                           </div>
-                          <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--color-neutral-500)' }}>
                             {lot.receivedOn}
                             {lot.categoryCode && <span> · {lot.categoryCode}</span>}
                           </div>
@@ -168,10 +168,10 @@ export function LotManagement() {
                       </div>
                       {lot.expected > 0 && (
                         <>
-                          <div style={{ height: '4px', background: 'var(--line-soft)', borderRadius: '2px', marginBottom: 'var(--s2)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--brand)', borderRadius: '2px' }} />
+                          <div style={{ height: '4px', background: 'var(--color-neutral-200)', borderRadius: '2px', marginBottom: 'var(--space-2)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-accent)', borderRadius: '2px' }} />
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--color-neutral-700)' }}>
                             {done}/{lot.expected} boxes
                           </div>
                         </>
@@ -190,16 +190,16 @@ export function LotManagement() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">Create Lot</div>
             <div className="modal-body">
-              <div style={{ marginBottom: 'var(--s3)' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Supplier</label>
+              <div style={{ marginBottom: 'var(--space-3)' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Supplier</label>
                 <select
                   value={formData.supplierId}
                   onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r1)',
+                    border: '1px solid var(--color-divider)',
+                    borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
@@ -213,8 +213,8 @@ export function LotManagement() {
                 </select>
               </div>
 
-              <div style={{ marginBottom: 'var(--s3)' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Received On</label>
+              <div style={{ marginBottom: 'var(--space-3)' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Received On</label>
                 <input
                   type="date"
                   value={formData.receivedOn}
@@ -222,16 +222,16 @@ export function LotManagement() {
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r1)',
+                    border: '1px solid var(--color-divider)',
+                    borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
                 />
               </div>
 
-              <div style={{ marginBottom: 'var(--s3)' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Amount Paid (₹)</label>
+              <div style={{ marginBottom: 'var(--space-3)' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Amount Paid (₹)</label>
                 <input
                   type="number"
                   value={formData.amountPaidPaise}
@@ -240,24 +240,24 @@ export function LotManagement() {
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r1)',
+                    border: '1px solid var(--color-divider)',
+                    borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
                 />
               </div>
 
-              <div style={{ marginBottom: 'var(--s3)' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Type</label>
+              <div style={{ marginBottom: 'var(--space-3)' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Type</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r1)',
+                    border: '1px solid var(--color-divider)',
+                    borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
@@ -273,9 +273,9 @@ export function LotManagement() {
                 onClick={() => setShowCreateModal(false)}
                 style={{
                   padding: '8px 16px',
-                  background: 'var(--line-soft)',
+                  background: 'var(--color-neutral-200)',
                   border: 'none',
-                  borderRadius: 'var(--r1)',
+                  borderRadius: 'var(--radius-md)',
                   cursor: 'pointer',
                   fontSize: '14px',
                 }}
@@ -286,10 +286,10 @@ export function LotManagement() {
                 onClick={handleCreateLot}
                 style={{
                   padding: '8px 16px',
-                  background: 'var(--brand)',
+                  background: 'var(--color-accent)',
                   color: 'white',
                   border: 'none',
-                  borderRadius: 'var(--r1)',
+                  borderRadius: 'var(--radius-md)',
                   cursor: 'pointer',
                   fontWeight: 600,
                   fontSize: '14px',

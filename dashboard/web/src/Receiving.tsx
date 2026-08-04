@@ -142,17 +142,17 @@ export function Receiving() {
           <p>No open lots to receive.</p>
         ) : (
           <>
-            <div className="tab-group" style={{ display: 'flex', gap: 'var(--s2)', marginBottom: 'var(--s3)', borderBottom: '1px solid var(--line-soft)' }}>
+            <div className="tab-group" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', borderBottom: '1px solid var(--color-neutral-200)' }}>
               <button
                 onClick={() => setState('in-progress')}
                 style={{
                   padding: '8px 16px',
-                  borderBottom: state === 'in-progress' ? '2px solid var(--brand)' : 'none',
+                  borderBottom: state === 'in-progress' ? '2px solid var(--color-accent)' : 'none',
                   background: 'transparent',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: state === 'in-progress' ? '600' : '400',
-                  color: state === 'in-progress' ? 'var(--brand)' : 'var(--ink-faint)',
+                  color: state === 'in-progress' ? 'var(--color-accent)' : 'var(--color-neutral-500)',
                 }}
               >
                 In Progress ({inProgress.length})
@@ -161,12 +161,12 @@ export function Receiving() {
                 onClick={() => setState('complete')}
                 style={{
                   padding: '8px 16px',
-                  borderBottom: state === 'complete' ? '2px solid var(--brand)' : 'none',
+                  borderBottom: state === 'complete' ? '2px solid var(--color-accent)' : 'none',
                   background: 'transparent',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: state === 'complete' ? '600' : '400',
-                  color: state === 'complete' ? 'var(--brand)' : 'var(--ink-faint)',
+                  color: state === 'complete' ? 'var(--color-accent)' : 'var(--color-neutral-500)',
                 }}
               >
                 Complete ({complete.length})
@@ -174,7 +174,7 @@ export function Receiving() {
             </div>
 
             {filtered.length === 0 ? (
-              <p style={{ color: 'var(--ink-faint)' }}>No lots in this category.</p>
+              <p style={{ color: 'var(--color-neutral-500)' }}>No lots in this category.</p>
             ) : (
               <div className="overview-cards">
                 {filtered.map((lot) => {
@@ -186,14 +186,14 @@ export function Receiving() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="ov-name">
                             {lot.supplier}
-                            {lot.isManual && <span style={{ marginLeft: 'var(--s2)', fontSize: '12px', color: 'var(--ink-faint)' }}>(M)</span>}
+                            {lot.isManual && <span style={{ marginLeft: 'var(--space-2)', fontSize: '12px', color: 'var(--color-neutral-500)' }}>(M)</span>}
                           </div>
                           <div className="ov-stat">{lot.receivedOn}</div>
                           <div className="ov-bar">
                             <i style={{ width: `${pct}%` }} />
                           </div>
                         </div>
-                        <div style={{ marginLeft: 'var(--s3)', textAlign: 'right', fontSize: '13px' }}>
+                        <div style={{ marginLeft: 'var(--space-3)', textAlign: 'right', fontSize: '13px' }}>
                           {lot.isManual ? `${done} products` : `${done}/${lot.expected}`}
                         </div>
                       </div>
@@ -212,7 +212,7 @@ export function Receiving() {
     <div className="receiving">
       <h1>
         {selectedLot.supplier}
-        {selectedLot.isManual && <span style={{ marginLeft: 'var(--s2)', fontSize: '14px', color: 'var(--ink-faint)' }}>(Manual)</span>}
+        {selectedLot.isManual && <span style={{ marginLeft: 'var(--space-2)', fontSize: '14px', color: 'var(--color-neutral-500)' }}>(Manual)</span>}
         <button
           className="back"
           onClick={closeLot}
@@ -227,14 +227,14 @@ export function Receiving() {
       {selectedLot.isManual ? (
         <>
           {boxes && (
-            <div style={{ fontSize: '15px', marginBottom: 'var(--s3)', color: 'var(--brand)' }}>
+            <div style={{ fontSize: '15px', marginBottom: 'var(--space-3)', color: 'var(--color-accent)' }}>
               {boxes.counts.received} products, {boxes.counts.received * productForm.quantity || 0} units
             </div>
           )}
 
-          <div style={{ marginBottom: 'var(--s3)', padding: 'var(--s3)', background: 'var(--line-soft)', borderRadius: 'var(--r1)' }}>
-            <div style={{ marginBottom: 'var(--s2)' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Product Name *</label>
+          <div style={{ marginBottom: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--color-neutral-200)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ marginBottom: 'var(--space-2)' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Product Name *</label>
               <input
                 type="text"
                 placeholder="e.g., Face Cream"
@@ -243,25 +243,25 @@ export function Receiving() {
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid var(--line)',
-                  borderRadius: 'var(--r1)',
+                  border: '1px solid var(--color-divider)',
+                  borderRadius: 'var(--radius-md)',
                   fontSize: '14px',
                   fontFamily: 'inherit',
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: 'var(--s2)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s2)' }}>
+            <div style={{ marginBottom: 'var(--space-2)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Category *</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Category *</label>
                 <select
                   value={productForm.categoryCode}
                   onChange={(e) => setProductForm({ ...productForm, categoryCode: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r1)',
+                    border: '1px solid var(--color-divider)',
+                    borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
@@ -273,7 +273,7 @@ export function Receiving() {
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Qty *</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Qty *</label>
                 <QtyInput
                   min={1}
                   value={productForm.quantity}
@@ -281,8 +281,8 @@ export function Receiving() {
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r1)',
+                    border: '1px solid var(--color-divider)',
+                    borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontFamily: 'inherit',
                   }}
@@ -290,8 +290,8 @@ export function Receiving() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 'var(--s2)' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>Est. Cost (₹)</label>
+            <div style={{ marginBottom: 'var(--space-2)' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Est. Cost (₹)</label>
               <input
                 type="number"
                 placeholder="Optional"
@@ -300,8 +300,8 @@ export function Receiving() {
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid var(--line)',
-                  borderRadius: 'var(--r1)',
+                  border: '1px solid var(--color-divider)',
+                  borderRadius: 'var(--radius-md)',
                   fontSize: '14px',
                   fontFamily: 'inherit',
                 }}
@@ -313,10 +313,10 @@ export function Receiving() {
               style={{
                 width: '100%',
                 padding: '8px',
-                background: 'var(--brand)',
+                background: 'var(--color-accent)',
                 color: 'white',
                 border: 'none',
-                borderRadius: 'var(--r1)',
+                borderRadius: 'var(--radius-md)',
                 cursor: 'pointer',
                 fontWeight: 600,
               }}
@@ -328,7 +328,7 @@ export function Receiving() {
       ) : (
         <>
           {boxes && (
-            <div style={{ fontSize: '15px', marginBottom: 'var(--s3)', color: 'var(--brand)' }}>
+            <div style={{ fontSize: '15px', marginBottom: 'var(--space-3)', color: 'var(--color-accent)' }}>
               {boxes.counts.received + boxes.counts.unpacked + boxes.counts.rejected + boxes.counts.notReceived} /{' '}
               {boxes.counts.expected} boxes
             </div>
@@ -343,7 +343,7 @@ export function Receiving() {
             autoFocus
           />
 
-          <div className="button-group" style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
+          <div className="button-group" style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             <button className="btn-primary" onClick={receiveBox} style={{ flex: 1 }}>
               📦 Receive
             </button>
@@ -358,7 +358,7 @@ export function Receiving() {
       )}
 
       {boxes && (
-        <div className="items" style={{ marginTop: 'var(--s3)' }}>
+        <div className="items" style={{ marginTop: 'var(--space-3)' }}>
           {boxes.boxes.map((box) => (
             <div key={box.manifestCartonId}>
               <div className="item">
@@ -376,16 +376,16 @@ export function Receiving() {
                     style={{
                       background:
                         box.state === 'EXPECTED'
-                          ? 'var(--line-soft)'
+                          ? 'var(--color-neutral-200)'
                           : box.state === 'RECEIVED' || box.state === 'UNPACKING'
-                            ? 'var(--good-tint)'
-                            : 'var(--stop-tint)',
+                            ? 'var(--color-neutral-100)'
+                            : 'var(--color-accent-100)',
                       color:
                         box.state === 'EXPECTED'
-                          ? 'var(--ink-faint)'
+                          ? 'var(--color-neutral-500)'
                           : box.state === 'RECEIVED' || box.state === 'UNPACKING'
-                            ? 'var(--good)'
-                            : 'var(--stop)',
+                            ? 'var(--color-neutral-800)'
+                            : 'var(--color-accent-700)',
                       padding: '2px 8px',
                       borderRadius: '10px',
                       fontSize: '11px',
@@ -402,7 +402,7 @@ export function Receiving() {
       )}
 
       {boxes && boxes.allTerminal && (
-        <div className="actions" style={{ marginTop: 'var(--s3)' }}>
+        <div className="actions" style={{ marginTop: 'var(--space-3)' }}>
           <button className="btn-primary" onClick={closeLot} style={{ flex: 1 }}>
             Done
           </button>

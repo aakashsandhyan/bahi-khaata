@@ -31,12 +31,12 @@ export function Reprint() {
   return (
     <div className="pad" style={{ maxWidth: 620, margin: '0 auto' }}>
       <h1>Reprint a label</h1>
-      <p style={{ fontSize: 14, color: 'var(--ink-faint)', marginTop: 0 }}>
+      <p style={{ fontSize: 14, color: 'var(--color-neutral-500)', marginTop: 0 }}>
         Scan any barcode — the shelf BBZ or the original code. No stock is touched.
       </p>
 
       <ScanBox onScan={lookup} />
-      {error && <p className="stop" style={{ marginTop: 'var(--s2)' }}>{error}</p>}
+      {error && <p className="stop" style={{ marginTop: 'var(--space-2)' }}>{error}</p>}
 
       {found && <ReprintCard key={found.barcode} product={found} onDone={() => setFound(null)} />}
     </div>
@@ -91,21 +91,21 @@ function ReprintCard({ product, onDone }: { product: AwaitingLabelProduct; onDon
   }
 
   return (
-    <div style={{ marginTop: 'var(--s3)', padding: 'var(--s3)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
+    <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)' }}>
       <div style={{ fontWeight: 600 }}>{product.name}</div>
       <div style={{ fontSize: 14, marginTop: 4 }}>
         {product.barcode} · {rupees(product.sellingPricePaise)}
         {product.mrpPaise ? ` · MRP ${rupees(product.mrpPaise)}` : ''}
       </div>
 
-      <div style={{ marginTop: 'var(--s3)' }}>
+      <div style={{ marginTop: 'var(--space-3)' }}>
         <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Labels to print</label>
         <QtyInput value={copies} onChange={setCopies} min={1} max={100} style={{ width: '100%', padding: 8 }} />
       </div>
 
-      {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
+      {message && <div style={{ marginTop: 'var(--space-2)', fontSize: 13 }}>{message}</div>}
 
-      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s3)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
         {state === 'ask' && (
           <button className="btn-primary" style={{ flex: 1 }} onClick={queue}>
             Queue {copies} label{copies > 1 ? 's' : ''}

@@ -31,16 +31,16 @@ export function ReviewQueue() {
 
       <AwaitingLabels />
 
-      <h2 style={{ marginTop: 'var(--s4)' }}>Captures to finish</h2>
+      <h2 style={{ marginTop: 'var(--space-4)' }}>Captures to finish</h2>
       {pending.length === 0 ? (
         <p>No captures waiting. The queue is clear.</p>
       ) : (
         pending.map((c) => (
-          <div key={c.id} style={{ border: '1px solid var(--line)', borderRadius: 'var(--r1)', padding: 'var(--s3)', marginBottom: 'var(--s2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+          <div key={c.id} style={{ border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{c.name}</div>
-                <div style={{ fontSize: 13, color: 'var(--ink-faint)' }}>
+                <div style={{ fontSize: 13, color: 'var(--color-neutral-500)' }}>
                   {c.mrpPaise ? `MRP ${rupees(c.mrpPaise)}` : 'no MRP'}{c.description ? ` · ${c.description}` : ''}
                 </div>
               </div>
@@ -104,8 +104,8 @@ function AwaitingLabels() {
   }
 
   return (
-    <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r1)', padding: 'var(--s3)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+    <div style={{ border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
         <h2 style={{ margin: 0, flex: 1 }}>Labels to print</h2>
         {entries.length > 0 && (
           <button className="btn-primary" disabled={sending} onClick={sendAll}>
@@ -114,11 +114,11 @@ function AwaitingLabels() {
         )}
       </div>
 
-      {message && <div style={{ marginTop: 'var(--s2)', fontSize: 13 }}>{message}</div>}
+      {message && <div style={{ marginTop: 'var(--space-2)', fontSize: 13 }}>{message}</div>}
 
       {held > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', marginTop: 'var(--s2)',
-          padding: 'var(--s2) var(--s3)', background: 'var(--line-soft)', borderRadius: 'var(--r1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-2)',
+          padding: 'var(--space-2) var(--space-3)', background: 'var(--color-neutral-200)', borderRadius: 'var(--radius-md)' }}>
           <span style={{ flex: 1, fontSize: 14 }}><b>{held}</b> label{held > 1 ? 's' : ''} held, waiting to pair.</span>
           <button disabled={flushing} onClick={async () => {
             setFlushing(true)
@@ -130,19 +130,19 @@ function AwaitingLabels() {
       )}
 
       {entries.length === 0 ? (
-        <p style={{ color: 'var(--ink-faint)', marginBottom: 0 }}>Nothing waiting — every priced product has its labels.</p>
+        <p style={{ color: 'var(--color-neutral-500)', marginBottom: 0 }}>Nothing waiting — every priced product has its labels.</p>
       ) : (
-        <div style={{ marginTop: 'var(--s2)', maxHeight: 420, overflowY: 'auto' }}>
+        <div style={{ marginTop: 'var(--space-2)', maxHeight: 420, overflowY: 'auto' }}>
           {entries.map((e) => (
-            <div key={e.jobId} style={{ padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
-              <div style={{ display: 'flex', gap: 'var(--s2)', alignItems: 'center' }}>
+            <div key={e.jobId} style={{ padding: '6px 0', borderBottom: '1px solid var(--color-neutral-200)' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                 <span style={{ flex: 1 }}>
                   {e.name}
                   {e.operatorName && (
-                    <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}> — by {e.operatorName}</span>
+                    <span style={{ color: 'var(--color-neutral-500)', fontSize: 12 }}> — by {e.operatorName}</span>
                   )}
                 </span>
-                <span style={{ color: 'var(--ink-faint)' }}>{rupees(e.sellingPricePaise)}</span>
+                <span style={{ color: 'var(--color-neutral-500)' }}>{rupees(e.sellingPricePaise)}</span>
                 <span style={{ minWidth: 44, textAlign: 'right' }}>×{e.copies}</span>
                 <button className="btn-primary" onClick={() => bulkPrint.sendReviewOne(e.jobId).then(refresh).catch(() => {})}>
                   Send
@@ -236,11 +236,11 @@ function ReviewEditForm({
 
   const field: React.CSSProperties = { width: '100%', padding: 8 }
   return (
-    <div style={{ marginTop: 'var(--s2)', padding: 'var(--s3)', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 'var(--r1)' }}>
+    <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--color-surface)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)' }}>
       <label style={{ fontSize: 12, fontWeight: 600 }}>Name</label>
       <input value={name} onChange={(e) => setName(e.target.value)} style={field} />
 
-      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: 12, fontWeight: 600 }}>Category</label>
           <select value={category} onChange={(e) => setCategory(e.target.value)} style={field}>
@@ -253,7 +253,7 @@ function ReviewEditForm({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: 12, fontWeight: 600 }}>MRP (optional)</label>
           <input value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="₹" style={field} />
@@ -264,11 +264,11 @@ function ReviewEditForm({
         </div>
       </div>
       {percentOff != null && (
-        <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4 }}>Label will show SAVE {percentOff}%.</div>
+        <div style={{ fontSize: 12, color: 'var(--color-neutral-500)', marginTop: 4 }}>Label will show SAVE {percentOff}%.</div>
       )}
 
-      {error && <p className="stop" style={{ marginTop: 'var(--s2)' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 'var(--s2)', marginTop: 'var(--s2)' }}>
+      {error && <p className="stop" style={{ marginTop: 'var(--space-2)' }}>{error}</p>}
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
         <button className="btn-primary" style={{ flex: 1 }} disabled={saving} onClick={save}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>
@@ -316,7 +316,7 @@ function ApproveForm({ capture, lots, onDone }: { capture: CaptureSummary; lots:
   }
 
   return (
-    <div style={{ marginTop: 'var(--s2)', display: 'grid', gap: 'var(--s2)' }}>
+    <div style={{ marginTop: 'var(--space-2)', display: 'grid', gap: 'var(--space-2)' }}>
       <select value={lotId} onChange={(e) => setLotId(e.target.value)} style={{ padding: 8 }}>
         <option value="">Choose a lot…</option>
         {lots.map((l) => <option key={l.lotId} value={l.lotId}>{l.supplier} · {l.receivedOn ?? '—'}</option>)}
@@ -325,7 +325,7 @@ function ApproveForm({ capture, lots, onDone }: { capture: CaptureSummary; lots:
         <option value="">Category…</option>
         {categories.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
-      <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <select value={condition} onChange={(e) => setCondition(e.target.value)} style={{ padding: 8, flex: 1 }}>
           {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -334,7 +334,7 @@ function ApproveForm({ capture, lots, onDone }: { capture: CaptureSummary; lots:
       <input value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="MRP (optional)" style={{ padding: 8 }} />
       <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Selling price" style={{ padding: 8 }} />
       {error && <p className="stop">{error}</p>}
-      <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <button className="btn-primary" style={{ flex: 1 }} onClick={approve}>Approve → shelf</button>
         <button style={{ flex: 1 }} onClick={onDone}>Cancel</button>
       </div>

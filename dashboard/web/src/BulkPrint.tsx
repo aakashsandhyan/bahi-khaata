@@ -54,7 +54,7 @@ export function BulkPrint() {
         <p>Every priced product has a label. Nothing to print.</p>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 'var(--s2)', margin: 'var(--s2) 0' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', margin: 'var(--space-2) 0' }}>
             <button onClick={() => setChosen(new Set(items.map((i) => i.productId)))}>Select all</button>
             <button onClick={() => setChosen(new Set())}>Clear</button>
             <button className="btn-primary" style={{ marginLeft: 'auto' }} disabled={!chosen.size || printing}
@@ -65,10 +65,10 @@ export function BulkPrint() {
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {items.map((i) => (
               <li key={i.productId}
-                style={{ display: 'flex', gap: 'var(--s2)', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--line-soft)' }}>
+                style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--color-neutral-200)' }}>
                 <input type="checkbox" checked={chosen.has(i.productId)} onChange={() => toggle(i.productId)} />
                 <span style={{ flex: 1 }}>{i.name}</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--ink-faint)' }}>{i.barcode}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--color-neutral-500)' }}>{i.barcode}</span>
                 <span>{rupees(i.sellingPricePaise)}</span>
               </li>
             ))}

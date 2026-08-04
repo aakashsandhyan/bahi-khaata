@@ -20,8 +20,8 @@ const EMPTY_FORM = {
 const inputStyle = {
   width: '100%',
   padding: '8px',
-  border: '1px solid var(--line)',
-  borderRadius: 'var(--r1)',
+  border: '1px solid var(--color-divider)',
+  borderRadius: 'var(--radius-md)',
   fontSize: '14px',
   fontFamily: 'inherit',
 } as const
@@ -133,12 +133,12 @@ export function Suppliers() {
     return (
       <div className="suppliers">
         <button onClick={() => setSelected(null)} style={linkButton}>← All suppliers</button>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'var(--s3) 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'var(--space-3) 0' }}>
           <h1 style={{ margin: 0 }}>
             {selected.name}
-            {!selected.active && <span style={{ marginLeft: 'var(--s2)', fontSize: '13px', color: 'var(--ink-faint)' }}>(inactive)</span>}
+            {!selected.active && <span style={{ marginLeft: 'var(--space-2)', fontSize: '13px', color: 'var(--color-neutral-500)' }}>(inactive)</span>}
           </h1>
-          <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <button onClick={() => openEdit(selected)} style={secondaryButton}>Edit</button>
             <button onClick={() => toggleActive(selected)} style={secondaryButton}>
               {selected.active ? 'Deactivate' : 'Reactivate'}
@@ -148,7 +148,7 @@ export function Suppliers() {
 
         {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 
-        <div style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)', marginBottom: 'var(--s4)' }}>
+        <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', border: '1px solid var(--color-divider)', marginBottom: 'var(--space-4)' }}>
           <Field label="GSTIN" value={selected.gstin} />
           <Field label="Phone" value={selected.phone} />
           <Field label="Address" value={selected.address} />
@@ -160,17 +160,17 @@ export function Suppliers() {
         {selectedLots === null ? (
           <p>Loading lots…</p>
         ) : selectedLots.length === 0 ? (
-          <p style={{ color: 'var(--ink-faint)' }}>No lots from this supplier yet.</p>
+          <p style={{ color: 'var(--color-neutral-500)' }}>No lots from this supplier yet.</p>
         ) : (
           <div className="overview-cards">
             {selectedLots.map((lot) => (
               <div key={lot.id} className="ov">
-                <div style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)' }}>
+                <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', border: '1px solid var(--color-divider)' }}>
                   <div style={{ fontWeight: 600 }}>
                     {lot.categoryCode ? `${lot.categoryCode} · ` : ''}{rupees(lot.amountPaidPaise)}
                   </div>
-                  <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>{lot.receivedOn}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--color-neutral-500)' }}>{lot.receivedOn}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-neutral-700)', marginTop: '2px' }}>
                     {lot.isManual ? 'Manual' : 'Manifest'} · {lot.receivingComplete ? 'Complete' : 'In progress'}
                   </div>
                 </div>
@@ -187,14 +187,14 @@ export function Suppliers() {
   // --- list view ---
   return (
     <div className="suppliers">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s4)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <h1>Suppliers</h1>
         <button onClick={openCreate} style={primaryButton}>+ Add Supplier</button>
       </div>
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 
-      <div style={{ display: 'flex', gap: 'var(--s3)', alignItems: 'center', marginBottom: 'var(--s3)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
         <input
           type="text"
           value={search}
@@ -202,7 +202,7 @@ export function Suppliers() {
           placeholder="Search name or GSTIN"
           style={{ ...inputStyle, maxWidth: '320px' }}
         />
-        <label style={{ display: 'flex', gap: 'var(--s1)', alignItems: 'center', fontSize: '14px', color: 'var(--ink-soft)' }}>
+        <label style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center', fontSize: '14px', color: 'var(--color-neutral-700)' }}>
           <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
           Active only
         </label>
@@ -211,20 +211,20 @@ export function Suppliers() {
       {list === null ? (
         <p>Loading suppliers…</p>
       ) : filtered.length === 0 ? (
-        <p style={{ color: 'var(--ink-faint)' }}>No suppliers{needle ? ' match that search' : ' yet'}.</p>
+        <p style={{ color: 'var(--color-neutral-500)' }}>No suppliers{needle ? ' match that search' : ' yet'}.</p>
       ) : (
         <div className="overview-cards">
           {filtered.map((s) => (
             <div key={s.id} className="ov">
               <div
                 onClick={() => openDetail(s)}
-                style={{ padding: 'var(--s3)', borderRadius: 'var(--r1)', background: 'var(--card)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', border: '1px solid var(--color-divider)', cursor: 'pointer' }}
               >
                 <div style={{ fontWeight: 600, marginBottom: '2px' }}>
                   {s.name}
-                  {!s.active && <span style={{ marginLeft: 'var(--s2)', fontSize: '12px', color: 'var(--ink-faint)' }}>(inactive)</span>}
+                  {!s.active && <span style={{ marginLeft: 'var(--space-2)', fontSize: '12px', color: 'var(--color-neutral-500)' }}>(inactive)</span>}
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--ink-faint)' }}>{s.gstin ?? 'No GSTIN'}</div>
+                <div style={{ fontSize: '13px', color: 'var(--color-neutral-500)' }}>{s.gstin ?? 'No GSTIN'}</div>
               </div>
             </div>
           ))}
@@ -272,8 +272,8 @@ export function Suppliers() {
 
 function Field({ label, value }: { label: string; value: string | null }) {
   return (
-    <div style={{ marginBottom: 'var(--s2)' }}>
-      <span style={{ fontSize: '12px', color: 'var(--ink-faint)' }}>{label}: </span>
+    <div style={{ marginBottom: 'var(--space-2)' }}>
+      <span style={{ fontSize: '12px', color: 'var(--color-neutral-500)' }}>{label}: </span>
       <span style={{ fontSize: '14px' }}>{value ?? '—'}</span>
     </div>
   )
@@ -281,8 +281,8 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 function FormRow({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
-    <div style={{ marginBottom: 'var(--s3)' }}>
-      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)' }}>
+    <div style={{ marginBottom: 'var(--space-3)' }}>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)' }}>
         {label}{required && <span style={{ color: 'var(--stop, #c0392b)' }}> *</span>}
       </label>
       {children}
@@ -301,10 +301,10 @@ function reason(err: unknown, fallback: string): string {
 
 const primaryButton = {
   padding: '8px 16px',
-  background: 'var(--brand)',
+  background: 'var(--color-accent)',
   color: 'white',
   border: 'none',
-  borderRadius: 'var(--r2)',
+  borderRadius: 'var(--radius-md)',
   cursor: 'pointer',
   fontWeight: 600,
   fontSize: '14px',
@@ -312,18 +312,18 @@ const primaryButton = {
 
 const secondaryButton = {
   padding: '8px 16px',
-  background: 'var(--card)',
-  border: '1px solid var(--line)',
-  borderRadius: 'var(--r1)',
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-divider)',
+  borderRadius: 'var(--radius-md)',
   cursor: 'pointer',
   fontSize: '14px',
 } as const
 
 const cancelButton = {
   padding: '8px 16px',
-  background: 'var(--line-soft)',
+  background: 'var(--color-neutral-200)',
   border: 'none',
-  borderRadius: 'var(--r1)',
+  borderRadius: 'var(--radius-md)',
   cursor: 'pointer',
   fontSize: '14px',
 } as const
@@ -331,7 +331,7 @@ const cancelButton = {
 const linkButton = {
   background: 'transparent',
   border: 'none',
-  color: 'var(--brand)',
+  color: 'var(--color-accent)',
   cursor: 'pointer',
   fontSize: '14px',
   padding: 0,

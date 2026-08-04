@@ -25,18 +25,18 @@ export function LotReconcile({ lotId }: { lotId: string }) {
   }
 
   return (
-    <details style={{ marginTop: 'var(--s3)', borderTop: '1px solid var(--line)', paddingTop: 'var(--s2)' }}>
-      <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--ink-faint)' }}>
+    <details style={{ marginTop: 'var(--space-3)', borderTop: '1px solid var(--color-divider)', paddingTop: 'var(--space-2)' }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--color-neutral-500)' }}>
         Reconcile this lot (write off phantom stock)
       </summary>
-      <div style={{ marginTop: 'var(--s2)' }}>
+      <div style={{ marginTop: 'var(--space-2)' }}>
         <button onClick={check}>Check for phantom stock</button>
         {error && <p className="stop">{error}</p>}
         {wroteOff != null && (
           <p className="good">Wrote off {wroteOff} unit(s) as shrinkage.</p>
         )}
         {report && (
-          <div style={{ marginTop: 'var(--s2)' }}>
+          <div style={{ marginTop: 'var(--space-2)' }}>
             {report.totalPhantom === 0 ? (
               <p>No phantom stock — nothing to write off.</p>
             ) : (
