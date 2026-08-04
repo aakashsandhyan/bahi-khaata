@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Dashboard } from './Dashboard'
 import { Checkout } from './Checkout'
 import { Sales } from './Sales'
 import { LotManagement } from './LotManagement'
@@ -29,7 +30,7 @@ export function App() {
   const isPhone = typeof window !== 'undefined' && window.innerWidth <= 760
   const phoneLanding: View =
     typeof window !== 'undefined' && window.location.hash === '#capture' ? 'capture' : 'unpacking'
-  const [view, setView] = useState<View>(isPhone ? phoneLanding : 'checkout')
+  const [view, setView] = useState<View>(isPhone ? phoneLanding : 'dashboard')
   const [drawer, setDrawer] = useState(false)
 
   // Badge the shell when this is the sandbox instance (same app, throwaway DB copy), so nobody
@@ -59,7 +60,8 @@ export function App() {
           {sandbox && <span className="shell-sandbox">SANDBOX</span>}
         </header>
         <main className="shell-content">
-          {view === 'checkout' ? <Checkout />
+          {view === 'dashboard' ? <Dashboard onNavigate={setView} />
+            : view === 'checkout' ? <Checkout />
             : view === 'lots' ? <LotManagement />
             : view === 'receiving' ? <Receiving />
             : view === 'unpacking' ? <Unpacking />

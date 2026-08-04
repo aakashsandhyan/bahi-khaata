@@ -257,6 +257,15 @@ export const sales = {
   reprint: (saleId: string) => post<_SaleView>(`/api/sales/${saleId}/reprint`) as Promise<_SaleView>,
 }
 
+// --- dashboard ---
+// One read-only aggregate call for the whole Dashboard screen.
+
+import type { DashboardView as _DashboardView } from './types'
+
+export const dashboard = {
+  get: () => get<_DashboardView>('/api/dashboard'),
+}
+
 // --- receipt printer + bill settings (admin) ---
 // The second printer (ESC/POS receipts), separate from the label printer above, and the editable
 // text on a bill — the whole GST posture (Bill of Supply vs Tax Invoice) is a settings edit here.
