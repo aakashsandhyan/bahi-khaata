@@ -80,16 +80,7 @@ export function LotManagement() {
         <h1>Lot Management</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          style={{
-            padding: '8px 16px',
-            background: 'var(--color-accent)',
-            color: 'white',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            cursor: 'pointer',
-            fontWeight: 600,
-            fontSize: '14px',
-          }}
+          className="btn-primary"
         >
           + Create Lot
         </button>
@@ -284,16 +275,7 @@ export function LotManagement() {
               </button>
               <button
                 onClick={handleCreateLot}
-                style={{
-                  padding: '8px 16px',
-                  background: 'var(--color-accent)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: '14px',
-                }}
+                className="btn-primary"
               >
                 Create
               </button>

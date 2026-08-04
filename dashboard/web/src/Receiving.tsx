@@ -310,16 +310,7 @@ export function Receiving() {
 
             <button
               onClick={addProductToManualLot}
-              style={{
-                width: '100%',
-                padding: '8px',
-                background: 'var(--color-accent)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
+              className="btn-primary btn-block"
             >
               Add Product
             </button>

@@ -132,15 +132,15 @@ export function Suppliers() {
   if (selected) {
     return (
       <div className="suppliers">
-        <button onClick={() => setSelected(null)} style={linkButton}>← All suppliers</button>
+        <button onClick={() => setSelected(null)} className="btn-ghost">← All suppliers</button>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'var(--space-3) 0' }}>
           <h1 style={{ margin: 0 }}>
             {selected.name}
             {!selected.active && <span style={{ marginLeft: 'var(--space-2)', fontSize: '13px', color: 'var(--color-neutral-500)' }}>(inactive)</span>}
           </h1>
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <button onClick={() => openEdit(selected)} style={secondaryButton}>Edit</button>
-            <button onClick={() => toggleActive(selected)} style={secondaryButton}>
+            <button onClick={() => openEdit(selected)}>Edit</button>
+            <button onClick={() => toggleActive(selected)}>
               {selected.active ? 'Deactivate' : 'Reactivate'}
             </button>
           </div>
@@ -189,7 +189,7 @@ export function Suppliers() {
     <div className="suppliers">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
         <h1>Suppliers</h1>
-        <button onClick={openCreate} style={primaryButton}>+ Add Supplier</button>
+        <button onClick={openCreate} className="btn-primary">+ Add Supplier</button>
       </div>
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
@@ -261,8 +261,8 @@ export function Suppliers() {
             </FormRow>
           </div>
           <div className="modal-footer">
-            <button onClick={() => setShowForm(false)} style={cancelButton}>Cancel</button>
-            <button onClick={save} style={primaryButton}>{editingId ? 'Save' : 'Create'}</button>
+            <button onClick={() => setShowForm(false)}>Cancel</button>
+            <button onClick={save} className="btn-primary">{editingId ? 'Save' : 'Create'}</button>
           </div>
         </div>
       </div>
@@ -299,40 +299,3 @@ function reason(err: unknown, fallback: string): string {
   return err instanceof BackendError ? err.message : fallback
 }
 
-const primaryButton = {
-  padding: '8px 16px',
-  background: 'var(--color-accent)',
-  color: 'white',
-  border: 'none',
-  borderRadius: 'var(--radius-md)',
-  cursor: 'pointer',
-  fontWeight: 600,
-  fontSize: '14px',
-} as const
-
-const secondaryButton = {
-  padding: '8px 16px',
-  background: 'var(--color-surface)',
-  border: '1px solid var(--color-divider)',
-  borderRadius: 'var(--radius-md)',
-  cursor: 'pointer',
-  fontSize: '14px',
-} as const
-
-const cancelButton = {
-  padding: '8px 16px',
-  background: 'var(--color-neutral-200)',
-  border: 'none',
-  borderRadius: 'var(--radius-md)',
-  cursor: 'pointer',
-  fontSize: '14px',
-} as const
-
-const linkButton = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-accent)',
-  cursor: 'pointer',
-  fontSize: '14px',
-  padding: 0,
-} as const
