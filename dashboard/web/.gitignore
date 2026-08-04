@@ -3,3 +3,8 @@ dist
 # Certificates are machine-specific and the leaf key is secret — never commit them.
 certs
 public/rootCA.pem
+
+# Playwright e2e — scratch database and run artifacts, recreated on every run.
+.e2e/
+test-results/
+playwright-report/

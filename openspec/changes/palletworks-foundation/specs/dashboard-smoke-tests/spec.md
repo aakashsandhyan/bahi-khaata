@@ -26,11 +26,15 @@ The suite SHALL contain at least one smoke test for every dashboard screen (Till
 - **THEN** each of the twelve screens has at least one spec exercising render plus one interaction against the real backend
 
 ### Requirement: Printing is impossible under test
-The `e2e` profile MUST disable the label-print poller and all printer sends, and the seeded printer configuration MUST point at an unroutable address, so that no test run can ever transmit data to a physical printer.
+The e2e run MUST make reaching a physical printer impossible through both available layers: the seeded printer configuration MUST have `enabled = 0` (the label-send driver refuses before opening any socket, so queued jobs are never transmitted) AND MUST point at a guaranteed-unroutable address (RFC 5737 TEST-NET), because the admin "Test Print" connectivity check is a separate code path that does not consult the enabled flag. No print job may be seeded in `queued` status.
 
-#### Scenario: Print-adjacent test emits nothing
-- **WHEN** a test exercises a screen that can queue labels or trigger prints
-- **THEN** no network connection to any printer address is attempted by the backend
+#### Scenario: Label sends refuse without connecting
+- **WHEN** a test exercises a screen that can queue labels
+- **THEN** the send driver rejects on the disabled flag and no connection to any printer address is made
+
+#### Scenario: Connectivity test cannot reach a device
+- **WHEN** a test exercises the printer connectivity check
+- **THEN** the only address it can try is TEST-NET-unroutable, and the check times out without reaching any device
 
 ### Requirement: Suite is the pre-deploy gate
 The smoke suite SHALL be treated as a merge and deploy gate: a red suite blocks merging the change and blocks the jar-swap deploy flow.
