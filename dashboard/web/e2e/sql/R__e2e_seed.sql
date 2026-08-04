@@ -295,3 +295,44 @@ VALUES (
 UPDATE receipt_printer_config
 SET address = '203.0.113.1:9101', enabled = 0
 WHERE id = '00000000-0000-0000-0000-000000000002';
+
+-- --- sales (V42) — two completed bills, for the Dashboard's revenue-today tile and Sales screen --
+-- created_at/updated_at MUST be strftime('%Y-%m-%dT%H:%M:%S.000Z','now'), not a fixed literal and
+-- not raw datetime('now'): this is a repeatable migration, re-applied every run against a freshly
+-- recreated database, so a fixed literal would fall out of "today" the day after it was written —
+-- and datetime('now') is space-separated with no 'Z' and no milliseconds, a shape that would never
+-- match the app's ISO-8601-Z strings, so the dashboard's string-range window would silently miss it
+-- and the revenue tile would sit at ₹0 with nothing but the spec's non-zero assertion to catch it
+-- (see design.md D10). Both bills sell the priced kettle (product a) at its seeded price/MRP, so
+-- their figures are computable by hand from constants already in this file.
+INSERT INTO sale (id, bill_no, payment_method, subtotal_paise, saving_paise, tax_paise, total_paise, operator_name, created_at, updated_at)
+VALUES (
+  'e2e00001-0000-4000-8000-000000000081',
+  9001, 'CASH', 99800, 20000, 0, 99800, 'E2E Seed',
+  strftime('%Y-%m-%dT%H:%M:%S.000Z','now'), strftime('%Y-%m-%dT%H:%M:%S.000Z','now')
+);
+
+INSERT INTO sale_line (id, sale_id, product_id, name, barcode, mrp_paise, unit_price_paise, quantity, line_total_paise, saving_paise, created_at, updated_at)
+VALUES (
+  'e2e00001-0000-4000-8000-000000000091',
+  'e2e00001-0000-4000-8000-000000000081',
+  'e2e00001-0000-4000-8000-00000000000a',
+  'E2E Priced Kettle', NULL, 59900, 49900, 2, 99800, 20000,
+  strftime('%Y-%m-%dT%H:%M:%S.000Z','now'), strftime('%Y-%m-%dT%H:%M:%S.000Z','now')
+);
+
+INSERT INTO sale (id, bill_no, payment_method, subtotal_paise, saving_paise, tax_paise, total_paise, operator_name, created_at, updated_at)
+VALUES (
+  'e2e00001-0000-4000-8000-000000000082',
+  9002, 'UPI', 49900, 10000, 0, 49900, 'E2E Seed',
+  strftime('%Y-%m-%dT%H:%M:%S.000Z','now'), strftime('%Y-%m-%dT%H:%M:%S.000Z','now')
+);
+
+INSERT INTO sale_line (id, sale_id, product_id, name, barcode, mrp_paise, unit_price_paise, quantity, line_total_paise, saving_paise, created_at, updated_at)
+VALUES (
+  'e2e00001-0000-4000-8000-000000000092',
+  'e2e00001-0000-4000-8000-000000000082',
+  'e2e00001-0000-4000-8000-00000000000a',
+  'E2E Priced Kettle', NULL, 59900, 49900, 1, 49900, 10000,
+  strftime('%Y-%m-%dT%H:%M:%S.000Z','now'), strftime('%Y-%m-%dT%H:%M:%S.000Z','now')
+);
