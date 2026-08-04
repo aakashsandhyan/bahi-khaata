@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 
 export type View =
-  | 'checkout' | 'lots' | 'receiving' | 'unpacking' | 'prep'
-  | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers' | 'printer-config'
+  | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
+  | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
+  | 'printer-config' | 'receipt-config' | 'bill-settings'
 
 type NavItem = { view: View; label: string; kicker: string }
 type NavGroup = { label: string; items: NavItem[] }
@@ -28,6 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Selling',
     items: [
       { view: 'checkout', label: 'Till', kicker: 'Point of sale' },
+      { view: 'sales', label: 'Sales', kicker: 'Sale history' },
       { view: 'reprint', label: 'Reprint', kicker: 'Labels' },
     ],
   },
@@ -37,6 +39,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: 'catalog', label: 'Catalog', kicker: 'All products' },
       { view: 'suppliers', label: 'Suppliers', kicker: 'Sourcing' },
       { view: 'printer-config', label: 'Printer', kicker: 'Admin' },
+      { view: 'receipt-config', label: 'Receipt printer', kicker: 'Admin' },
+      { view: 'bill-settings', label: 'Bill settings', kicker: 'Admin' },
     ],
   },
 ]

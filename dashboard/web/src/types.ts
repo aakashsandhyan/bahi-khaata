@@ -111,6 +111,65 @@ export interface CartView {
   taxIsPlaceholder: boolean
 }
 
+export type PaymentMethod = 'CASH' | 'UPI' | 'CARD'
+
+export interface SaleLineView {
+  productId: string
+  name: string
+  barcode: string | null
+  mrpPaise: number
+  unitPricePaise: number
+  quantity: number
+  lineTotalPaise: number
+  savingPaise: number
+}
+
+// A completed sale, as the till confirmation and the sales screen show it. printFailed is true when
+// the bill did not come out (offline/jam/unconfigured) — the sale still stands; reprint it.
+export interface SaleView {
+  saleId: string
+  billNo: number
+  billNoFormatted: string
+  paymentMethod: PaymentMethod
+  subtotalPaise: number
+  savingPaise: number
+  taxPaise: number
+  totalPaise: number
+  operatorName: string | null
+  createdAt: string
+  lines: SaleLineView[]
+  printFailed: boolean
+}
+
+export interface SaleSummary {
+  saleId: string
+  billNo: number
+  billNoFormatted: string
+  totalPaise: number
+  paymentMethod: PaymentMethod
+  createdAt: string
+  itemCount: number
+}
+
+// The receipt printer's config, and the editable text on a bill — both admin-only, single-row.
+export interface ReceiptPrinterConfig {
+  address: string
+  transport: 'LAN' | 'USB'
+  enabled: boolean
+  testStatus: string | null
+  testError: string | null
+  lastTestedAt: string | null
+}
+
+export interface BillSettings {
+  shopName: string
+  address: string
+  gstin: string
+  billTitle: string
+  declaration: string
+  footer: string
+}
+
 // --- remediation ---
 
 export type StockCondition = 'GOOD' | 'DAMAGED' | 'NEEDS_WORK' | 'UNUSABLE'

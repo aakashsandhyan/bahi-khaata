@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Bachat Baazar POS - back up the database.
+REM  Bachat Bazaar POS - back up the database.
 REM
 REM  The brain machine holds the ONLY copy of the shop's data. This copies it
 REM  aside with a date stamp. Run it daily (or set it as a scheduled task).

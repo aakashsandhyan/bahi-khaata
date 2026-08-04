@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -36,6 +36,9 @@ import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
 import com.bahikhaata.contracts.ImportLot;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.PaymentMethod;
+import com.bahikhaata.contracts.SaleSummary;
+import com.bahikhaata.contracts.SaleView;
 import com.bahikhaata.contracts.StockCondition;
 import java.time.Instant;
 import java.util.List;
@@ -61,6 +64,8 @@ class CheckoutTest {
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
     @Autowired private SupplierRepository suppliers;
+    @Autowired private SaleRepository sales;
+    @Autowired private com.bahikhaata.backend.inventory.StockLevels stock;
 
     private String supplierId(String name) {
         return suppliers.findByNameNormalized(Supplier.normalize(name))
@@ -195,5 +200,133 @@ class CheckoutTest {
         assertThat(cart.lines().get(0).unitPricePaise()).isEqualTo(29_900);
         assertThat(cart.lines().get(0).savingPaise()).as("no MRP, so no saving").isZero();
         assertThat(cart.savingPaise()).isZero();
+    }
+
+    private UUID productIdOf(String code) {
+        return barcodes.findByCode(code).orElseThrow().getProduct().getId();
+    }
+
+    @Test
+    @DisplayName("Completing a cart records the sale, snapshots the lines, and decrements stock")
+    void completeRecordsSaleAndDecrementsStock() {
+        String code = onTheShelf("KADAI", 40_000, 99_900, 49_900); // 5 on hand, MRP 999, price 499
+        UUID productId = productIdOf(code);
+        UUID cartId = checkout.open().cartId();
+        checkout.scan(cartId, code);
+        checkout.scan(cartId, code); // quantity 2
+
+        SaleView sale = checkout.toView(checkout.complete(cartId, PaymentMethod.CASH, "Ravi"), false);
+
+        assertThat(sale.billNo()).isEqualTo(1);
+        assertThat(sale.billNoFormatted()).isEqualTo("BB-000001");
+        assertThat(sale.paymentMethod()).isEqualTo(PaymentMethod.CASH);
+        assertThat(sale.operatorName()).isEqualTo("Ravi");
+        assertThat(sale.subtotalPaise()).isEqualTo(2 * 49_900);
+        assertThat(sale.totalPaise()).isEqualTo(2 * 49_900); // composition: no tax added
+        assertThat(sale.taxPaise()).isZero();
+        assertThat(sale.savingPaise()).isEqualTo(2 * 50_000);
+        assertThat(sale.printFailed()).isFalse();
+        assertThat(sale.lines()).singleElement().satisfies(l -> {
+            assertThat(l.name()).isNotBlank();
+            assertThat(l.unitPricePaise()).isEqualTo(49_900);
+            assertThat(l.mrpPaise()).isEqualTo(99_900);
+            assertThat(l.quantity()).isEqualTo(2);
+            assertThat(l.lineTotalPaise()).isEqualTo(2 * 49_900);
+        });
+        // Stock fell from 5 to 3 through the SALE ledger.
+        assertThat(stock.onHand(productId)).isEqualTo(3);
+        assertThat(sales.findByBillNo(1).orElseThrow().getTotal().paise()).isEqualTo(2 * 49_900);
+    }
+
+    @Test
+    @DisplayName("Bill numbers run consecutively across sales")
+    void billNumbersIncrement() {
+        String code = onTheShelf("MUG", 20_000, 30_000, 19_900);
+        long first = checkout.complete(scannedCart(code), PaymentMethod.UPI, null).getBillNo();
+        long second = checkout.complete(scannedCart(code), PaymentMethod.CARD, null).getBillNo();
+
+        assertThat(second).isEqualTo(first + 1);
+    }
+
+    @Test
+    @DisplayName("A later price change does not alter a past bill")
+    void aPriceChangeDoesNotAlterAPastSale() {
+        String code = onTheShelf("PAN", 30_000, 60_000, 29_900);
+        UUID productId = productIdOf(code);
+        long billNo = checkout.complete(scannedCart(code), PaymentMethod.CASH, null).getBillNo();
+
+        pricing.setSellingPrice(productId, Money.ofPaise(39_900)); // reprice after the sale (below MRP)
+
+        // The stored sale line still shows the price billed, not the new one.
+        assertThat(checkout.toView(sales.findByBillNo(billNo).orElseThrow(), false)
+                        .lines().get(0).unitPricePaise())
+                .isEqualTo(29_900);
+    }
+
+    @Test
+    @DisplayName("An empty cart cannot be completed")
+    void emptyCartIsRejected() {
+        UUID cartId = checkout.open().cartId();
+        assertThatThrownBy(() -> checkout.complete(cartId, PaymentMethod.CASH, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("A completed cart cannot be completed again")
+    void reCompletionIsRejected() {
+        String code = onTheShelf("TRAY", 20_000, 40_000, 19_900);
+        UUID cartId = scannedCart(code);
+        checkout.complete(cartId, PaymentMethod.CASH, null);
+
+        assertThatThrownBy(() -> checkout.complete(cartId, PaymentMethod.CASH, null))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("Selling more than is counted still completes and drives on-hand negative")
+    void overSellingCompletesAndGoesNegative() {
+        String code = onTheShelf("LAMP", 50_000, 90_000, 49_900); // 5 counted
+        UUID productId = productIdOf(code);
+        UUID cartId = checkout.open().cartId();
+        checkout.scan(cartId, code);
+        UUID lineId = checkout.view(cartId).lines().get(0).lineId();
+        checkout.setQuantity(cartId, lineId, 7); // sell 7 of 5
+
+        checkout.complete(cartId, PaymentMethod.CASH, null);
+
+        assertThat(stock.onHand(productId)).isEqualTo(-2);
+    }
+
+    @Test
+    @DisplayName("The sales list is newest-first, and a sale is fetchable by bill number for reprint")
+    void salesListAndLookup() {
+        String a = onTheShelf("BOWL", 20_000, 40_000, 19_900);
+        String b = onTheShelf("SPOON", 10_000, 20_000, 9_900);
+        long firstBill = checkout.complete(scannedCart(a), PaymentMethod.CASH, "Ravi").getBillNo();
+        long secondBill = checkout.complete(scannedCart(b), PaymentMethod.UPI, "Sita").getBillNo();
+
+        List<SaleSummary> recent = checkout.recentSales(10);
+        assertThat(recent).hasSize(2);
+        assertThat(recent.get(0).billNo()).as("newest first").isEqualTo(secondBill);
+        assertThat(recent.get(0).paymentMethod()).isEqualTo(PaymentMethod.UPI);
+        assertThat(recent.get(0).itemCount()).isEqualTo(1);
+
+        SaleView fetched = checkout.saleByBillNo(firstBill);
+        assertThat(fetched.operatorName()).isEqualTo("Ravi");
+        assertThat(fetched.lines()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Fetching an unknown bill number is a plain not-found")
+    void unknownBillNumberRejected() {
+        assertThatThrownBy(() -> checkout.saleByBillNo(9999))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No sale numbered");
+    }
+
+    private UUID scannedCart(String code) {
+        UUID cartId = checkout.open().cartId();
+        checkout.scan(cartId, code);
+        return cartId;
     }
 }

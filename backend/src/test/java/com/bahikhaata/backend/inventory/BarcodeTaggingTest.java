@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify

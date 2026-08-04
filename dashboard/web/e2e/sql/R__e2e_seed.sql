@@ -288,3 +288,10 @@ VALUES (
   '203.0.113.1:9100', 9600, '4x6', 1, 0, NULL, NULL, NULL,
   '2026-08-01T08:00:00.000Z', '2026-08-01T08:00:00.000Z'
 );
+
+-- --- receipt printer (V43) — same two-layer safety as the label printer -------------------------
+-- V43 seeds this singleton disabled with an empty address; pin it to the TEST-NET-3 block anyway
+-- so even an accidentally-enabled test run has nowhere real to connect.
+UPDATE receipt_printer_config
+SET address = '203.0.113.1:9101', enabled = 0
+WHERE id = '00000000-0000-0000-0000-000000000002';

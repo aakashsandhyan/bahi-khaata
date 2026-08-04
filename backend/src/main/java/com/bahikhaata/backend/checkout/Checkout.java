@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,11 +23,18 @@ import com.bahikhaata.contracts.Origin;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
+import com.bahikhaata.backend.inventory.FifoConsumer;
 import com.bahikhaata.contracts.CartLineView;
 import com.bahikhaata.contracts.CartView;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.PaymentMethod;
+import com.bahikhaata.contracts.SaleLineView;
+import com.bahikhaata.contracts.SaleSummary;
+import com.bahikhaata.contracts.SaleView;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,16 +63,112 @@ public class Checkout {
     private final CartLineRepository lines;
     private final BarcodeRepository barcodes;
     private final BatchRepository batches;
+    private final SaleRepository sales;
+    private final SaleLineRepository saleLines;
+    private final FifoConsumer fifo;
 
     Checkout(
             CartRepository carts,
             CartLineRepository lines,
             BarcodeRepository barcodes,
-            BatchRepository batches) {
+            BatchRepository batches,
+            SaleRepository sales,
+            SaleLineRepository saleLines,
+            FifoConsumer fifo) {
         this.carts = carts;
         this.lines = lines;
         this.barcodes = barcodes;
         this.batches = batches;
+        this.sales = sales;
+        this.saleLines = saleLines;
+        this.fifo = fifo;
+    }
+
+    /**
+     * Completes a cart into a persisted, immutable sale in one transaction: snapshots each line,
+     * assigns the next bill number, records the payment method, and writes the {@code SALE} ledger
+     * movements that decrement stock (FIFO, allowing negatives — see {@link FifoConsumer}). The
+     * cart is marked paid so it cannot be completed again. The bill is a render of the returned sale
+     * (printed by the caller, after this commits — a print failure never undoes the sale).
+     *
+     * <p>Tax is zero: the shop bills as a composition Bill of Supply and collects no tax, so the
+     * total is simply the sum of the line prices — what the customer pays.
+     */
+    @Transactional
+    public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName) {
+        Cart cart = openCart(cartId); // rejects a cart already paid/abandoned — completion is once
+        List<CartLine> cartLines = lines.findByCartIdOrderByCreatedAt(cartId);
+        if (cartLines.isEmpty()) {
+            throw new IllegalArgumentException("Cannot complete an empty cart.");
+        }
+
+        long billNo = sales.findTopByOrderByBillNoDesc().map(Sale::getBillNo).orElse(0L) + 1;
+        Money subtotal = Money.ZERO;
+        Money saving = Money.ZERO;
+        for (CartLine line : cartLines) {
+            subtotal = subtotal.plus(line.lineTotal());
+            saving = saving.plus(line.saving());
+        }
+        Sale sale = sales.save(
+                new Sale(billNo, paymentMethod.name(), subtotal, saving, Money.ZERO, subtotal,
+                        operatorName));
+
+        Instant now = Instant.now();
+        for (CartLine line : cartLines) {
+            Product product = line.getProduct();
+            saleLines.save(new SaleLine(
+                    sale.getId(), product.getId(), product.getName(), asinOf(product),
+                    line.getMrp(), line.getUnitPrice(), line.getQuantity(),
+                    line.lineTotal(), line.saving()));
+            // Decrement stock through the ledger — FIFO for cost, never refused, may go negative.
+            fifo.consumeForSale(product.getId(), line.getQuantity(), now);
+        }
+        cart.markPaid();
+        return sale;
+    }
+
+    /** Recent sales, newest first, for the sales screen — a summary row each, no lines loaded. */
+    @Transactional(readOnly = true)
+    public List<SaleSummary> recentSales(int limit) {
+        return sales.findByOrderByCreatedAtDesc(PageRequest.of(0, limit)).stream()
+                .map(s -> new SaleSummary(
+                        s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
+                        PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
+                        saleLines.countBySaleId(s.getId())))
+                .toList();
+    }
+
+    /** A single stored sale by its bill number, fully lined, for viewing or reprint. */
+    @Transactional(readOnly = true)
+    public SaleView saleByBillNo(long billNo) {
+        return sales.findByBillNo(billNo)
+                .map(s -> toView(s, false))
+                .orElseThrow(() -> new IllegalArgumentException("No sale numbered " + billNo + "."));
+    }
+
+    /** Loads a stored sale by id — the reprint path re-renders from this, never from a live cart. */
+    @Transactional(readOnly = true)
+    public Sale requireSale(UUID saleId) {
+        return sales.findById(saleId)
+                .orElseThrow(() -> new IllegalArgumentException("No such sale: " + saleId));
+    }
+
+    /** A completed sale as the till and sales screen show it, flagging whether its bill printed. */
+    @Transactional(readOnly = true)
+    public SaleView toView(Sale sale, boolean printFailed) {
+        List<SaleLineView> lineViews =
+                saleLines.findBySaleIdOrderByCreatedAtAsc(sale.getId()).stream()
+                        .map(sl -> new SaleLineView(
+                                sl.getProductId(), sl.getName(), sl.getBarcode(),
+                                sl.getMrp().paise(), sl.getUnitPrice().paise(), sl.getQuantity(),
+                                sl.getLineTotal().paise(), sl.getSaving().paise()))
+                        .toList();
+        return new SaleView(
+                sale.getId(), sale.getBillNo(), sale.formattedBillNo(),
+                PaymentMethod.valueOf(sale.getPaymentMethod()),
+                sale.getSubtotal().paise(), sale.getSaving().paise(), sale.getTax().paise(),
+                sale.getTotal().paise(), sale.getOperatorName(), sale.getCreatedAt(),
+                lineViews, printFailed);
     }
 
     @Transactional

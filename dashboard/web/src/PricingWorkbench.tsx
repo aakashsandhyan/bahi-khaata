@@ -156,6 +156,7 @@ export function PricingWorkbench() {
           lotId={lotId}
           categories={categories}
           item={item}
+          isToysLot={(lots ?? []).find((l) => l.lotId === lotId)?.categoryCode === 'TOYS'}
           operator={operator}
           onCancel={done}
           onSaved={done}
@@ -193,6 +194,7 @@ function PriceForm({
   lotId,
   categories,
   item,
+  isToysLot,
   operator,
   onCancel,
   onSaved,
@@ -200,6 +202,7 @@ function PriceForm({
   lotId: string
   categories: string[]
   item: ScannedItem | null
+  isToysLot: boolean
   operator: string
   onCancel: () => void
   onSaved: () => void
@@ -207,8 +210,12 @@ function PriceForm({
   // First pricing = the product has no selling price yet. Then the in-hand count is the true total
   // and overwrites stock; a later pricing adds only the extra pieces found.
   const firstPricing = !!item && item.sellingPricePaise == null
-  const [name, setName] = useState(item?.name ?? '')
-  const [category, setCategory] = useState(item?.categoryCode ?? '')
+  // Hand-adding into a toys lot: the goods are interchangeable ₹-tag toys, so name and category are
+  // pre-filled ("Toy" / TOYS) and the operator only sets quantity, MRP, and price. Name stays
+  // editable for the odd one worth naming. Only for hand-add — a scanned item keeps its own record.
+  const toysDefault = isToysLot && !item
+  const [name, setName] = useState(item?.name ?? (toysDefault ? 'Toy' : ''))
+  const [category, setCategory] = useState(item?.categoryCode ?? (toysDefault ? 'TOYS' : ''))
   const [condition, setCondition] = useState('GOOD')
   // The in-hand count entered here (and one label per unit). Defaults to 1 — the operator types the
   // actual number they are putting out.
@@ -301,22 +308,26 @@ function PriceForm({
         </button>
       )}
 
-      <Field label="Category">
-        <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', padding: 8 }}>
-          <option value="">Choose…</option>
-          {(categories.length ? categories : [category].filter(Boolean)).map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-      </Field>
+      {!toysDefault && (
+        <Field label="Category">
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', padding: 8 }}>
+            <option value="">Choose…</option>
+            {(categories.length ? categories : [category].filter(Boolean)).map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       {!item && (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Field label="Condition">
-            <select value={condition} onChange={(e) => setCondition(e.target.value)} style={{ width: '100%', padding: 8 }}>
-              {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
+          {!toysDefault && (
+            <Field label="Condition">
+              <select value={condition} onChange={(e) => setCondition(e.target.value)} style={{ width: '100%', padding: 8 }}>
+                {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="Quantity">
             <QtyInput value={quantity} onChange={setQuantity} min={1} style={{ width: '100%', padding: 8 }} />
           </Field>

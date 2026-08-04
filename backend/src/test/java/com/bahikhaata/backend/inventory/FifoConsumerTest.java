@@ -1,5 +1,5 @@
 /*
- * bahi-khaata — point of sale for Bachat Baazar
+ * bahi-khaata — point of sale for Bachat Bazaar
  * Copyright (C) 2026 Aakash Sandhyan
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,6 @@
 package com.bahikhaata.backend.inventory;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
@@ -134,36 +133,33 @@ class FifoConsumerTest {
     }
 
     @Test
-    @DisplayName("Asking for more than is on hand is refused, naming what is available")
-    void insufficientStockIsRefused() {
+    @DisplayName("Selling more than is on hand is never refused; the shortfall lands on the newest batch")
+    void overSellingAttributesShortfallToNewestBatch() {
         Product product = newProduct("Scarce item");
-        stockedBatch(product, LocalDate.of(2026, 6, 1), 3, 12_000);
+        Batch june = stockedBatch(product, LocalDate.of(2026, 6, 1), 3, 12_000);
+        Batch july = stockedBatch(product, LocalDate.of(2026, 7, 1), 1, 15_000);
 
-        assertThatThrownBy(() -> fifo.plan(product.getId(), 5))
-                .isInstanceOf(InsufficientStockException.class)
-                .satisfies(
-                        e -> {
-                            InsufficientStockException short_ = (InsufficientStockException) e;
-                            // The cashier needs to know which product, and by how much.
-                            assertThat(short_.getProductId()).isEqualTo(product.getId());
-                            assertThat(short_.getRequested()).isEqualTo(5);
-                            assertThat(short_.getAvailable()).isEqualTo(3);
-                        });
+        // Five wanted; only 3 in June + 1 in July = 4 counted. The odd unit lands on July (newest),
+        // merged into its draw, driving it negative — the counter is the truth, not the count.
+        assertThat(fifo.plan(product.getId(), 5))
+                .containsExactly(new BatchDraw(june, 3), new BatchDraw(july, 2));
     }
 
     @Test
-    @DisplayName("A refused consumption writes nothing")
-    void refusedConsumptionWritesNothing() {
-        Product product = newProduct("Untouched");
+    @DisplayName("Overselling still consumes and drives the batch negative")
+    void overSellingConsumesAndGoesNegative() {
+        Product product = newProduct("Undercounted");
         Batch batch = stockedBatch(product, LocalDate.of(2026, 6, 1), 3, 12_000);
 
-        assertThatThrownBy(() -> fifo.consumeForSale(product.getId(), 5, WHEN))
-                .isInstanceOf(InsufficientStockException.class);
+        // Sell 5 of a product the count shows only 3 of: the sale goes through, one movement of -5.
+        assertThat(fifo.consumeForSale(product.getId(), 5, WHEN))
+                .hasSize(1)
+                .extracting(StockLedgerEntry::getQuantity)
+                .containsExactly(-5L);
         ledger.flush();
 
-        // Stock untouched: a failed sale must not have quietly consumed the batches it
-        // could reach before running out.
-        assertThat(stock.onHandForBatch(batch.getId())).isEqualTo(3);
+        // On-hand is now -2: the true, timestamped record that 2 more were sold than counted.
+        assertThat(stock.onHandForBatch(batch.getId())).isEqualTo(-2);
     }
 
     @Test

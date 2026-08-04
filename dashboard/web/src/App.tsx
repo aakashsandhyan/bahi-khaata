@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Checkout } from './Checkout'
+import { Sales } from './Sales'
 import { LotManagement } from './LotManagement'
 import { Receiving } from './Receiving'
 import { Unpacking } from './Unpacking'
@@ -11,6 +12,8 @@ import { Prep } from './Prep'
 import { Catalog } from './Catalog'
 import { Suppliers } from './Suppliers'
 import { PrinterConfig } from './admin/PrinterConfig'
+import { ReceiptPrinterConfig } from './admin/ReceiptPrinterConfig'
+import { BillSettings } from './admin/BillSettings'
 import { Sidebar, screenMeta, type View } from './Sidebar'
 
 /**
@@ -67,7 +70,10 @@ export function App() {
             : view === 'capture' ? <MobileCapture />
             : view === 'catalog' ? <Catalog />
             : view === 'suppliers' ? <Suppliers />
-            : <PrinterConfig />}
+            : view === 'printer-config' ? <PrinterConfig />
+            : view === 'receipt-config' ? <ReceiptPrinterConfig />
+            : view === 'bill-settings' ? <BillSettings />
+            : <Sales />}
         </main>
       </div>
     </div>
