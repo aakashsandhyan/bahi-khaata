@@ -37,7 +37,7 @@ Revenue today = `SUM(sale.total_paise)` in the window, bill count, and average g
 Received units = `SUM(quantity)` where `movement_type='PURCHASE_RECEIPT'`; priced/on-floor = on-hand (`SUM(quantity)`) for products with `selling_price_paise` set; sold = `SUM(-quantity)` where `movement_type='SALE'`; MRP value per stage from `batch.mrp_paise`. *Rejected:* three separate table scans; deriving "priced" from `label_printed_at` (a printed label is not a set price).
 
 **D7 — Alerts are real counts only, each carrying the `View` it opens; a zero-count signal is omitted, never shown as "0".**
-Signals: unpriced counted units (`selling_price_paise IS NULL` with ledger receipts) → Pricing; NEEDS_WORK backlog (off-ledger `batch` qty) → Prep; pending `product_capture` → Review; `print_job` status `'review'` → Reprint; open lots (`receiving_complete=0`) with `received_on` older than N days → Lots. *Rejected:* heuristic/synthetic alerts; always-present rows that cry "0 to do".
+Signals: unpriced counted units (`selling_price_paise IS NULL` with ledger receipts) → Pricing; NEEDS_WORK backlog (off-ledger `batch` qty) → Prep; pending `product_capture` → Review; `print_job` status `'review'` → Review — those jobs render in ReviewQueue's awaiting-labels section, not on the Reprint lookup screen; open lots (`receiving_complete=0`) with `received_on` older than N days → Lots. *Rejected:* heuristic/synthetic alerts; always-present rows that cry "0 to do".
 
 **D8 — `Dashboard` receives `onNavigate: (v: View) => void` from `App` (the same prop `Sidebar` already takes); each alert row calls it with its target view.**
 One navigation mechanism app-wide, no new plumbing. *Rejected:* hash/router links (phase 1 chose state switching on purpose); a bespoke event bus.

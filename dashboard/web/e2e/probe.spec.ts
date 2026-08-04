@@ -13,7 +13,7 @@ test('backend answers /api/instance', async ({ request }) => {
 
 test('the dashboard shell renders the sidebar', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('BACHAT BAAZAR')).toBeVisible()
+  await expect(page.getByText('BACHAT BAZAAR')).toBeVisible()
 })
 
 test('the seed landed: the seeded lot is visible through the API', async ({ request }) => {

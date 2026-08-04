@@ -51,7 +51,7 @@ The funnel section SHALL report three stages computed from single-pass ledger qu
 - **THEN** the funnel shows received, priced-on-floor, and sold unit counts, each with its MRP value, from single-pass ledger queries
 
 ### Requirement: Decision alerts from real signals
-The alerts section SHALL contain only the five real signals, each computed as a real count and each carrying the `View` it opens: unpriced counted units → Pricing; NEEDS_WORK backlog → Prep; pending product captures → Review; print jobs in `review` status → Reprint; open lots (`receiving_complete=0`) whose `received_on` is older than the staleness constant → Lots. A signal whose count is zero SHALL be omitted from the list, never shown as a "0" row. Clicking an alert row SHALL navigate to that signal's owning screen through the existing view switch.
+The alerts section SHALL contain only the five real signals, each computed as a real count and each carrying the `View` it opens: unpriced counted units → Pricing; NEEDS_WORK backlog → Prep; pending product captures → Review; print jobs in `review` status → Review (the label review queue renders on the Review screen, not Reprint); open lots (`receiving_complete=0`) whose `received_on` is older than the staleness constant → Lots. A signal whose count is zero SHALL be omitted from the list, never shown as a "0" row. Clicking an alert row SHALL navigate to that signal's owning screen through the existing view switch.
 
 #### Scenario: Signal present shows a row that navigates
 - **WHEN** a signal has a non-zero count
