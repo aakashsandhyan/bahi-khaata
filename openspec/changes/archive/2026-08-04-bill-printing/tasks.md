@@ -44,6 +44,6 @@
 ## 7. Verify + ship
 
 - [x] 7.1 Full backend suite + ArchUnit green; `tsc` + `vite build` clean.
-- [ ] 7.2 Local end-to-end: build a cart, complete (each payment method), verify sale + ledger (incl. an overshoot → negative on-hand), reprint by bill no.
-- [ ] 7.3 Shop rollout notes: install/configure the 80mm ESC/POS receipt printer, set bill settings (GSTIN/declaration per the CA), test print; this is the first thing that **decrements real stock at the till** — verify on-hand moves as expected.
+- [x] 7.2 Local end-to-end: build a cart, complete (each payment method), verify sale + ledger (incl. an overshoot → negative on-hand), reprint by bill no.
+- [x] 7.3 Shop rollout notes: install/configure the 80mm ESC/POS receipt printer, set bill settings (GSTIN/declaration per the CA), test print; this is the first thing that **decrements real stock at the till** — verify on-hand moves as expected.
 - [ ] 7.4 `/opsx:verify` + `/opsx:archive` once shipped.
