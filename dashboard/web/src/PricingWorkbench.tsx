@@ -222,6 +222,9 @@ function PriceForm({
   const [quantity, setQuantity] = useState(1)
   const [mrp, setMrp] = useState<string>(item?.mrpPaise != null ? (item.mrpPaise / 100).toString() : '')
   const [price, setPrice] = useState<string>('')
+  // Optional: where this stock physically sits, written to the batch on the same save (design
+  // decision D8 of palletworks-inventory) — no new round trip. Blank means "leave it untouched".
+  const [bin, setBin] = useState<string>('')
   const [suggested, setSuggested] = useState<number | null>(null)
   const [saved, setSaved] = useState<ShelfPricedProduct | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -253,6 +256,8 @@ function PriceForm({
     if (!category) return setError('Choose a category.')
     if (pricePaise == null) return setError('Enter a selling price.')
     const mrpPaise = mrp.trim() ? paise(mrp) : null
+    // Blank stays null (untouched); a real value is sent as typed and trimmed server-side.
+    const binValue = bin.trim() ? bin.trim() : null
     const req = item
       ? shelfPricing.saveExisting({
           productId: item.productId,
@@ -264,6 +269,7 @@ function PriceForm({
           // a later one. 0 on a later pricing leaves stock be — a bare price/MRP fix moves nothing.
           inHandQuantity: quantity,
           operatorName: operator.trim() || null,
+          bin: binValue,
         })
       : shelfPricing.saveManual({
           lotId,
@@ -274,6 +280,7 @@ function PriceForm({
           sellingPricePaise: pricePaise,
           mrpPaise,
           operatorName: operator.trim() || null,
+          bin: binValue,
         })
     if (!item && !name.trim()) return setError('Enter a product name.')
     req.then(setSaved).catch((e) => setError(e instanceof BackendError ? e.message : 'Save failed.'))
@@ -352,6 +359,11 @@ function PriceForm({
 
       <Field label="MRP (optional)">
         <input value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="₹ printed on the pack"
+          style={{ width: '100%', padding: 8 }} />
+      </Field>
+
+      <Field label="Bin (optional)">
+        <input value={bin} onChange={(e) => setBin(e.target.value)} placeholder="Where this stock sits, e.g. A-01"
           style={{ width: '100%', padding: 8 }} />
       </Field>
 

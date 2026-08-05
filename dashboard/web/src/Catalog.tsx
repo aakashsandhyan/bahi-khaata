@@ -44,7 +44,7 @@ const STATE_LABEL: Record<StockCondition, string> = {
   UNUSABLE: 'Scrap',
 }
 
-export function Catalog() {
+export function Catalog({ onOpenItem }: { onOpenItem: (productId: string) => void }) {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('on-paper')
   const [category, setCategory] = useState('')
@@ -237,6 +237,7 @@ export function Catalog() {
                 setNote(message)
               }}
               onError={setError}
+              onOpenItem={onOpenItem}
             />
           ) : (
             <div className="cat-detail cat-loading">Loading…</div>
@@ -255,6 +256,7 @@ function CatalogDetailPanel({
   onCountProgress,
   onCountDone,
   onError,
+  onOpenItem,
 }: {
   productId: string
   detail: CatalogDetail
@@ -264,6 +266,7 @@ function CatalogDetailPanel({
   onCountProgress: () => void
   onCountDone: (message: string) => void
   onError: (message: string) => void
+  onOpenItem: (productId: string) => void
 }) {
   const [entered, setEntered] = useState('')
   const [countNote, setCountNote] = useState(false)
@@ -314,6 +317,9 @@ function CatalogDetailPanel({
           {detail.priced ? 'priced' : 'no price'}
         </span>
       </p>
+      <button type="button" className="btn-ghost" onClick={() => onOpenItem(productId)}>
+        Open in Item detail →
+      </button>
 
       <h3 className="cat-sub-head">Across its boxes</h3>
       <div className="cat-state-line">

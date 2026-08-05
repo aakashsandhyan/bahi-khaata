@@ -11,6 +11,8 @@ import { Reprint } from './Reprint'
 import { MobileCapture } from './MobileCapture'
 import { Prep } from './Prep'
 import { Catalog } from './Catalog'
+import { Inventory } from './Inventory'
+import { ItemDetail } from './ItemDetail'
 import { Suppliers } from './Suppliers'
 import { PrinterConfig } from './admin/PrinterConfig'
 import { ReceiptPrinterConfig } from './admin/ReceiptPrinterConfig'
@@ -32,6 +34,16 @@ export function App() {
     typeof window !== 'undefined' && window.location.hash === '#capture' ? 'capture' : 'unpacking'
   const [view, setView] = useState<View>(isPhone ? phoneLanding : 'dashboard')
   const [drawer, setDrawer] = useState(false)
+
+  // Item detail carries a product id rather than being param-less like every other nav switch
+  // (design decision D9 of palletworks-inventory): opening it from an Inventory row or the
+  // Catalog panel both go through this one callback, so neither screen needs its own notion of
+  // "how to get to item detail".
+  const [detailProductId, setDetailProductId] = useState<string | null>(null)
+  const onOpenItem = (productId: string) => {
+    setDetailProductId(productId)
+    setView('item-detail')
+  }
 
   // Badge the shell when this is the sandbox instance (same app, throwaway DB copy), so nobody
   // mistakes it for the live shop. The flag comes from the backend, set by start-sandbox.bat.
@@ -70,7 +82,13 @@ export function App() {
             : view === 'review' ? <ReviewQueue />
             : view === 'reprint' ? <Reprint />
             : view === 'capture' ? <MobileCapture />
-            : view === 'catalog' ? <Catalog />
+            : view === 'catalog' ? <Catalog onOpenItem={onOpenItem} />
+            : view === 'inventory' ? <Inventory onOpenItem={onOpenItem} />
+            : view === 'item-detail' ? (
+                detailProductId ? (
+                  <ItemDetail productId={detailProductId} onBack={() => setView('inventory')} />
+                ) : null
+              )
             : view === 'suppliers' ? <Suppliers />
             : view === 'printer-config' ? <PrinterConfig />
             : view === 'receipt-config' ? <ReceiptPrinterConfig />

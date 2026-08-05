@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react'
 
 export type View =
   | 'dashboard' | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
-  | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
+  | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
   | 'printer-config' | 'receipt-config' | 'bill-settings'
+  // Opened with a product id (App's `detailProductId`), not a param-less nav click — reachable
+  // from an Inventory row or the Catalog panel (design decision D9 of palletworks-inventory), so
+  // deliberately absent from NAV_GROUPS like 'capture'. screenMeta special-cases it below rather
+  // than falling through to capture's phone-only kicker/title.
+  | 'item-detail'
 
 type NavItem = { view: View; label: string; kicker: string }
 type NavGroup = { label: string; items: NavItem[] }
@@ -24,6 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: 'pricing', label: 'Pricing', kicker: 'Shelf pricing' },
       { view: 'lots', label: 'Lots', kicker: 'Deliveries' },
       { view: 'review', label: 'Review', kicker: 'Capture queue' },
+      { view: 'inventory', label: 'Inventory', kicker: 'Stock' },
     ],
   },
   {
@@ -47,6 +53,11 @@ export const NAV_GROUPS: NavGroup[] = [
 ]
 
 export function screenMeta(view: View): { kicker: string; title: string } {
+  // Item detail carries a product id and isn't a nav entry, so it isn't in NAV_GROUPS to find —
+  // the header stays generic ("Inventory" / "Item detail") and the view itself renders the
+  // product's actual name as its own on-page heading, the same split Catalog's own detail panel
+  // already uses.
+  if (view === 'item-detail') return { kicker: 'Inventory', title: 'Item detail' }
   for (const g of NAV_GROUPS) {
     const hit = g.items.find((i) => i.view === view)
     if (hit) return { kicker: hit.kicker, title: hit.label }
