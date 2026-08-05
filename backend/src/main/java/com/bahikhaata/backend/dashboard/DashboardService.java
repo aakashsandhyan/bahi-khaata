@@ -151,8 +151,11 @@ public class DashboardService {
 
         long staleLots = dashboard.staleOpenLotCount(LocalDate.now(IST).minusDays(STALE_INTAKE_DAYS));
         if (staleLots > 0) {
+            // Routed to "intake" (was "lots"): the Lots screen this alert used to open is retired
+            // and its lot list — and the receiving-finished action that clears this alert — now
+            // live on the Intake screen instead (palletworks-intake).
             alerts.add(new DashboardAlert(
-                    "stale-lots", staleLots, "lots",
+                    "stale-lots", staleLots, "intake",
                     staleLots + " lot" + (staleLots == 1 ? " is" : "s are")
                             + " still receiving after " + STALE_INTAKE_DAYS + "+ days."));
         }

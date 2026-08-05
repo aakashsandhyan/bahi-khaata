@@ -213,7 +213,7 @@ class DashboardServiceTest {
                         tuple("needs-work", 4L, "prep"),
                         tuple("captures", 1L, "review"),
                         tuple("labels-review", 1L, "review"),
-                        tuple("stale-lots", 1L, "lots"));
+                        tuple("stale-lots", 1L, "intake"));
 
         // --- recent sales: the one bill, through Checkout's own public API ---
         assertThat(view.recentSales()).hasSize(1);
