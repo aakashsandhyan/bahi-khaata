@@ -77,7 +77,13 @@ class InventoryQueryRepository {
                         + "HAVING SUM(sl.quantity) > 0 "
                         + "ORDER BY p.name, b.condition",
                 (rs, rowNum) -> {
+                    // getLong + wasNull, not getObject(..., Long.class) or a raw (Long) cast:
+                    // SQLite's JDBC driver hands back whichever native numeric type fits a small
+                    // value, so a bare cast throws, and its getObject(col, Long.class) refuses to
+                    // convert. wasNull() reports on the most recent read, so it must be captured
+                    // here, before any other column is touched.
                     long price = rs.getLong("price_paise");
+                    boolean priceNull = rs.wasNull();
                     return new AggregateRow(
                             UUID.fromString(rs.getString("product_id")),
                             rs.getString("product_name"),
@@ -89,13 +95,7 @@ class InventoryQueryRepository {
                             rs.getString("bins"),
                             rs.getLong("cost_value_paise"),
                             rs.getLong("uncosted_rows"),
-                            // getLong + wasNull, not getObject(..., Long.class) or a raw (Long)
-                            // cast: SQLite's JDBC driver hands back whichever native numeric type
-                            // fits a small value (an Integer under ~2^31), so a bare cast throws
-                            // ClassCastException, and this driver's getObject(col, Long.class)
-                            // itself throws "Bad value for type Long" rather than converting. The
-                            // classic getX + wasNull pair sidesteps both.
-                            rs.wasNull() ? null : price,
+                            priceNull ? null : price,
                             rs.getString("first_receipt_at"));
                 });
     }

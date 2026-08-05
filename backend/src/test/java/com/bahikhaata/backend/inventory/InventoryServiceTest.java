@@ -190,6 +190,22 @@ class InventoryServiceTest {
     }
 
     @Test
+    @DisplayName("An unpriced product's row carries a null price, never zero")
+    void unpricedProductRowHasNullPrice() {
+        // Regression: wasNull() reports on the most recent column read, so capturing it lines
+        // after getLong("price_paise") silently turned a null price into 0 on screen.
+        Product product = products.save(new Product("Unpriced Kettle", Category.of("KITCHEN"), Map.of()));
+        Lot lot = lot("Unpriced Supplier", LocalDate.of(2026, 7, 14));
+        Batch batch = costedBatch(product, lot, StockCondition.GOOD, 10_000, 2);
+        receipt(product, batch, 2, Instant.parse("2026-07-14T09:00:00Z"));
+
+        InventoryRow row = rowFor(product.getId());
+
+        assertThat(row.sellingPricePaise()).isNull();
+        assertThat(row.marginPercent()).isNull();
+    }
+
+    @Test
     @DisplayName("An uncosted contributing batch leaves cost basis and margin honestly unknown")
     void uncostedBatchLeavesCostBasisNull() {
         Product product = products.save(new Product("Uncosted Grill", Category.of("KITCHEN"), Map.of()));

@@ -16,6 +16,10 @@ test('Inventory: loads via sidebar, shows seeded rows with condition tags, a bin
 
   // The kettle's seeded bin shows on its row.
   await expect(kettleRow.locator('td').nth(3)).toHaveText(seed.products.pricedGood.bin)
+  // An unpriced product renders an em dash in the price column, never a zero amount. The damaged
+  // mixer is the witness: unlike the counted toaster, nothing earlier in the suite prices it.
+  const mixerRow = page.locator('tr.inv-row', { hasText: seed.products.damaged.name })
+  await expect(mixerRow.locator('td').nth(6)).toHaveText('\u2014')
 
   // The toaster's batch was never given a bin — an em dash, not a blank cell.
   const toasterCells = toasterRow.locator('td')
