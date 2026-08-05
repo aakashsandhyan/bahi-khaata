@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import type { LotIntakeStats } from '../types'
-import { rupees } from '../money'
+import { rupeesWhole } from '../money'
 
 /**
  * The four header figures, from `GET /api/lots/{lotId}/stats` (design decision D5 of
@@ -32,11 +32,11 @@ export function IntakeHeader({
       <div className="intake-kpis">
         <div className="intake-kpi">
           <div className="intake-kpi-label">Amount paid</div>
-          <div className="intake-kpi-value">{stats ? rupees(stats.paidPaise) : loading ? '…' : '—'}</div>
+          <div className="intake-kpi-value">{stats ? rupeesWhole(stats.paidPaise) : loading ? '…' : '—'}</div>
         </div>
         <div className="intake-kpi">
           <div className="intake-kpi-label">MRP found</div>
-          <div className="intake-kpi-value">{stats ? rupees(stats.mrpFoundPaise) : loading ? '…' : '—'}</div>
+          <div className="intake-kpi-value">{stats ? rupeesWhole(stats.mrpFoundPaise) : loading ? '…' : '—'}</div>
           <div className="intake-kpi-sub">cumulative, over counted units</div>
         </div>
         <div className="intake-kpi">

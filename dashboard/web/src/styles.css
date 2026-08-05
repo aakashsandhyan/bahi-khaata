@@ -1098,3 +1098,10 @@ tr.damaged { background: var(--color-accent-2-100); }
 .intake-unopened ul { margin: var(--space-2) 0 0; padding-left: 18px; }
 .intake-recon-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-divider); font-size: 13px; }
 .intake-recon-row:last-child { border-bottom: 0; }
+
+
+/* A disabled primary keeps its fill at low strength — the global disabled rule would otherwise
+   strip it to an empty accent-bordered box. */
+.btn-primary:disabled { background: var(--color-accent-300); border-color: var(--color-accent-300); color: var(--color-bg); }
+.intake-math-note { display: block; font-size: 10px; font-weight: 400; color: var(--color-neutral-500); }
+.intake-rail-id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-500); }

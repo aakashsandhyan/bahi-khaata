@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { receiving, BackendError } from '../api'
 import type { DeliveryProgress, LotIntakeStats, LotSummary } from '../types'
-import { rupees } from '../money'
+import { rupeesWhole } from '../money'
 import { activeStep } from './steps'
 
 /**
@@ -48,7 +48,7 @@ export function LotMathRail({
       <div className="intake-math-row">
         <span className="intake-math-label">Effective cost/unit</span>
         <span className="intake-math-value">
-          {stats?.effectiveCostPerUnitPaise != null ? rupees(stats.effectiveCostPerUnitPaise) : '—'}
+          {stats?.effectiveCostPerUnitPaise != null ? rupeesWhole(stats.effectiveCostPerUnitPaise) : '—'}
         </span>
       </div>
       <div className="intake-math-row">
@@ -61,11 +61,11 @@ export function LotMathRail({
       </div>
       <div className="intake-math-row">
         <span className="intake-math-label">MRP found</span>
-        <span className="intake-math-value">{stats ? rupees(stats.mrpFoundPaise) : '—'}</span>
+        <span className="intake-math-value">{stats ? rupeesWhole(stats.mrpFoundPaise) : '—'}</span>
       </div>
       <div className="intake-math-row">
-        <span className="intake-math-label">Projected retail</span>
-        <span className="intake-math-value">{stats ? rupees(stats.projectedRetailPaise) : '—'}</span>
+        <span className="intake-math-label">Projected retail<span className="intake-math-note">priced units only</span></span>
+        <span className="intake-math-value">{stats ? rupeesWhole(stats.projectedRetailPaise) : '—'}</span>
       </div>
 
       {error && <p className="banner stop">{error}</p>}

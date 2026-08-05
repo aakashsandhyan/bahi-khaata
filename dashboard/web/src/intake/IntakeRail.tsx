@@ -58,7 +58,7 @@ export function IntakeRail({
                   {lot.isManual && <span className="text-muted"> (M)</span>}
                 </span>
                 <span className="intake-rail-meta">
-                  <span>{lot.receivedOn}</span>
+                  <span>{lot.receivedOn} · <span className="intake-rail-id">#{lot.id.slice(0, 4)}</span></span>
                   <span className={`cat-badge ${step === 'reconcile' ? 'cat-good' : 'cat-warn'}`}>
                     {STEP_LABEL[step]}
                   </span>
