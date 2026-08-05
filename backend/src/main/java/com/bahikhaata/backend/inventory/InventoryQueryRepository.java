@@ -54,7 +54,8 @@ class InventoryQueryRepository {
      */
     List<AggregateRow> aggregateRows() {
         return jdbc.query(
-                "SELECT p.id AS product_id, p.name AS product_name, b.condition AS condition, "
+                "SELECT p.id AS product_id, p.name AS product_name, p.category AS category_code, "
+                        + "b.condition AS condition, "
                         + "SUM(sl.quantity) AS on_hand, "
                         + "COUNT(DISTINCT b.lot_id) AS lot_count, "
                         + "MIN(l.supplier) AS lot_supplier, MIN(l.received_on) AS lot_received_on, "
@@ -87,6 +88,7 @@ class InventoryQueryRepository {
                     return new AggregateRow(
                             UUID.fromString(rs.getString("product_id")),
                             rs.getString("product_name"),
+                            rs.getString("category_code"),
                             rs.getString("condition"),
                             rs.getLong("on_hand"),
                             rs.getInt("lot_count"),
@@ -122,6 +124,7 @@ class InventoryQueryRepository {
     record AggregateRow(
             UUID productId,
             String productName,
+            String categoryCode,
             String condition,
             long onHand,
             int lotCount,

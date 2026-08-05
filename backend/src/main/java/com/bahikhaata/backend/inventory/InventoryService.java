@@ -90,6 +90,7 @@ public class InventoryService {
         return new InventoryRow(
                 row.productId(),
                 row.productName(),
+                row.categoryCode(),
                 row.condition(),
                 lotLabel,
                 bins(row.bins()),

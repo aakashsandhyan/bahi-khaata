@@ -18,6 +18,7 @@
 package com.bahikhaata.backend.catalog;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -147,5 +148,47 @@ class ProductControllerTest {
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).getOldPrice()).as("first-ever set").isNull();
         assertThat(rows.get(0).getNewPrice()).isEqualTo(Money.ofPaise(15000));
+    }
+
+    @Test
+    @DisplayName("Editing the category persists via PATCH /api/products/{id}/category")
+    void settingCategoryPersists() throws Exception {
+        Product product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
+
+        mockMvc.perform(
+                        patch("/api/products/{id}/category", product.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"categoryCode\":\"HOME_ESSENTIALS\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category").value("HOME_ESSENTIALS"));
+
+        assertThat(products.findById(product.getId()).orElseThrow().getCategory())
+                .isEqualTo(Category.of("HOME_ESSENTIALS"));
+    }
+
+    @Test
+    @DisplayName("Reclassifying a product that does not exist is 404")
+    void reclassifyingUnknownProductIsNotFound() throws Exception {
+        mockMvc.perform(
+                        patch("/api/products/{id}/category", UUID.randomUUID())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"categoryCode\":\"KITCHEN\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("An unknown category is refused as a bad request, not a database fault")
+    void unknownCategoryIsRejected() throws Exception {
+        Product product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
+
+        mockMvc.perform(
+                        patch("/api/products/{id}/category", product.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"categoryCode\":\"NO_SUCH_CATEGORY\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Refused before anything was written — the product still carries its original category.
+        assertThat(products.findById(product.getId()).orElseThrow().getCategory())
+                .isEqualTo(Category.of("KITCHEN"));
     }
 }
