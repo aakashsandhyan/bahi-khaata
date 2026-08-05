@@ -75,3 +75,13 @@ test('Item detail: KPIs, movement log, price history, and batches render for a s
   await expect(page.getByRole('heading', { name: seed.products.pricedGood.name })).toBeVisible()
   await expect(page.getByLabel('Department')).toHaveValue('HOME_ESSENTIALS')
 })
+
+test('Item detail: Count for a product no delivery owes degrades to an honest empty grid', async ({ page }) => {
+  // The damaged mixer has stock but no expected_line in any open delivery — picking the open
+  // lot must state that nothing is outstanding, never crash or fabricate rows.
+  await openScreen(page, 'Inventory')
+  await page.locator('tr.inv-row', { hasText: seed.products.damaged.name }).click()
+  await page.getByLabel('Delivery').selectOption({ index: 1 })
+  await page.getByRole('button', { name: 'Count', exact: true }).click()
+  await expect(page.getByText('Nothing outstanding for this product in this delivery.')).toBeVisible()
+})
