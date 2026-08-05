@@ -33,6 +33,9 @@ test('the dashboard shell renders the sidebar', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Receipt printer', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Bill settings', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible()
+  // Phone-only and hash-only screens stay unlisted on desktop.
+  await expect(page.getByRole('button', { name: 'Capture', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Till', exact: true })).toHaveCount(0)
 })
 
 test('the seed landed: the seeded lot is visible through the API', async ({ request }) => {
