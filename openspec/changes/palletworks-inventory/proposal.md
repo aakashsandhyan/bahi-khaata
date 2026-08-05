@@ -9,6 +9,7 @@ The shop cannot answer "what is on the floor and what is it worth" without menta
 - **V45 migration**: nullable `bin` TEXT on `batch`; append-only `price_history` table (product, old/new price, changed-at, operator) guarded against update/delete like the ledger.
 - Shelf-pricing write path journals every price set and reprice from now on.
 - **PricingWorkbench** gains an optional bin field written to the batch on save.
+- **Lots** screen gains an explicit “receiving finished” action: manual lots (no manifest boxes) have no automatic completion event, so the dashboard's still-receiving alert pointed at lots nobody could act on — found against a production copy.
 - e2e seed gains bins and a seeded price change; three new smokes (suite ~24). No photos, no quarantine, no label-template changes, no floor/back-room split.
 
 ## Capabilities
@@ -20,6 +21,7 @@ The shop cannot answer "what is on the floor and what is it worth" without menta
 - `bin-locations`: batch-level bin field — assignment at pricing and item detail, display and filtering in inventory.
 
 ### Modified Capabilities
+- `goods-in-reconciliation`: manual lots gain a hand-set receiving-finished action (ADDED requirement).
 - `dashboard-shell`: Operations group gains an Inventory entry (nav list requirement changes).
 - `dashboard-smoke-tests`: per-screen coverage extends to the new screens; seed gains bins and a price-change row.
 - `shelf-pricing`: pricing a product SHALL journal the price change and MAY set the batch bin (requirement-level change to the save behavior).

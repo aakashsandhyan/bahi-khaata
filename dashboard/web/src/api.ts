@@ -357,6 +357,7 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
+  markReceivingComplete: (lotId: string) => post(`/api/lots/${lotId}/receiving-complete`, {}),
   createManualLot: (supplierId: string, receivedOn: string, amountPaidPaise: number) =>
     post<_LotSummary>('/api/lots/manual', {
       supplierId,

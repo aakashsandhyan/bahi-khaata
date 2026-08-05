@@ -152,6 +152,28 @@ class LotController {
                         lot.isReceivingComplete(), lot.isManual(), null, 0, 0, 0, 0, 0));
     }
 
+    /**
+     * Marks a lot's receiving finished by hand. A manifest-backed lot completes on its own when
+     * its last box goes terminal; a manual lot has no such event, so without this action it sits
+     * in the dashboard's still-receiving alert forever with nothing anyone can do about it. This
+     * sets the same fact the automatic path sets — nothing else: the lot stays open, stock is
+     * untouched.
+     */
+    @PostMapping("/{lotId}/receiving-complete")
+    ResponseEntity<?> markReceivingComplete(@PathVariable UUID lotId) {
+        Lot lot = lotRepository.findById(lotId)
+                .orElseThrow(() -> new IllegalArgumentException("lot not found"));
+        if (!lot.isOpen()) {
+            throw new IllegalArgumentException("lot is closed");
+        }
+        if (lot.isReceivingComplete()) {
+            throw new IllegalArgumentException("receiving is already complete");
+        }
+        lot.setReceivingComplete(true);
+        lotRepository.save(lot);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{lotId}/add-product")
     ResponseEntity<?> addProductToLot(
             @PathVariable UUID lotId,
