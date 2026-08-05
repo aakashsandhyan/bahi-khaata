@@ -134,17 +134,19 @@ VALUES (
 UPDATE internal_barcode_counter SET last_seq = 100000 WHERE id = 1;
 
 -- --- batches --------------------------------------------------------------------------------
--- (a) GOOD, costed and priced.
-INSERT INTO batch (id, product_id, lot_id, condition, issue_type, allocated_total_paise, allocated_unit_cost_paise, cost_basis, quantity_received, quantity_damaged, mrp_paise, mrp_is_estimate, labelled_at, created_at, updated_at, remark)
+-- (a) GOOD, costed and priced. Bin set — palletworks-inventory: the Inventory/Item-detail bin
+-- display, filtering, and pricing-save-sets-bin smokes need at least one batch with a real bin.
+INSERT INTO batch (id, product_id, lot_id, condition, issue_type, allocated_total_paise, allocated_unit_cost_paise, cost_basis, quantity_received, quantity_damaged, mrp_paise, mrp_is_estimate, labelled_at, created_at, updated_at, remark, bin)
 VALUES (
   'e2e00001-0000-4000-8000-00000000002a',
   'e2e00001-0000-4000-8000-00000000000a',
   'e2e00001-0000-4000-8000-000000000002',
   'GOOD', NULL, 200000, 20000, 'PINNED', 10, 0, 59900, 0, NULL,
-  '2026-08-01T08:20:00.000Z', '2026-08-01T08:20:00.000Z', NULL
+  '2026-08-01T08:20:00.000Z', '2026-08-01T08:20:00.000Z', NULL, 'A-01'
 );
 
--- (b) GOOD, costed, not yet priced.
+-- (b) GOOD, costed, not yet priced. Bin left NULL on purpose — palletworks-inventory: the em-dash
+-- rendering for an absent bin needs at least one batch with none.
 INSERT INTO batch (id, product_id, lot_id, condition, issue_type, allocated_total_paise, allocated_unit_cost_paise, cost_basis, quantity_received, quantity_damaged, mrp_paise, mrp_is_estimate, labelled_at, created_at, updated_at, remark)
 VALUES (
   'e2e00001-0000-4000-8000-00000000002b',
@@ -335,4 +337,20 @@ VALUES (
   'e2e00001-0000-4000-8000-00000000000a',
   'E2E Priced Kettle', NULL, 59900, 49900, 1, 49900, 10000,
   strftime('%Y-%m-%dT%H:%M:%S.000Z','now'), strftime('%Y-%m-%dT%H:%M:%S.000Z','now')
+);
+
+-- --- price_history (V45) — one fixed price-change row for the priced kettle ---------------------
+-- palletworks-inventory: the item-detail price-history section and the price-change journal need
+-- at least one seeded row with a known old and new price. old_price_paise is NULL — this is the
+-- product's first-ever price set, matching how it was actually priced (product a is seeded already
+-- priced, never through the choke point, so nothing else would ever write this row). A fixed
+-- literal timestamp is fine here, unlike the sales above: nothing reads price_history against
+-- "today", only newest-first order and the old/new figures, so it never needs to move with the
+-- run day.
+INSERT INTO price_history (id, product_id, old_price_paise, new_price_paise, operator_name, created_at)
+VALUES (
+  'e2e00001-0000-4000-8000-0000000000a1',
+  'e2e00001-0000-4000-8000-00000000000a',
+  NULL, 49900, 'E2E Seed',
+  '2026-08-01T08:15:00.000Z'
 );

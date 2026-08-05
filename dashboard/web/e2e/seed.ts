@@ -44,6 +44,9 @@ export const seed = {
       // The shelf barcode (BBZ) — what pricing mints and what Reprint/bulk-print resolve to.
       shelfBarcode: 'BBZ-100000',
       batchId: 'e2e00001-0000-4000-8000-00000000002a',
+      // palletworks-inventory: this batch carries a real bin, for the Inventory/Item-detail bin
+      // display and filter smokes.
+      bin: 'A-01',
     },
     // (b) counted, GOOD, not yet priced — the pricing-workbench fixture.
     countedUnpriced: {
@@ -53,6 +56,8 @@ export const seed = {
       mrpPaise: 29900,
       barcode: 'E2E0000000002',
       batchId: 'e2e00001-0000-4000-8000-00000000002b',
+      // palletworks-inventory: left unset on purpose, for the em-dash-on-no-bin smoke.
+      bin: null as string | null,
     },
     // (c) NEEDS_WORK — the Prep backlog fixture.
     needsWork: {
@@ -144,6 +149,18 @@ export const seed = {
     // on purpose: this is the tripwire for the seed's timestamp format (see D10).
     revenueTodayPaise: 99800 + 49900,
     operatorName: 'E2E Seed',
+  },
+
+  // One fixed price-change row for the priced kettle (products.pricedGood) — palletworks-inventory:
+  // the item-detail price-history section and the price-change journal read against this. old is
+  // null (the product's first-ever price set, matching how it was actually seeded).
+  priceHistory: {
+    kettle: {
+      id: 'e2e00001-0000-4000-8000-0000000000a1',
+      oldPricePaise: null as number | null,
+      newPricePaise: 49900,
+      operatorName: 'E2E Seed',
+    },
   },
 
   // V43 defaults are what the Bill settings screen should show — except shop_name, which V44 (an
