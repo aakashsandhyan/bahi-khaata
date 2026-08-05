@@ -989,3 +989,11 @@ tr.damaged { background: var(--color-accent-2-100); }
 .id-bin-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .id-bin-input { width: 90px; padding: 6px 8px; font-size: 13px; }
 .id-bin-error { flex-basis: 100%; font-size: 11px; color: var(--color-accent-700); }
+
+/* Long marketplace names stay two lines tall, so row heights read as a rhythm, not a ransom note. */
+.inv-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { inventory, BackendError } from './api'
 import type { InventoryRow } from './types'
-import { rupees } from './money'
+import { rupeesWhole } from './money'
+
+// The four stock conditions, in the words the rest of the app already uses.
+const CONDITION_LABEL: Record<string, string> = {
+  GOOD: 'Good', DAMAGED: 'Damaged', NEEDS_WORK: 'Needs work', UNUSABLE: 'Unusable',
+}
+const CONDITION_TAG: Record<string, string> = {
+  GOOD: 'tag-accent', DAMAGED: 'tag-accent-2', NEEDS_WORK: 'tag-outline', UNUSABLE: 'tag-neutral',
+}
 
 /**
  * The stock-centric view the shop lacked: what is on the floor, in which condition, where it
@@ -123,8 +131,9 @@ export function Inventory({ onOpenItem }: { onOpenItem: (productId: string) => v
         />
         <select value={condition} onChange={(e) => setCondition(e.target.value)} aria-label="Condition">
           <option value="">All conditions</option>
-          <option value="GOOD">Good</option>
-          <option value="DAMAGED">Damaged</option>
+          {Object.entries(CONDITION_LABEL).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </select>
         <select value={bin} onChange={(e) => setBin(e.target.value)} aria-label="Bin">
           <option value="">All bins</option>
@@ -176,17 +185,17 @@ export function Inventory({ onOpenItem }: { onOpenItem: (productId: string) => v
                 className="inv-row"
                 onClick={() => onOpenItem(r.productId)}
               >
-                <td className="name">{r.productName}</td>
+                <td className="name"><span className="inv-name">{r.productName}</span></td>
                 <td className="name">
-                  <span className={`tag ${r.condition === 'DAMAGED' ? 'tag-accent-2' : 'tag-accent'}`}>
-                    {r.condition === 'DAMAGED' ? 'Damaged' : 'Good'}
+                  <span className={`tag ${CONDITION_TAG[r.condition] ?? 'tag-neutral'}`}>
+                    {CONDITION_LABEL[r.condition] ?? r.condition}
                   </span>
                 </td>
                 <td className="name">{r.lotLabel}</td>
                 <td className="name">{r.bins.length ? r.bins.join(', ') : '—'}</td>
                 <td>{r.onHandQuantity.toLocaleString('en-IN')}</td>
-                <td>{rupees(r.costBasisPaise)}</td>
-                <td>{rupees(r.sellingPricePaise)}</td>
+                <td>{rupeesWhole(r.costBasisPaise)}</td>
+                <td>{rupeesWhole(r.sellingPricePaise)}</td>
                 <td>{r.marginPercent != null ? `${r.marginPercent}%` : '—'}</td>
                 <td>{r.ageDays}d</td>
               </tr>
@@ -196,8 +205,8 @@ export function Inventory({ onOpenItem }: { onOpenItem: (productId: string) => v
             <tr className="inv-totals">
               <td className="name" colSpan={4}>Filtered totals</td>
               <td>{totals.units.toLocaleString('en-IN')}</td>
-              <td>{rupees(totals.cost)}</td>
-              <td>{rupees(totals.retail)}</td>
+              <td>{rupeesWhole(totals.cost)}</td>
+              <td>{rupeesWhole(totals.retail)}</td>
               <td colSpan={2}></td>
             </tr>
           </tfoot>

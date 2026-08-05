@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { dashboard, BackendError } from './api'
 import type { DashboardAlert, DashboardFunnelPoint, DashboardKpis, DashboardView, SaleSummary } from './types'
 import type { View } from './Sidebar'
-import { rupees } from './money'
+import { rupees, rupeesWhole } from './money'
 
 /**
  * The desktop landing screen: one glance at revenue today, the received → priced → sold pipeline,
@@ -71,7 +71,7 @@ function KpiStrip({ kpis }: { kpis: DashboardKpis }) {
           {recovery.ratio != null ? `${Math.round(recovery.ratio * 100)}%` : '—'}
         </div>
         <div className="dash-kpi-sub">
-          {rupees(recovery.revenuePaise)} of {rupees(recovery.paidPaise)} paid
+          {rupeesWhole(recovery.revenuePaise)} of {rupeesWhole(recovery.paidPaise)} paid
         </div>
       </div>
 
@@ -102,7 +102,7 @@ function Funnel({ funnel }: { funnel: DashboardFunnelPoint[] }) {
               <div className="dash-funnel-row-head">
                 <span className="dash-funnel-row-label">{f.stage.toLowerCase()}</span>
                 <span className="dash-funnel-row-right">
-                  {f.units.toLocaleString('en-IN')} units · {rupees(f.mrpPaise)} MRP
+                  {f.units.toLocaleString('en-IN')} units · {rupeesWhole(f.mrpPaise)} MRP
                 </span>
               </div>
               <div className="dash-funnel-track">
