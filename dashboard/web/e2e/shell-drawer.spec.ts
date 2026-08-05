@@ -13,7 +13,7 @@ test('Shell: at phone width the sidebar is a drawer that opens and closes', asyn
 
   await page.getByRole('button', { name: 'Open navigation' }).click()
   await expect(sidebar).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Receiving', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Intake', exact: true })).toBeVisible()
 
   await page.locator('.sidebar-scrim').click()
   await expect(sidebar).not.toBeInViewport()
