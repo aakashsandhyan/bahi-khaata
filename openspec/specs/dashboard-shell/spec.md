@@ -5,7 +5,7 @@ The dashboard application frame: grouped sidebar navigation, per-screen header, 
 ## Requirements
 
 ### Requirement: Grouped sidebar navigation
-On viewports wider than 760px the dashboard SHALL render a 236px fixed-width, full-height, sticky sidebar containing: a brand block (shop name and sub-line), navigation entries grouped under uppercase group labels — Operations (Dashboard, Receiving, Unpacking, Prep, Pricing, Lots, Review), Selling (Till, Sales, Reprint), Back office (Catalog, Suppliers, Printer config, Receipt printer, Bill settings) — and a footer identifying the signed-in operator (from the locally stored operator name) when one is set. Dashboard SHALL be the first entry of the Operations group and SHALL carry the kicker "Overview". The active entry SHALL be visually marked (inverted background and accent left bar). Screen names SHALL keep the app's current vocabulary.
+On viewports wider than 760px the dashboard SHALL render a 236px fixed-width, full-height, sticky sidebar containing: a brand block (shop name and sub-line), navigation entries grouped under uppercase group labels — Operations (Dashboard, Receiving, Unpacking, Prep, Pricing, Lots, Review, Inventory), Selling (Till, Sales, Reprint), Back office (Catalog, Suppliers, Printer config, Receipt printer, Bill settings) — and a footer identifying the signed-in operator (from the locally stored operator name) when one is set. Dashboard SHALL be the first entry of the Operations group and SHALL carry the kicker "Overview". Inventory SHALL be the last entry of the Operations group, immediately after Review. The active entry SHALL be visually marked (inverted background and accent left bar). Screen names SHALL keep the app's current vocabulary.
 
 #### Scenario: Navigate between screens
 - **WHEN** the user clicks a sidebar entry
@@ -18,6 +18,10 @@ On viewports wider than 760px the dashboard SHALL render a 236px fixed-width, fu
 #### Scenario: Dashboard leads the Operations group
 - **WHEN** the sidebar renders on a desktop viewport
 - **THEN** Dashboard appears as the first entry under Operations with the kicker "Overview"
+
+#### Scenario: Inventory closes the Operations group
+- **WHEN** the sidebar renders on a desktop viewport
+- **THEN** Inventory appears as the last entry under Operations, immediately after Review
 
 ### Requirement: Per-screen header
 The main area SHALL render a sticky header for every screen showing an uppercase accent-colored kicker (context line) and the screen title, sourced from the same navigation configuration that drives the sidebar.
