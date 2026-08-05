@@ -157,6 +157,27 @@ export function LotManagement() {
                           {lot.isManual ? 'Manual' : 'Manifest'}
                         </div>
                       </div>
+                      {/* A manifest lot completes when its last box goes terminal; a manual lot has
+                          no such event, so its receiving is finished by hand — this is what clears
+                          it from the dashboard's still-receiving alert. */}
+                      {!lot.receivingComplete && (
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          style={{ padding: '4px 0', fontSize: '13px' }}
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await receiving.markReceivingComplete(lot.id)
+                              await loadLots()
+                            } catch (err) {
+                              setMessage({ text: err instanceof BackendError ? err.message : 'Could not mark receiving finished.', tone: 'stop' })
+                            }
+                          }}
+                        >
+                          Receiving finished
+                        </button>
+                      )}
                       {lot.expected > 0 && (
                         <>
                           <div style={{ height: '4px', background: 'var(--color-neutral-200)', marginBottom: 'var(--space-2)', overflow: 'hidden' }}>

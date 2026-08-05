@@ -357,6 +357,7 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
+  markReceivingComplete: (lotId: string) => post(`/api/lots/${lotId}/receiving-complete`, {}),
   createManualLot: (supplierId: string, receivedOn: string, amountPaidPaise: number) =>
     post<_LotSummary>('/api/lots/manual', {
       supplierId,
@@ -534,6 +535,9 @@ export const shelfPricing = {
     name?: string | null
     setInHandAsTotal?: boolean
     operatorName?: string | null
+    // Where the batch physically sits, or null/omitted to leave it untouched — not the same as
+    // clearing it (that is item detail's own bin edit; see the `inventory` namespace above).
+    bin?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
 
   saveManual: (body: {
@@ -545,6 +549,7 @@ export const shelfPricing = {
     sellingPricePaise: number
     mrpPaise: number | null
     operatorName?: string | null
+    bin?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/manual', body) as Promise<_ShelfPricedProduct>,
 
   phantomReport: (lotId: string) =>
@@ -552,6 +557,26 @@ export const shelfPricing = {
 
   writeOff: (lotId: string) =>
     post<_WriteOffResult>(`/api/pricing/lots/${lotId}/write-off`) as Promise<_WriteOffResult>,
+}
+
+// --- inventory ---
+// The stock table's one aggregate call, one product's full detail, and the one write this
+// feature adds — a batch's bin. Filtering, totals, and CSV export all happen client-side against
+// the loaded rows, so there is nothing to pass as query parameters to `rows()`.
+
+import type {
+  InventoryDetail as _InventoryDetail,
+  InventoryRow as _InventoryRow,
+  SetBinResult as _SetBinResult,
+} from './types'
+
+export const inventory = {
+  rows: () => get<_InventoryRow[]>('/api/inventory'),
+
+  detail: (productId: string) => get<_InventoryDetail>(`/api/inventory/product/${productId}`),
+
+  setBin: (batchId: string, bin: string) =>
+    put<_SetBinResult>(`/api/inventory/batch/${batchId}/bin`, { bin }) as Promise<_SetBinResult>,
 }
 
 export const reviewQueue = {

@@ -14,6 +14,16 @@ test('backend answers /api/instance', async ({ request }) => {
 test('the dashboard shell renders the sidebar', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText('BACHAT BAZAAR')).toBeVisible()
+
+  // palletworks-inventory (dashboard-shell spec, MODIFIED): Inventory closes the Operations
+  // group, immediately after Review.
+  const operationsItems = page
+    .locator('.sidebar-group', { hasText: 'Operations' })
+    .locator('xpath=..')
+    .locator('.sidebar-item')
+  const count = await operationsItems.count()
+  await expect(operationsItems.last()).toHaveText('Inventory')
+  await expect(operationsItems.nth(count - 2)).toHaveText('Review')
 })
 
 test('the seed landed: the seeded lot is visible through the API', async ({ request }) => {

@@ -82,7 +82,8 @@ public class CaptureService {
                 req.quantity(),
                 req.sellingPricePaise(),
                 mrp,
-                null)); // capture approval records no operator name
+                null, // capture approval records no operator name
+                null)); // and no bin — captured stock has none to carry over
 
         capture.approve();
         captures.save(capture);

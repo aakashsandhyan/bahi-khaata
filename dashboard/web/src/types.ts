@@ -635,3 +635,72 @@ export interface SupplierLot {
   isManual: boolean
   categoryCode: string | null
 }
+
+// --- inventory ---
+// Mirrors com.bahikhaata.contracts.InventoryRow/InventoryDetail and friends. The list and the
+// bin write are the Inventory screen's reads/write; detail composes one product's full story —
+// see api.ts's `inventory` namespace.
+
+export interface InventoryRow {
+  productId: string
+  productName: string
+  condition: 'GOOD' | 'DAMAGED'
+  // The single backing lot's "supplier · received-on" label, or an "N lots" marker.
+  lotLabel: string
+  // Every distinct bin backing this row — empty when none of its stock has one.
+  bins: string[]
+  onHandQuantity: number
+  // null when any contributing batch is not yet costed — an honest absence, never a fake zero.
+  costBasisPaise: number | null
+  sellingPricePaise: number | null
+  marginPercent: number | null
+  ageDays: number
+}
+
+export interface InventoryBatchLine {
+  batchId: string
+  condition: 'GOOD' | 'DAMAGED' | 'NEEDS_WORK' | 'UNUSABLE'
+  lotLabel: string
+  bin: string | null
+  quantityReceived: number
+  quantityDamaged: number
+  allocatedUnitCostPaise: number | null
+  mrpPaise: number | null
+  createdAt: string | null
+}
+
+export interface InventoryMovement {
+  movementType: 'PURCHASE_RECEIPT' | 'SALE' | 'WRITE_OFF' | 'ADJUSTMENT'
+  quantity: number
+  cogsPaise: number | null
+  effectiveAt: string
+}
+
+export interface PriceChange {
+  // null marks the product's first-ever price set — rendered as an explicit "first price" marker,
+  // never a zero or blank.
+  oldPricePaise: number | null
+  newPricePaise: number
+  operatorName: string | null
+  changedAt: string
+}
+
+export interface InventoryDetail {
+  productId: string
+  productName: string
+  categoryCode: string
+  barcodes: string[]
+  costBasisPaise: number | null
+  sellingPricePaise: number | null
+  marginPercent: number | null
+  receivedUnits: number
+  soldUnits: number
+  batches: InventoryBatchLine[]
+  movements: InventoryMovement[]
+  priceHistory: PriceChange[]
+}
+
+export interface SetBinResult {
+  batchId: string
+  bin: string | null
+}

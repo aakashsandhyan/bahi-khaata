@@ -39,16 +39,23 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>The price cannot exceed the MRP printed on the goods. That is not a policy this shop
  * chose: selling above the printed maximum retail price is unlawful in India, and the label
  * shows the customer a saving measured against it.
+ *
+ * <p>Every price this sets is journaled to {@link PriceHistory} before returning — one hook, not
+ * five, per design decision D5 of palletworks-inventory. This is the only class that ever saves a
+ * {@link PriceHistory} row.
  */
 @Service
 public class ProductPricing {
 
     private final ProductRepository products;
     private final BatchRepository batches;
+    private final PriceHistoryRepository priceHistory;
 
-    ProductPricing(ProductRepository products, BatchRepository batches) {
+    ProductPricing(
+            ProductRepository products, BatchRepository batches, PriceHistoryRepository priceHistory) {
         this.products = products;
         this.batches = batches;
+        this.priceHistory = priceHistory;
     }
 
     @Transactional
@@ -82,8 +89,27 @@ public class ProductPricing {
             requireAtOrBelowMrp(held, price);
         }
 
+        // Read before the set: this is the price the journal calls "old", and null here is a
+        // first-ever set, not a value to invent (design decision D5 of palletworks-inventory).
+        Money oldPrice = product.getSellingPrice();
         product.setSellingPrice(price);
+        journal(product, oldPrice, price);
         return product;
+    }
+
+    /**
+     * Appends the one journal row this price change earns, or none at all.
+     *
+     * <p>Every price path funnels through {@link #setSellingPrice(UUID, Money, boolean)}, so this
+     * is the only place {@link PriceHistory} is ever written — no caller journals on its own and
+     * none can bypass the record. A set whose new price equals what the product already carried
+     * is a no-op (a re-price that only corrects an MRP or quantity) and writes nothing.
+     */
+    private void journal(Product product, Money oldPrice, Money newPrice) {
+        if (oldPrice != null && oldPrice.paise() == newPrice.paise()) {
+            return;
+        }
+        priceHistory.save(PriceHistory.record(product, oldPrice, newPrice));
     }
 
     /**

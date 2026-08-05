@@ -13,4 +13,10 @@ test('Catalog: the seeded priced product is found by name and its detail opens',
 
   await expect(page.getByRole('heading', { name: seed.products.pricedGood.name })).toBeVisible()
   await expect(page.getByText(seed.products.pricedGood.barcode)).toBeVisible()
+
+  // palletworks-inventory D9: the panel's own link opens Item detail for the same product, via
+  // App's onOpenItem — the same mechanism an Inventory row uses.
+  await page.getByRole('button', { name: 'Open in Item detail →' }).click()
+  await expect(page.getByRole('heading', { name: seed.products.pricedGood.name })).toBeVisible()
+  await expect(page.locator('.id-kpis')).toBeVisible()
 })
