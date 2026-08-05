@@ -40,4 +40,8 @@ public record PriceExistingRequest(
         // applies (first pricing overwrites, a later one adds).
         boolean setInHandAsTotal,
         // Who priced it (remembered per device), shown on the review screen. Null when not set.
-        String operatorName) {}
+        String operatorName,
+        // Where this batch's stock physically sits, or null to leave the bin untouched (design
+        // decision D8 of palletworks-inventory). Not the same as an intentional clear — clearing an
+        // already-set bin is done from item detail's own bin edit, not from a pricing save.
+        String bin) {}

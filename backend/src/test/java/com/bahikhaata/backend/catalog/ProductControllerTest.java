@@ -23,9 +23,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.bahikhaata.backend.shelf.PriceHistory;
+import com.bahikhaata.backend.shelf.PriceHistoryRepository;
 import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -53,6 +59,9 @@ class ProductControllerTest {
 
     @Autowired
     private ObjectMapper json;
+
+    @Autowired
+    private PriceHistoryRepository priceHistory;
 
     @Test
     @DisplayName("A known barcode resolves to its product")
@@ -121,5 +130,22 @@ class ProductControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"sellingPricePaise\":15000}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Setting a price through the catalog inline edit journals the change")
+    void settingAPriceJournals() throws Exception {
+        Product product = products.save(new Product("Journal Wall clock", Category.of("DECOR"), Map.of()));
+
+        mockMvc.perform(
+                        put("/api/products/{id}/price", product.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"sellingPricePaise\":15000}"))
+                .andExpect(status().isOk());
+
+        List<PriceHistory> rows = priceHistory.findByProductIdOrderByCreatedAtDesc(product.getId());
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getOldPrice()).as("first-ever set").isNull();
+        assertThat(rows.get(0).getNewPrice()).isEqualTo(Money.ofPaise(15000));
     }
 }

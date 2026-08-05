@@ -220,9 +220,9 @@ public class ShelfPricing {
             product.setName(req.name().trim());
         }
 
-        // Touch the batch only when there is something to write to it — an MRP to confirm or an
-        // in-hand count to reconcile — so a bare re-price needs no batch loaded.
-        if (req.mrpPaise() != null || req.inHandQuantity() != null) {
+        // Touch the batch only when there is something to write to it — an MRP to confirm, an
+        // in-hand count to reconcile, or a bin to set — so a bare re-price needs no batch loaded.
+        if (req.mrpPaise() != null || req.inHandQuantity() != null || req.bin() != null) {
             Batch batch = batches.findById(req.batchId())
                     .orElseThrow(() -> new IllegalArgumentException("no such batch: " + req.batchId()));
             // Confirm the MRP before pricing, so the price is checked against the figure the
@@ -238,6 +238,12 @@ public class ShelfPricing {
                 } else {
                     goodsIn.addToInHand(batch, req.inHandQuantity(), Instant.now());
                 }
+            }
+            // Bin is written on the same save, no new round trip (design decision D8 of
+            // palletworks-inventory). Only when the operator actually supplied one — a null here
+            // means "leave the bin as it is", never "clear it".
+            if (req.bin() != null) {
+                batch.setBin(req.bin());
             }
             batches.save(batch);
         }
@@ -267,7 +273,7 @@ public class ShelfPricing {
         Product product = products.save(new Product(req.name(), category, Map.of()));
 
         Money mrp = req.mrpPaise() != null ? Money.ofPaise(req.mrpPaise()) : null;
-        goodsIn.receiveManual(
+        Batch batch = goodsIn.receiveManual(
                 lot,
                 product,
                 StockCondition.valueOf(req.condition()),
@@ -275,6 +281,10 @@ public class ShelfPricing {
                 mrp,
                 false,
                 Instant.now());
+        if (req.bin() != null) {
+            batch.setBin(req.bin());
+            batches.save(batch);
+        }
 
         // Route through the guarded setter (MRP ceiling enforced; uncosted allowed — decision B-b).
         // The batch created above carries the MRP, so the ceiling is checked against it.

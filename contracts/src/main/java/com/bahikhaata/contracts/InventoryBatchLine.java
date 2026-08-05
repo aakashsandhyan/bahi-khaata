@@ -20,21 +20,20 @@ package com.bahikhaata.contracts;
 import java.util.UUID;
 
 /**
- * Prices stock keyed in by hand — never counted, or a lost-reference item re-entered. Creates the
- * product and a batch under the lot for {@code quantity} units in {@code condition} ("GOOD" or
- * "DAMAGED"), writes the stock receipt, sets category and selling price, records the MRP confirmed
- * (null for none), and mints a BBZ. An uncosted batch has no suggestion, so the price is required.
+ * One batch in a product's item-detail per-batch list — the breakdown an Inventory row's lot
+ * rollup deliberately hides (design decision D1 of palletworks-inventory).
+ *
+ * @param bin where this batch's stock physically sits, or null if nobody has set one
+ * @param allocatedUnitCostPaise this batch's own unit cost, or null while its lot is still open
+ * @param mrpPaise the printed maximum retail price recorded on this batch, or null if unread
  */
-public record PriceManualRequest(
-        UUID lotId,
-        String name,
-        String categoryCode,
+public record InventoryBatchLine(
+        UUID batchId,
         String condition,
-        long quantity,
-        long sellingPricePaise,
+        String lotLabel,
+        String bin,
+        long quantityReceived,
+        long quantityDamaged,
+        Long allocatedUnitCostPaise,
         Long mrpPaise,
-        // Who priced it (remembered per device), shown on the review screen. Null when not set.
-        String operatorName,
-        // Where the newly-materialised batch's stock physically sits, or null to leave it unset
-        // (design decision D8 of palletworks-inventory).
-        String bin) {}
+        String createdAt) {}
