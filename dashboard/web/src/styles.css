@@ -997,3 +997,104 @@ tr.damaged { background: var(--color-accent-2-100); }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ============================================================================
+   Intake — lot rail, header stats, step strip, three tabs, lot-math rail
+   (design decision D1 of palletworks-intake)
+   ============================================================================ */
+.intake { max-width: 1320px; margin: 0 auto; padding: var(--space-6); }
+.intake-shell {
+  display: grid; grid-template-columns: 220px 1fr 240px; gap: var(--space-5);
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .intake-shell { grid-template-columns: 200px 1fr; }
+  .intake-math { display: none; }
+}
+@media (max-width: 760px) {
+  .intake-shell { grid-template-columns: 1fr; }
+}
+
+/* the lot rail */
+.intake-rail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.intake-rail-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+.intake-rail-list { display: flex; flex-direction: column; gap: 2px; }
+.intake-rail-item {
+  display: flex; flex-direction: column; gap: 3px;
+  text-align: left; width: 100%;
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-left: 3px solid transparent; border-radius: 0;
+  padding: 9px 10px; cursor: pointer; color: inherit; font: inherit;
+}
+.intake-rail-item:hover { border-color: var(--color-neutral-600); background: var(--color-neutral-200); }
+.intake-rail-item.on { border-left-color: var(--color-accent); background: var(--color-neutral-200); }
+.intake-rail-name {
+  font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.intake-rail-meta { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--color-neutral-600); }
+.intake-rail-empty { font-size: 13px; color: var(--color-neutral-500); padding: var(--space-2) 0; }
+
+/* header stats */
+.intake-kpis {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--color-divider); margin-bottom: var(--space-4);
+}
+.intake-kpi { padding: var(--space-3) var(--space-4); border-right: 1px solid var(--color-divider); }
+.intake-kpi:last-child { border-right: 0; }
+.intake-kpi-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+.intake-kpi-value {
+  font-family: var(--font-heading); font-weight: 800; font-size: 22px; letter-spacing: -0.02em;
+  margin-top: 6px; font-variant-numeric: tabular-nums;
+}
+.intake-kpi-sub { font-size: 11px; color: var(--color-neutral-500); margin-top: 2px; }
+@media (max-width: 760px) {
+  .intake-kpis { grid-template-columns: repeat(2, 1fr); }
+  .intake-kpi:nth-child(2n) { border-right: 0; }
+}
+
+/* step strip (D4: inferred, not persisted) */
+.intake-steps { display: flex; gap: 2px; margin-bottom: var(--space-4); }
+.intake-step {
+  flex: 1; text-align: center; padding: 8px 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--color-neutral-100); color: var(--color-neutral-500);
+}
+.intake-step.done { background: var(--color-neutral-200); color: var(--color-neutral-800); }
+.intake-step.active { background: var(--color-accent); color: var(--color-bg); }
+
+/* lot-math right rail */
+.intake-math {
+  border: 1px solid var(--color-divider); padding: var(--space-4);
+  position: sticky; top: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.intake-math-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+.intake-math-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); font-size: 13px; }
+.intake-math-label { color: var(--color-neutral-600); }
+.intake-math-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.intake-math-action { margin-top: var(--space-2); }
+
+/* tab bodies */
+.intake-tab-note {
+  font-size: 13px; color: var(--color-neutral-700); background: var(--color-surface);
+  border-left: 3px solid var(--color-accent); padding: 10px 12px; margin: 0 0 var(--space-3);
+}
+.intake-unopened {
+  border: 1px solid var(--color-accent-2-600); background: var(--color-accent-2-100);
+  padding: var(--space-3); margin: var(--space-3) 0; font-size: 13px;
+}
+.intake-unopened ul { margin: var(--space-2) 0 0; padding-left: 18px; }
+.intake-recon-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-divider); font-size: 13px; }
+.intake-recon-row:last-child { border-bottom: 0; }

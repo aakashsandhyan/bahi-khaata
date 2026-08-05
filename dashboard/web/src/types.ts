@@ -460,6 +460,35 @@ export interface AddProductResponse {
   allocationPerUnit: number
 }
 
+// --- intake (palletworks-intake) --------------------------------------------------------------
+// The Intake screen's one read-only aggregate: header stats and lot-math-rail figures for a
+// single lot, from one call (design decision D5 of palletworks-intake). Fields that would
+// otherwise divide by an as-yet-zero denominator come back null, never a computed zero or an
+// infinity — an empty lot, or a lot nothing has been counted into yet, answers honestly (D5, D6).
+export interface LotIntakeStats {
+  lotId: string
+  paidPaise: number
+  pinnedPaise: number
+  mrpFoundPaise: number
+  costOfMrpPercent: number | null
+  expectedUnits: number | null
+  countedUnits: number
+  shortUnits: number
+  overUnits: number
+  effectiveCostPerUnitPaise: number | null
+  projectedRetailPaise: number
+}
+
+// What closing a delivery did — the response of `POST /api/unpacking/lots/{lotId}/close`.
+export interface DeliveryClosed {
+  lotId: string
+  batchesCosted: number
+  unitsCosted: number
+  amountApportionedPaise: number
+  batchesWeighedAtLotAverage: number
+  unopenedCartons: string[]
+}
+
 // --- printer (barcode labels) ---------------------------------------------------------------
 
 export interface PrintJob {
