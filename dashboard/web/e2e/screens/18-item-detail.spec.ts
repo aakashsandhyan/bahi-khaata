@@ -59,4 +59,19 @@ test('Item detail: KPIs, movement log, price history, and batches render for a s
   // = 0, same as 07-reprint.spec.ts). ---
   await page.getByRole('button', { name: 'Queue label reprint' }).click()
   await expect(page.getByText('Label reprint queued.')).toBeVisible()
+
+  // --- Category edit (palletworks-nav): PATCH /api/products/{id}/category persists a new
+  // department, and touches neither price nor price history — the reprice above is the only
+  // price-history row still on record, and the KPI price is unchanged. ---
+  await page.getByLabel('Department').selectOption('HOME_ESSENTIALS')
+  await page.getByRole('button', { name: 'Save department' }).click()
+  await expect(page.getByText('Department saved.')).toBeVisible()
+  await expect(priceHistoryTable.locator('tbody tr')).toHaveCount(2)
+  await expect(kpi('Price')).toHaveText('₹550')
+
+  await page.reload()
+  await openScreen(page, 'Inventory')
+  await page.locator('tr.inv-row', { hasText: seed.products.pricedGood.name }).click()
+  await expect(page.getByRole('heading', { name: seed.products.pricedGood.name })).toBeVisible()
+  await expect(page.getByLabel('Department')).toHaveValue('HOME_ESSENTIALS')
 })

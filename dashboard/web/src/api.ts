@@ -59,6 +59,17 @@ async function put<T>(path: string, body?: unknown): Promise<T | null> {
   return text ? (JSON.parse(text) as T) : null
 }
 
+async function patch<T>(path: string, body?: unknown): Promise<T | null> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!response.ok) throw new BackendError(await message(response))
+  const text = await response.text()
+  return text ? (JSON.parse(text) as T) : null
+}
+
 async function message(response: Response): Promise<string> {
   const text = await response.text()
   return text || `The backend answered ${response.status}.`
@@ -75,6 +86,12 @@ export const api = {
 
   setPrice: (productId: string, pricePaise: number) =>
     post<void>(`/api/admin/pricing/products/${productId}`, { pricePaise }),
+
+  // A plain reclassification — no price, no batch, no stock movement (design decision D4 of
+  // palletworks-nav). PATCH /api/products/{id}/category is the only new backend endpoint this
+  // change adds.
+  setCategory: (productId: string, categoryCode: string) =>
+    patch<void>(`/api/products/${productId}/category`, { categoryCode }),
 
   priceCategory: (category: string, marginPercent: number) =>
     post<BulkResult>(
@@ -406,10 +423,12 @@ export const suppliers = {
 }
 
 // --- catalog ---
-// Browsing the product catalogue by name and found status, and opening one product to its detail.
-// Setting a price on a catalogue product reuses api.setPrice — there is no separate endpoint for it.
+// Browsing the product catalogue by name and found status — Inventory's On paper / All scopes'
+// only caller now that the Catalog screen (which also opened a product to its own detail panel)
+// is deleted (design decisions D2, D9 of palletworks-nav). Opening a product to its detail is
+// item-detail's job (`inventory.detail`, below); there is no separate catalogue detail call left.
 
-import type { CatalogDetail as _CatalogDetail, CatalogEntry as _CatalogEntry } from './types'
+import type { CatalogEntry as _CatalogEntry } from './types'
 
 export const catalog = {
   // Name, status, category, and lot narrow together; a blank lot spans every delivery.
@@ -419,8 +438,6 @@ export const catalog = {
         `&category=${encodeURIComponent(category)}&page=${page}&size=${size}` +
         `&lot=${encodeURIComponent(lot)}`,
     ),
-
-  detail: (productId: string) => get<_CatalogDetail>(`/api/catalog/products/${productId}`),
 }
 
 // --- product-centric counting ---
