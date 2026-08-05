@@ -10,13 +10,10 @@ import { ReviewQueue } from './ReviewQueue'
 import { Reprint } from './Reprint'
 import { MobileCapture } from './MobileCapture'
 import { Prep } from './Prep'
-import { Catalog } from './Catalog'
 import { Inventory } from './Inventory'
 import { ItemDetail } from './ItemDetail'
 import { Suppliers } from './Suppliers'
-import { PrinterConfig } from './admin/PrinterConfig'
-import { ReceiptPrinterConfig } from './admin/ReceiptPrinterConfig'
-import { BillSettings } from './admin/BillSettings'
+import { Settings } from './Settings'
 import { Sidebar, screenMeta, type View } from './Sidebar'
 
 /**
@@ -26,18 +23,28 @@ import { Sidebar, screenMeta, type View } from './Sidebar'
  * print its label. Captures made from a phone land in the review queue for a desk to finish, and
  * labels not printed at pricing are caught up in bulk.
  */
+// Resolved once, at load, on any viewport — never by a `hashchange` listener (design decision D7
+// of palletworks-nav; Till's revival as a live-routed screen is a later phase). `#till` and
+// `#capture` are the two hash back-doors to a screen unlisted in the sidebar; anything else falls
+// through to the ordinary per-viewport default a phone (an unpacking station) or a desktop (the
+// dashboard) already lands on.
+function landingView(isPhone: boolean): View {
+  const hash = typeof window !== 'undefined' ? window.location.hash : ''
+  if (hash === '#till') return 'checkout'
+  if (hash === '#capture') return 'capture'
+  return isPhone ? 'unpacking' : 'dashboard'
+}
+
 export function App() {
-  // Phones are operators' devices, so they land on a single screen. A phone opened at #capture is
-  // a capture station; otherwise it is an unpacking station. Wider screens open on the till.
+  // Phones are operators' devices, so they land on a single screen by default.
   const isPhone = typeof window !== 'undefined' && window.innerWidth <= 760
-  const phoneLanding: View =
-    typeof window !== 'undefined' && window.location.hash === '#capture' ? 'capture' : 'unpacking'
-  const [view, setView] = useState<View>(isPhone ? phoneLanding : 'dashboard')
+  const [view, setView] = useState<View>(() => landingView(isPhone))
   const [drawer, setDrawer] = useState(false)
 
   // Item detail carries a product id rather than being param-less like every other nav switch
-  // (design decision D9 of palletworks-inventory): opening it from an Inventory row or the
-  // Catalog panel both go through this one callback, so neither screen needs its own notion of
+  // (design decision D9 of palletworks-inventory): opening it from any Inventory row — On floor,
+  // On paper, or All (D9 of palletworks-nav, once the Catalog panel that used to share this job
+  // is deleted) — goes through this one callback, so the screen needs no notion of its own for
   // "how to get to item detail".
   const [detailProductId, setDetailProductId] = useState<string | null>(null)
   const onOpenItem = (productId: string) => {
@@ -82,7 +89,6 @@ export function App() {
             : view === 'review' ? <ReviewQueue />
             : view === 'reprint' ? <Reprint />
             : view === 'capture' ? <MobileCapture />
-            : view === 'catalog' ? <Catalog onOpenItem={onOpenItem} />
             : view === 'inventory' ? <Inventory onOpenItem={onOpenItem} />
             : view === 'item-detail' ? (
                 detailProductId ? (
@@ -90,9 +96,7 @@ export function App() {
                 ) : null
               )
             : view === 'suppliers' ? <Suppliers />
-            : view === 'printer-config' ? <PrinterConfig />
-            : view === 'receipt-config' ? <ReceiptPrinterConfig />
-            : view === 'bill-settings' ? <BillSettings />
+            : view === 'settings' ? <Settings />
             : <Sales />}
         </main>
       </div>

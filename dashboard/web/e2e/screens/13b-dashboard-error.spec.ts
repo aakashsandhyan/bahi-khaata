@@ -10,6 +10,9 @@ test('Dashboard: a failing aggregate shows a plain error and navigation stays us
 
   await expect(page.locator('.banner.stop')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Till', exact: true }).click()
-  await expect(page.getByPlaceholder('Scan barcode or product code')).toBeVisible()
+  // Till is unlisted (design decision D8 of palletworks-nav) — no longer a sidebar entry to prove
+  // navigation with, so this reaches for another one instead. Which screen is incidental; the
+  // point is that the dashboard's own failure never wedges the sidebar.
+  await page.getByRole('button', { name: 'Inventory', exact: true }).click()
+  await expect(page.getByPlaceholder('Search by product name')).toBeVisible()
 })

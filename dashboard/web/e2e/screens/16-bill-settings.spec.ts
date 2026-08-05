@@ -7,8 +7,12 @@ import { openScreen } from '../helpers'
 // shop's Devanagari name on every environment, including this scratch database. bill_title and
 // footer are untouched by V44 and still carry their V43 defaults. See seed.ts's billSettings
 // comment and the implementation return for palletworks-dashboard for the full note.
-test('Bill settings: V43 defaults are visible, and an edited footer persists across a reload', async ({ page }) => {
-  await openScreen(page, 'Bill settings')
+//
+// Bill settings is now the Bill tab of Settings (design decision D1 of palletworks-nav) — reached
+// via the sidebar's single Settings entry, not a nav entry of its own.
+test('Settings — Bill: V43 defaults are visible, and an edited footer persists across a reload', async ({ page }) => {
+  await openScreen(page, 'Settings')
+  await page.getByRole('button', { name: 'Bill' }).click()
 
   const inputs = page.locator('input')
   const shopName = inputs.nth(0)
@@ -26,6 +30,7 @@ test('Bill settings: V43 defaults are visible, and an edited footer persists acr
 
   // A fresh mount, re-fetched from the backend — not client-side memory — is what proves the edit
   // actually persisted.
-  await openScreen(page, 'Bill settings')
+  await openScreen(page, 'Settings')
+  await page.getByRole('button', { name: 'Bill' }).click()
   await expect(page.locator('input').nth(4)).toHaveValue(edited)
 })

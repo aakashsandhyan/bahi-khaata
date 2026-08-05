@@ -17,17 +17,20 @@
  */
 package com.bahikhaata.backend.catalog;
 
+import com.bahikhaata.backend.inventory.CategoryCatalog;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CreateProductRequest;
 import com.bahikhaata.backend.shelf.ProductPricing;
 import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.ProductResponse;
+import com.bahikhaata.contracts.SetCategoryRequest;
 import com.bahikhaata.contracts.SetPriceRequest;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -49,11 +52,17 @@ class ProductController {
     private final ProductRepository products;
     private final BarcodeResolver resolver;
     private final ProductPricing pricing;
+    private final CategoryCatalog categoryCatalog;
 
-    ProductController(ProductRepository products, BarcodeResolver resolver, ProductPricing pricing) {
+    ProductController(
+            ProductRepository products,
+            BarcodeResolver resolver,
+            ProductPricing pricing,
+            CategoryCatalog categoryCatalog) {
         this.products = products;
         this.resolver = resolver;
         this.pricing = pricing;
+        this.categoryCatalog = categoryCatalog;
     }
 
     /**
@@ -103,6 +112,36 @@ class ProductController {
         return ResponseEntity.ok(
                 ProductResponses.of(
                         pricing.setSellingPrice(id, Money.ofPaise(request.sellingPricePaise()))));
+    }
+
+    /**
+     * Reclassifies a product's category (department).
+     *
+     * <p>A plain reclassification (design decision D4 of palletworks-nav): it neither sets nor
+     * changes a price, and moves no stock, so it does not go through {@link ProductPricing} or
+     * the shelf-pricing save path — those demand a batch and reprice as a side effect, which this
+     * is not. {@code Product.setCategory} is the only thing it touches.
+     *
+     * <p>{@code Category.of} accepts any non-blank string; it does not check the code against
+     * the shop's actual category list. That check happens here, against {@link CategoryCatalog},
+     * so an unknown category is refused as a 400 rather than surfacing as a 500 when the
+     * database's foreign key on {@code product.category} rejects the write.
+     */
+    @PatchMapping("/{id}/category")
+    ResponseEntity<ProductResponse> setCategory(
+            @PathVariable UUID id, @RequestBody SetCategoryRequest request) {
+        return products
+                .findById(id)
+                .map(
+                        product -> {
+                            if (!categoryCatalog.allCodes().contains(request.categoryCode())) {
+                                throw new IllegalArgumentException(
+                                        "no such category: " + request.categoryCode());
+                            }
+                            product.setCategory(Category.of(request.categoryCode()));
+                            return ResponseEntity.ok(ProductResponses.of(products.save(product)));
+                        })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     /**

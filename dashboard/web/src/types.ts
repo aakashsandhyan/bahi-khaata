@@ -342,7 +342,10 @@ export interface MrpBackfillStatus {
 }
 
 // --- catalog ---
-// Browsing the product catalogue by name and found status, and opening one product to its detail.
+// Browsing the product catalogue by name and found status (palletworks-nav: surfaced by
+// Inventory's On paper / All scopes, not a standalone screen). Opening one product to its detail
+// is owned by item-detail now; the catalogue's own per-product detail payload is gone with the
+// deleted Catalog screen — see CatalogEntry's own doc.
 
 export type CatalogStatus = 'FOUND' | 'ON_PAPER'
 
@@ -354,11 +357,6 @@ export interface CatalogEntry {
   priced: boolean
   unitsExpected: number
   unitsCounted: number
-}
-
-export interface ProductCode {
-  code: string
-  origin: 'MANUFACTURER' | 'INTERNAL' | 'MARKETPLACE' | 'UNIT_LABEL'
 }
 
 // --- product-centric counting ---
@@ -402,16 +400,6 @@ export interface ProductCountResult {
   linesCounted: number
   unitsCounted: number
   rejected: RejectedEntry[]
-}
-
-// Reuses ProductStates verbatim — the catalogue detail and the remediation view stay one shape.
-export interface CatalogDetail {
-  states: ProductStates
-  codes: ProductCode[]
-  status: CatalogStatus
-  priced: boolean
-  unitsExpected: number
-  unitsCounted: number
 }
 
 // --- receiving ---
@@ -644,6 +632,7 @@ export interface SupplierLot {
 export interface InventoryRow {
   productId: string
   productName: string
+  categoryCode: string
   condition: 'GOOD' | 'DAMAGED'
   // The single backing lot's "supplier · received-on" label, or an "N lots" marker.
   lotLabel: string

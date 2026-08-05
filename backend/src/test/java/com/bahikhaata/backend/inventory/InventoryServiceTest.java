@@ -112,6 +112,9 @@ class InventoryServiceTest {
         InventoryRow damagedRow = rows.stream().filter(r -> r.condition().equals("DAMAGED")).findFirst().orElseThrow();
         assertThat(goodRow.onHandQuantity()).isEqualTo(5);
         assertThat(damagedRow.onHandQuantity()).isEqualTo(2);
+        // The Inventory screen's department filter (palletworks-nav) reads this off the same
+        // joined product row that already supplies productName — no extra join.
+        assertThat(goodRow.categoryCode()).isEqualTo("KITCHEN");
     }
 
     @Test

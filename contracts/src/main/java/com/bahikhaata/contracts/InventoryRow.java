@@ -24,6 +24,11 @@ import java.util.UUID;
  * One row of the Inventory table: a product held in one stock condition, rolled up across
  * whichever lots back it (design decision D1 of palletworks-inventory).
  *
+ * @param categoryCode the product's department, read off the same joined {@code product} row that
+ *     already supplies {@code productName} — no extra join. Added so the Inventory screen's
+ *     department filter (palletworks-nav) has something to filter the On floor scope on, using
+ *     the same field name {@code catalog.browse}'s {@code CatalogEntry} already uses for the
+ *     On paper / All scopes.
  * @param condition "GOOD" or "DAMAGED" — the only conditions that ever reach the stock ledger,
  *     so the only ones an inventory row can represent
  * @param lotLabel the single backing lot's identity ("supplier · received-on"), or an "N lots"
@@ -43,6 +48,7 @@ import java.util.UUID;
 public record InventoryRow(
         UUID productId,
         String productName,
+        String categoryCode,
         String condition,
         String lotLabel,
         List<String> bins,
