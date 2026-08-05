@@ -2,8 +2,11 @@ import { test, expect } from '@playwright/test'
 import { seed } from '../seed'
 import { openScreen } from '../helpers'
 
-test('Printer config: the seeded config is disabled and unroutable; testing it proves printing is impossible', async ({ page }) => {
-  await openScreen(page, 'Printer')
+// Printer config is now the Label printer tab of Settings (design decision D1 of
+// palletworks-nav) — reached via the sidebar's single Settings entry, not a nav entry of its own.
+test('Settings — Label printer: the seeded config is disabled and unroutable; testing it proves printing is impossible', async ({ page }) => {
+  await openScreen(page, 'Settings')
+  await page.getByRole('button', { name: 'Label printer' }).click()
 
   const address = page.getByPlaceholder(/TSC TE244/)
   await expect(address).toHaveValue(seed.printerConfig.address)

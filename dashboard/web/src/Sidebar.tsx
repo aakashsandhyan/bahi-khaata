@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 
 export type View =
   | 'dashboard' | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
-  | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
-  | 'printer-config' | 'receipt-config' | 'bill-settings'
+  | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'suppliers'
+  | 'settings'
   // Opened with a product id (App's `detailProductId`), not a param-less nav click — reachable
-  // from an Inventory row or the Catalog panel (design decision D9 of palletworks-inventory), so
-  // deliberately absent from NAV_GROUPS like 'capture'. screenMeta special-cases it below rather
-  // than falling through to capture's phone-only kicker/title.
+  // from any Inventory row (design decision D9 of palletworks-inventory, carried forward as the
+  // sole opener by D9 of palletworks-nav), so deliberately absent from NAV_GROUPS like 'capture'.
+  // screenMeta special-cases it below rather than falling through to capture's phone-only
+  // kicker/title.
   | 'item-detail'
 
 type NavItem = { view: View; label: string; kicker: string }
@@ -35,7 +36,6 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Selling',
     items: [
-      { view: 'checkout', label: 'Till', kicker: 'Point of sale' },
       { view: 'sales', label: 'Sales', kicker: 'Sale history' },
       { view: 'reprint', label: 'Reprint', kicker: 'Labels' },
     ],
@@ -43,11 +43,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Back office',
     items: [
-      { view: 'catalog', label: 'Catalog', kicker: 'All products' },
       { view: 'suppliers', label: 'Suppliers', kicker: 'Sourcing' },
-      { view: 'printer-config', label: 'Printer', kicker: 'Admin' },
-      { view: 'receipt-config', label: 'Receipt printer', kicker: 'Admin' },
-      { view: 'bill-settings', label: 'Bill settings', kicker: 'Admin' },
+      { view: 'settings', label: 'Settings', kicker: 'Admin' },
     ],
   },
 ]
@@ -55,9 +52,12 @@ export const NAV_GROUPS: NavGroup[] = [
 export function screenMeta(view: View): { kicker: string; title: string } {
   // Item detail carries a product id and isn't a nav entry, so it isn't in NAV_GROUPS to find —
   // the header stays generic ("Inventory" / "Item detail") and the view itself renders the
-  // product's actual name as its own on-page heading, the same split Catalog's own detail panel
-  // already uses.
+  // product's actual name as its own on-page heading.
   if (view === 'item-detail') return { kicker: 'Inventory', title: 'Item detail' }
+  // Till is unlisted (design decision D8 of palletworks-nav) — reachable only by the `#till`
+  // hash, so it is absent from NAV_GROUPS, but the header still needs its own kicker/title
+  // rather than falling through to Capture's.
+  if (view === 'checkout') return { kicker: 'Point of sale', title: 'Till' }
   for (const g of NAV_GROUPS) {
     const hit = g.items.find((i) => i.view === view)
     if (hit) return { kicker: hit.kicker, title: hit.label }
