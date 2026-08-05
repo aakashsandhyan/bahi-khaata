@@ -151,6 +151,69 @@ export interface SaleSummary {
   itemCount: number
 }
 
+// --- dashboard ---
+// Mirrors com.bahikhaata.contracts.DashboardView and its nested records. One aggregate payload
+// for the whole screen — see api.ts's dashboard.get().
+
+export interface RevenueTodayKpi {
+  totalPaise: number
+  billCount: number
+  // null when there are no bills yet — never a bare ₹0 average.
+  averagePaise: number | null
+}
+
+export interface ReceivedVsPricedKpi {
+  receivedUnits: number
+  pricedUnits: number
+  unpricedBacklogUnits: number
+}
+
+export interface RecoveryKpi {
+  revenuePaise: number
+  paidPaise: number
+  // null when no lot has any amount paid recorded yet — never a divide-by-zero.
+  ratio: number | null
+}
+
+export interface GstKpi {
+  taxAllTimePaise: number
+  // Always false today: GST is not computed until the separate gst-inclusive-pricing change
+  // ships. The tile must show this rather than let a bare ₹0 read as a real figure.
+  computed: boolean
+}
+
+export interface DashboardKpis {
+  revenueToday: RevenueTodayKpi
+  receivedVsPriced: ReceivedVsPricedKpi
+  recovery: RecoveryKpi
+  gst: GstKpi
+}
+
+export type DashboardFunnelStage = 'RECEIVED' | 'PRICED' | 'SOLD'
+
+export interface DashboardFunnelPoint {
+  stage: DashboardFunnelStage
+  units: number
+  mrpPaise: number
+}
+
+export interface DashboardAlert {
+  signal: string
+  count: number
+  // A View literal (see Sidebar.tsx) — the screen this alert's row navigates to when clicked.
+  targetView: string
+  message: string
+}
+
+export interface DashboardView {
+  kpis: DashboardKpis
+  // Always exactly three points, in order: RECEIVED, PRICED, SOLD.
+  funnel: DashboardFunnelPoint[]
+  // Only the signals with a non-zero count — a zero-count signal is omitted, never a "0" row.
+  alerts: DashboardAlert[]
+  recentSales: SaleSummary[]
+}
+
 // The receipt printer's config, and the editable text on a bill — both admin-only, single-row.
 export interface ReceiptPrinterConfig {
   address: string

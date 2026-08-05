@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export type View =
-  | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
+  | 'dashboard' | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
   | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
   | 'printer-config' | 'receipt-config' | 'bill-settings'
 
@@ -17,6 +17,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operations',
     items: [
+      { view: 'dashboard', label: 'Dashboard', kicker: 'Overview' },
       { view: 'receiving', label: 'Receiving', kicker: 'Warehouse' },
       { view: 'unpacking', label: 'Unpacking', kicker: 'Warehouse' },
       { view: 'prep', label: 'Prep', kicker: 'Remediation' },
@@ -76,7 +77,7 @@ export function Sidebar({
       {open && <div className="sidebar-scrim" onClick={onClose} />}
       <aside className={open ? 'sidebar open' : 'sidebar'}>
         <div className="sidebar-brand">
-          <div className="sidebar-name">BACHAT BAAZAR</div>
+          <div className="sidebar-name">BACHAT BAZAAR</div>
           <div className="sidebar-sub">{sandbox ? 'SANDBOX — throwaway copy' : 'Bhopal · liquidation retail'}</div>
         </div>
         <nav className="sidebar-nav">

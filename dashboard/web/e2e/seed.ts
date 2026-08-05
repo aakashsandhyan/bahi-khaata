@@ -108,4 +108,52 @@ export const seed = {
     address: '203.0.113.1:9100',
     enabled: false,
   },
+
+  receiptPrinterConfig: {
+    id: '00000000-0000-0000-0000-000000000002',
+    address: '203.0.113.1:9101',
+    enabled: false,
+    // V44 (an earlier, unrelated migration) leaves this config's transport as USB, not V43's LAN
+    // default — the seed only re-patches address/enabled back to a safe TEST-NET state, per the
+    // comment on that UPDATE in R__e2e_seed.sql. 15-receipt-config.spec.ts locates the address
+    // field by role rather than by its (transport-dependent) placeholder to avoid coupling to this.
+    transport: 'USB',
+  },
+
+  // Two completed bills on the priced kettle (products.pricedGood), timestamped `now` by the seed
+  // migration itself (see R__e2e_seed.sql) so they always land in today's IST window. Figures are
+  // computed by hand from pricedGood's seeded price (49900) and MRP (59900).
+  sales: {
+    first: {
+      id: 'e2e00001-0000-4000-8000-000000000081',
+      billNo: 9001,
+      billNoFormatted: 'BB-009001',
+      paymentMethod: 'CASH',
+      quantity: 2,
+      totalPaise: 99800,
+    },
+    second: {
+      id: 'e2e00001-0000-4000-8000-000000000082',
+      billNo: 9002,
+      billNoFormatted: 'BB-009002',
+      paymentMethod: 'UPI',
+      quantity: 1,
+      totalPaise: 49900,
+    },
+    // Sum of both bills — the exact figure the dashboard's revenue-today tile must show. Non-zero
+    // on purpose: this is the tripwire for the seed's timestamp format (see D10).
+    revenueTodayPaise: 99800 + 49900,
+    operatorName: 'E2E Seed',
+  },
+
+  // V43 defaults are what the Bill settings screen should show — except shop_name, which V44 (an
+  // earlier, unrelated migration) overwrites to the shop's Devanagari name on every environment,
+  // including this scratch database. That is real, current production behaviour, not something
+  // this seed re-patches; 16-bill-settings.spec.ts asserts the actual value rather than the stale
+  // V43 default. See the implementation return for palletworks-dashboard for the full note.
+  billSettings: {
+    shopNameAsSeeded: 'बचत बाज़ार', // V44's overwrite, not the V43 default 'Bachat Bazaar'
+    billTitle: 'Bill of Supply',
+    footer: 'Thank you!',
+  },
 } as const

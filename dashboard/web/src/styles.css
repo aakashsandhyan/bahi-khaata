@@ -842,3 +842,81 @@ tr.damaged { background: var(--color-accent-2-100); }
 .pad { padding: var(--space-4); }
 .stop { color: var(--color-accent-700); }
 .good { color: var(--color-neutral-800); }
+
+/* ============================================================================
+   Dashboard (desktop landing) — KPI strip, funnel bars, alerts, recent sales
+   ============================================================================ */
+.dash { padding-bottom: var(--space-8); }
+
+/* KPI strip: four even cells, divided by the shell's own rule weight. */
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 2px solid var(--color-divider);
+}
+.dash-kpi { padding: var(--space-4) var(--space-6); border-right: 1px solid var(--color-divider); }
+.dash-kpi:last-child { border-right: 0; }
+.dash-kpi-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+.dash-kpi-value {
+  font-family: var(--font-heading); font-weight: 800; font-size: 32px; letter-spacing: -0.03em;
+  margin: 10px 0 6px; font-variant-numeric: tabular-nums;
+}
+.dash-kpi-sub { font-size: 12px; color: var(--color-neutral-700); }
+.dash-kpi-tag { margin-left: 8px; }
+
+/* Two-column body: funnel on the left, alerts + recent sales in a narrower right rail. */
+.dash-body { display: grid; grid-template-columns: 1fr 340px; }
+.dash-funnel { padding: var(--space-4) var(--space-6); border-right: 1px solid var(--color-divider); }
+.dash-aside { padding: var(--space-4) var(--space-5) var(--space-6); }
+@media (max-width: 900px) {
+  .dash-body { grid-template-columns: 1fr; }
+  .dash-funnel { border-right: 0; border-bottom: 1px solid var(--color-divider); }
+}
+@media (max-width: 760px) {
+  .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+  .dash-kpi { border-bottom: 1px solid var(--color-divider); }
+  .dash-kpi:nth-child(2n) { border-right: 0; }
+}
+
+.dash-funnel-head { display: flex; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-4); }
+.dash-funnel-head h2 { margin: 0; }
+.dash-funnel-rows { display: flex; flex-direction: column; gap: 14px; }
+.dash-funnel-row-head { display: flex; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+.dash-funnel-row-label { text-transform: capitalize; }
+.dash-funnel-row-right { margin-left: auto; color: var(--color-neutral-700); font-variant-numeric: tabular-nums; }
+.dash-funnel-track { height: 26px; background: var(--color-neutral-200); }
+.dash-funnel-fill { height: 100%; background: var(--color-neutral-400); }
+.dash-funnel-fill.priced { background: var(--color-accent-2-500); }
+.dash-funnel-fill.sold { background: var(--color-accent-600); }
+
+.dash-section-title { font-size: 15px; margin: 0 0 var(--space-3); }
+.dash-alerts { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-5); }
+.dash-alert {
+  display: block; width: 100%; text-align: left; border: 0; border-radius: 0;
+  border-left: 3px solid var(--color-accent-2-600);
+  background: var(--color-surface); color: var(--color-text);
+  padding: 11px 12px; font: inherit;
+}
+.dash-alert:hover { background: var(--color-neutral-200); }
+.dash-alert-count {
+  font-family: var(--font-heading); font-weight: 800; font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.dash-alert-message { font-size: 12px; line-height: 1.4; color: var(--color-neutral-700); margin-top: 3px; }
+.dash-empty { font-size: 13px; color: var(--color-neutral-500); }
+
+.dash-recent { border: 1px solid var(--color-divider); }
+.dash-recent-row {
+  display: flex; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--color-divider);
+  align-items: baseline; font-size: 12px;
+}
+.dash-recent-row:last-child { border-bottom: 0; }
+.dash-recent-bill { font-weight: 600; width: 68px; flex: 0 0 auto; color: var(--color-accent); }
+.dash-recent-meta { flex: 1; min-width: 0; color: var(--color-neutral-600); }
+.dash-recent-total {
+  font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.dash-recent-foot { width: 100%; margin: 4px 0; }
