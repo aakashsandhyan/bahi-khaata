@@ -55,3 +55,30 @@ test('Intake: Lines Δ for the seeded lot, manual lot creation, receiving-finish
   // A closed lot leaves the rail on its own — `GET /api/lots` returns open lots only.
   await expect(page.locator('.intake-rail-item', { hasText: '2026-08-02' })).toBeHidden()
 })
+
+test('Intake: a lot with nothing unopened closes without the confirm gate, and the pricing hand-off lands on Pricing', async ({ page }) => {
+  await openScreen(page, 'Intake')
+
+  // A bare manual lot — no product added, so no synthetic carton, nothing unopened.
+  await page.getByRole('button', { name: '+ New lot' }).click()
+  const modal = page.locator('.modal-content')
+  await modal.locator('select').selectOption({ label: seed.supplier.name })
+  await modal.locator('input[type="date"]').fill('2026-08-03')
+  await modal.locator('input[type="number"]').fill('500')
+  await modal.getByRole('button', { name: 'Create', exact: true }).click()
+  await page.getByRole('button', { name: 'Receiving finished' }).first().click()
+
+  await page.getByRole('button', { name: 'Reconcile & close', exact: true }).click()
+
+  // The pricing hand-off is a real navigation, not a dead link.
+  await page.getByRole('button', { name: 'Pricing →' }).click()
+  await expect(page.locator('.shell-title')).toHaveText('Pricing')
+
+  // Back to the clean lot: Close goes through in one step — no unopened list, no 'Close anyway'.
+  await openScreen(page, 'Intake')
+  await page.locator('.intake-rail-item', { hasText: '2026-08-03' }).click()
+  await page.getByRole('button', { name: 'Reconcile & close', exact: true }).click()
+  await page.getByRole('button', { name: 'Close lot', exact: true }).click()
+  await expect(page.getByRole('button', { name: /Close anyway/ })).toHaveCount(0)
+  await expect(page.locator('.intake-rail-item', { hasText: '2026-08-03' })).toBeHidden()
+})
