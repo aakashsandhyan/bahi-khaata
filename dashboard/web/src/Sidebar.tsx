@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export type View =
-  | 'dashboard' | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
+  | 'dashboard' | 'checkout' | 'sales' | 'intake' | 'unpacking' | 'prep'
   | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'suppliers'
   | 'settings'
   // Opened with a product id (App's `detailProductId`), not a param-less nav click — reachable
@@ -24,11 +24,10 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Operations',
     items: [
       { view: 'dashboard', label: 'Dashboard', kicker: 'Overview' },
-      { view: 'receiving', label: 'Receiving', kicker: 'Warehouse' },
+      { view: 'intake', label: 'Intake', kicker: 'Goods in' },
       { view: 'unpacking', label: 'Unpacking', kicker: 'Warehouse' },
       { view: 'prep', label: 'Prep', kicker: 'Remediation' },
       { view: 'pricing', label: 'Pricing', kicker: 'Shelf pricing' },
-      { view: 'lots', label: 'Lots', kicker: 'Deliveries' },
       { view: 'review', label: 'Review', kicker: 'Capture queue' },
       { view: 'inventory', label: 'Inventory', kicker: 'Stock' },
     ],

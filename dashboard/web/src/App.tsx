@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Dashboard } from './Dashboard'
 import { Checkout } from './Checkout'
 import { Sales } from './Sales'
-import { LotManagement } from './LotManagement'
-import { Receiving } from './Receiving'
+import { Intake } from './Intake'
 import { Unpacking } from './Unpacking'
 import { PricingWorkbench } from './PricingWorkbench'
 import { ReviewQueue } from './ReviewQueue'
@@ -81,8 +80,7 @@ export function App() {
         <main className="shell-content">
           {view === 'dashboard' ? <Dashboard onNavigate={setView} />
             : view === 'checkout' ? <Checkout />
-            : view === 'lots' ? <LotManagement />
-            : view === 'receiving' ? <Receiving />
+            : view === 'intake' ? <Intake onNavigate={setView} />
             : view === 'unpacking' ? <Unpacking />
             : view === 'prep' ? <Prep />
             : view === 'pricing' ? <PricingWorkbench />

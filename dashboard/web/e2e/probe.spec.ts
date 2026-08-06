@@ -25,10 +25,14 @@ test('the dashboard shell renders the sidebar', async ({ page }) => {
   await expect(operationsItems.last()).toHaveText('Inventory')
   await expect(operationsItems.nth(count - 2)).toHaveText('Review')
 
-  // palletworks-nav (dashboard-shell spec, MODIFIED): twelve entries total, Catalog gone, and a
-  // single Settings entry in place of the three former admin screens.
-  await expect(page.locator('.sidebar-item')).toHaveCount(12)
+  // palletworks-nav (dashboard-shell spec, MODIFIED): eleven entries total, Catalog gone, a
+  // single Settings entry in place of the three former admin screens, and Intake in place of the
+  // former Receiving and Lots entries (palletworks-intake).
+  await expect(page.locator('.sidebar-item')).toHaveCount(11)
   await expect(page.getByRole('button', { name: 'Catalog', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Receiving', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Lots', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Intake', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Printer', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Receipt printer', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Bill settings', exact: true })).toHaveCount(0)

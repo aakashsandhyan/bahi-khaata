@@ -23,6 +23,8 @@ import com.bahikhaata.contracts.AddProductRequest;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.Category;
 import com.bahikhaata.contracts.CreateManualLotRequest;
+import com.bahikhaata.contracts.LotCostReconciliation;
+import com.bahikhaata.contracts.LotIntakeStats;
 import com.bahikhaata.contracts.LotLineResponse;
 import com.bahikhaata.contracts.LotResponse;
 import com.bahikhaata.contracts.Money;
@@ -42,6 +44,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Receiving deliveries.
@@ -61,6 +64,8 @@ class LotController {
     private final BoxRepository boxRepository;
     private final SupplierService supplierService;
     private final LotCategoryResolver lotCategories;
+    private final BatchRepository batchRepository;
+    private final LotClosing lotClosing;
 
     LotController(
             GoodsInService goodsIn,
@@ -70,7 +75,9 @@ class LotController {
             ProductRepository productRepository,
             BoxRepository boxRepository,
             SupplierService supplierService,
-            LotCategoryResolver lotCategories) {
+            LotCategoryResolver lotCategories,
+            BatchRepository batchRepository,
+            LotClosing lotClosing) {
         this.goodsIn = goodsIn;
         this.lotRepository = lotRepository;
         this.boxReceiptRepository = boxReceiptRepository;
@@ -79,6 +86,8 @@ class LotController {
         this.boxRepository = boxRepository;
         this.supplierService = supplierService;
         this.lotCategories = lotCategories;
+        this.batchRepository = batchRepository;
+        this.lotClosing = lotClosing;
     }
 
     @GetMapping
@@ -214,6 +223,78 @@ class LotController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new AddProductResponse(true, allLines.size(), totalQuantity, allocationPerUnit));
+    }
+
+    /**
+     * The Intake screen's one read-only aggregate: header stats and lot-math-rail figures for a
+     * single lot, from one call (design decision D5 of palletworks-intake). Composes {@code
+     * LotClosing.crossCheckCost} (paid, pinned), a single pass over the lot's expected lines
+     * (expected, counted, short, over), and a single pass over the lot's batches (MRP found,
+     * projected retail) — no per-line or per-batch query.
+     *
+     * <p>Figures that would otherwise divide by an as-yet-zero denominator come back null rather
+     * than as a computed zero or an exception: an empty lot, or a lot nothing has been counted
+     * into yet, answers honestly (D5, D6).
+     */
+    @Transactional(readOnly = true)
+    @GetMapping("/{lotId}/stats")
+    ResponseEntity<LotIntakeStats> stats(@PathVariable UUID lotId) {
+        if (lotRepository.findById(lotId).isEmpty()) {
+            throw new IllegalArgumentException("no such lot: " + lotId);
+        }
+
+        List<ExpectedLine> lines = expectedLineRepository.findByLotIdOrderByCode(lotId);
+        long expectedSum = 0;
+        long countedSum = 0;
+        long shortSum = 0;
+        long overSum = 0;
+        for (ExpectedLine line : lines) {
+            long expected = line.getQuantityExpected();
+            long counted = line.getQuantityCounted();
+            expectedSum += expected;
+            countedSum += counted;
+            if (counted < expected) {
+                shortSum += expected - counted;
+            } else if (counted > expected) {
+                overSum += counted - expected;
+            }
+        }
+        Long expectedUnits = lines.isEmpty() ? null : expectedSum;
+
+        long mrpFound = 0;
+        long projectedRetail = 0;
+        for (Batch batch : batchRepository.findByLotId(lotId)) {
+            Money mrp = batch.getMrp();
+            if (mrp != null) {
+                mrpFound += mrp.paise() * batch.getQuantityReceived();
+            }
+            Money price = batch.sellingPrice();
+            if (price != null) {
+                projectedRetail += price.paise() * batch.sellableQuantity();
+            }
+        }
+
+        LotCostReconciliation reconciliation = lotClosing.crossCheckCost(lotId);
+        long paid = reconciliation.amountPaidPaise();
+        long pinned = reconciliation.pinnedTotalPaise();
+
+        Integer costOfMrpPercent =
+                mrpFound == 0 ? null : (int) Math.round(paid * 100.0 / mrpFound);
+        Long effectiveCostPerUnit = countedSum == 0 ? null : paid / countedSum;
+
+        return ResponseEntity.ok(
+                new LotIntakeStats(
+                        lotId,
+                        paid,
+                        pinned,
+                        mrpFound,
+                        costOfMrpPercent,
+                        expectedUnits,
+                        countedSum,
+                        shortSum,
+                        overSum,
+                        effectiveCostPerUnit,
+                        projectedRetail));
     }
 
     /**

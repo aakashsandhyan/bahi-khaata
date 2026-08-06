@@ -116,6 +116,7 @@ export { BackendError }
 
 import type {
   CountOutcome as _CountOutcome,
+  DeliveryClosed as _DeliveryClosed,
   DeliveryProgress as _DeliveryProgress,
   LearntCode as _LearntCode,
   SuggestedMrp as _SuggestedMrp,
@@ -219,6 +220,16 @@ export const unpacking = {
   // Forget a code put on the wrong goods, so the sticker can be scanned onto the right item.
   releaseCode: (code: string) =>
     post<void>(`/api/unpacking/codes/release?code=${encodeURIComponent(code)}`),
+
+  // Cartons nobody has opened — asked before closing, so the Reconcile & close tab can surface
+  // the list rather than let the close's own refusal be the first anyone hears of it (D9).
+  unopened: (lotId: string) => getList<string>(`/api/unpacking/lots/${lotId}/unopened`),
+
+  // Finishes a delivery. `confirm` is required only when cartons remain unopened; the endpoint
+  // never blocks on them outright (design.md context, D9) — goods that never arrived would
+  // otherwise hold a lot open forever. No caller wired this from the dashboard before this change.
+  closeLot: (lotId: string, confirm: boolean) =>
+    post<_DeliveryClosed>(`/api/unpacking/lots/${lotId}/close?confirm=${confirm}`) as Promise<_DeliveryClosed>,
 }
 
 // --- checkout ---
@@ -397,6 +408,16 @@ export const receiving = {
       categoryCode,
       estimatedCostPaise,
     }),
+}
+
+// --- intake (palletworks-intake) ------------------------------------------------------------
+// The Intake screen's one read-only aggregate: header stats and lot-math-rail figures for a
+// single lot, from one call (design decision D5 of palletworks-intake).
+
+import type { LotIntakeStats as _LotIntakeStats } from './types'
+
+export const intake = {
+  stats: (lotId: string) => get<_LotIntakeStats>(`/api/lots/${lotId}/stats`),
 }
 
 // --- suppliers ---
