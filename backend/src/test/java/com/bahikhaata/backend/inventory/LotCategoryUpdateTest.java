@@ -79,7 +79,8 @@ class LotCategoryUpdateTest {
         String body =
                 json.writeValueAsString(
                         new CreateManualLotRequest(
-                                supplierId, "2026-08-01", 50_000_00L, AllocationMethod.RELATIVE_MRP, categoryCode));
+                                supplierId, "2026-08-01", 50_000_00L, AllocationMethod.RELATIVE_MRP, categoryCode,
+                                null, null, null, null, null, null, null));
         MvcResult result =
                 mockMvc.perform(post("/api/lots/manual").contentType(MediaType.APPLICATION_JSON).content(body))
                         .andExpect(status().isCreated())
@@ -118,7 +119,8 @@ class LotCategoryUpdateTest {
         String body =
                 json.writeValueAsString(
                         new CreateManualLotRequest(
-                                supplierId, "2026-08-01", 50_000_00L, AllocationMethod.RELATIVE_MRP, "KITCHEN"));
+                                supplierId, "2026-08-01", 50_000_00L, AllocationMethod.RELATIVE_MRP, "KITCHEN",
+                                null, null, null, null, null, null, null));
 
         mockMvc.perform(post("/api/lots/manual").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -132,7 +134,8 @@ class LotCategoryUpdateTest {
         String body =
                 json.writeValueAsString(
                         new CreateManualLotRequest(
-                                supplierId, "2026-08-01", 50_000_00L, AllocationMethod.RELATIVE_MRP, "NOT_A_CATEGORY"));
+                                supplierId, "2026-08-01", 50_000_00L, AllocationMethod.RELATIVE_MRP, "NOT_A_CATEGORY",
+                                null, null, null, null, null, null, null));
 
         mockMvc.perform(post("/api/lots/manual").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
@@ -165,18 +168,18 @@ class LotCategoryUpdateTest {
         String supplierId = supplierId("Liquidator D");
         String lotId = createManualLot(supplierId, null);
 
-        String setBody = json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "GIFTING"));
+        String setBody = json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "GIFTING", null, null, null, null, null, null, null));
         mockMvc.perform(put("/api/lots/{lotId}", lotId).contentType(MediaType.APPLICATION_JSON).content(setBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.categoryCode").value("GIFTING"));
 
-        String clearBody = json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, ""));
+        String clearBody = json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "", null, null, null, null, null, null, null));
         mockMvc.perform(put("/api/lots/{lotId}", lotId).contentType(MediaType.APPLICATION_JSON).content(clearBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.categoryCode").isEmpty());
 
         String unknownBody =
-                json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "NOT_A_CATEGORY"));
+                json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "NOT_A_CATEGORY", null, null, null, null, null, null, null));
         mockMvc.perform(
                         put("/api/lots/{lotId}", lotId).contentType(MediaType.APPLICATION_JSON).content(unknownBody))
                 .andExpect(status().isBadRequest());
@@ -192,7 +195,8 @@ class LotCategoryUpdateTest {
         String body =
                 json.writeValueAsString(
                         new UpdateLotRequest(
-                                correctedSupplier, "2026-08-05", 60_000_00L, 500_00L, AllocationMethod.IMPORTED, null));
+                                correctedSupplier, "2026-08-05", 60_000_00L, 500_00L, AllocationMethod.IMPORTED, null,
+                                null, null, null, null, null, null, null));
 
         mockMvc.perform(put("/api/lots/{lotId}", lotId).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
@@ -220,7 +224,7 @@ class LotCategoryUpdateTest {
         ledger.save(StockLedgerEntry.sale(batch.getProduct(), batch, 2, Money.ofRupees(240), WHEN));
         ledger.flush();
 
-        String body = json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "KITCHEN"));
+        String body = json.writeValueAsString(new UpdateLotRequest(null, null, null, null, null, "KITCHEN", null, null, null, null, null, null, null));
 
         mockMvc.perform(
                         put("/api/lots/{lotId}", lot.getId())

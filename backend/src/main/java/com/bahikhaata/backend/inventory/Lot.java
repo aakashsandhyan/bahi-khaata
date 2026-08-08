@@ -22,8 +22,11 @@ import com.bahikhaata.backend.persistence.LocalDateIso8601Converter;
 import com.bahikhaata.backend.persistence.MoneyConverter;
 import com.bahikhaata.backend.persistence.UuidEntity;
 import com.bahikhaata.contracts.AllocationMethod;
+import com.bahikhaata.contracts.CostAnchor;
+import com.bahikhaata.contracts.CostBasisStrategy;
 import com.bahikhaata.contracts.LotState;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.MultiplierBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -126,6 +129,40 @@ public class Lot extends UuidEntity {
      */
     @Column(name = "category", columnDefinition = "text")
     private String category;
+
+    /**
+     * How this lot's products' cost is derived, or null for a lot that keeps today's behaviour
+     * — the manifest rate, or the amount-paid apportionment. The strategy and its params
+     * ({@link #costAnchor}, {@link #flatUnitCost}, {@link #percentBp}, {@link #multiplierMilli},
+     * {@link #multiplierBase}) live here on the lot; a batch never records more than the plain
+     * cost this basis derived for it ({@code CostBasis.PINNED}).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cost_basis_strategy", columnDefinition = "text")
+    private CostBasisStrategy costBasisStrategy;
+
+    /** MRP or ASP — required by an anchor-dependent strategy, null for one that needs none. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cost_anchor", columnDefinition = "text")
+    private CostAnchor costAnchor;
+
+    /** FLAT_PER_UNIT's stated cost, and MULTIPLIER's base when it is an entered cost. */
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "flat_unit_cost_paise")
+    private Money flatUnitCost;
+
+    /** PERCENT_OF_ANCHOR's percentage, in basis points — 30% is stored as 3000. */
+    @Column(name = "percent_bp")
+    private Long percentBp;
+
+    /** MULTIPLIER's factor, in milli-units — 1.25× is stored as 1250. */
+    @Column(name = "multiplier_milli")
+    private Long multiplierMilli;
+
+    /** What MULTIPLIER multiplies: an entered cost, the anchor, or the manifest stated value. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "multiplier_base", columnDefinition = "text")
+    private MultiplierBase multiplierBase;
 
     /** For Hibernate. */
     protected Lot() {}
@@ -249,6 +286,59 @@ public class Lot extends UuidEntity {
     /** {@code null} leaves the lot without a default; the update path also accepts "" to clear it. */
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    /** Whether this lot declares a cost basis at all — the fork between the two costing paths. */
+    public boolean declaresCostBasis() {
+        return costBasisStrategy != null;
+    }
+
+    public CostBasisStrategy getCostBasisStrategy() {
+        return costBasisStrategy;
+    }
+
+    public void setCostBasisStrategy(CostBasisStrategy costBasisStrategy) {
+        this.costBasisStrategy = costBasisStrategy;
+    }
+
+    public CostAnchor getCostAnchor() {
+        return costAnchor;
+    }
+
+    public void setCostAnchor(CostAnchor costAnchor) {
+        this.costAnchor = costAnchor;
+    }
+
+    public Money getFlatUnitCost() {
+        return flatUnitCost;
+    }
+
+    public void setFlatUnitCost(Money flatUnitCost) {
+        this.flatUnitCost = flatUnitCost;
+    }
+
+    public Long getPercentBp() {
+        return percentBp;
+    }
+
+    public void setPercentBp(Long percentBp) {
+        this.percentBp = percentBp;
+    }
+
+    public Long getMultiplierMilli() {
+        return multiplierMilli;
+    }
+
+    public void setMultiplierMilli(Long multiplierMilli) {
+        this.multiplierMilli = multiplierMilli;
+    }
+
+    public MultiplierBase getMultiplierBase() {
+        return multiplierBase;
+    }
+
+    public void setMultiplierBase(MultiplierBase multiplierBase) {
+        this.multiplierBase = multiplierBase;
     }
 
     public LotState getState() {

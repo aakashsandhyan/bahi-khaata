@@ -17,6 +17,8 @@
  */
 package com.bahikhaata.contracts;
 
+import java.util.List;
+
 /**
  * Correcting a lot's data-entry fields — every field is a partial update, not a replacement.
  *
@@ -26,8 +28,16 @@ package com.bahikhaata.contracts;
  * clears it back to "no default", since a lot losing its category is a real, distinct choice
  * from simply not mentioning it.
  *
+ * <p>The cost-basis fields are the other exception, and travel together rather than one at a
+ * time: {@code costBasisStrategy} null leaves the lot's whole cost basis — strategy, anchor,
+ * params, and rate bands — untouched. Naming a strategy replaces the basis atomically with
+ * whatever anchor/params/bands accompany it in the same request, because a param left over from
+ * a different strategy would be a latent bug rather than a real "no change". There is currently
+ * no way to clear a declared basis back to none; only to replace it with another.
+ *
  * <p>Applying any of these is guarded by {@code LotEditPolicy} — once stock has been consumed
  * from the lot, its costs are already recorded against sales and none of these fields may move.
+ * Changing the cost basis on an editable lot re-derives and re-pins every batch in it.
  */
 public record UpdateLotRequest(
         String supplierId,
@@ -35,7 +45,14 @@ public record UpdateLotRequest(
         Long amountPaidPaise,
         Long freightPaise,
         AllocationMethod allocationMethod,
-        String categoryCode) {
+        String categoryCode,
+        CostBasisStrategy costBasisStrategy,
+        CostAnchor costAnchor,
+        Long flatUnitCostPaise,
+        Long percentBp,
+        Long multiplierMilli,
+        MultiplierBase multiplierBase,
+        List<MrpRateBand> rateBands) {
 
     public UpdateLotRequest {
         if (amountPaidPaise != null && amountPaidPaise <= 0) {
@@ -44,5 +61,15 @@ public record UpdateLotRequest(
         if (freightPaise != null && freightPaise < 0) {
             throw new IllegalArgumentException("freightPaise must be non-negative");
         }
+        if (flatUnitCostPaise != null && flatUnitCostPaise <= 0) {
+            throw new IllegalArgumentException("flatUnitCostPaise must be greater than 0");
+        }
+        if (percentBp != null && percentBp <= 0) {
+            throw new IllegalArgumentException("percentBp must be greater than 0");
+        }
+        if (multiplierMilli != null && multiplierMilli <= 0) {
+            throw new IllegalArgumentException("multiplierMilli must be greater than 0");
+        }
+        rateBands = rateBands == null ? List.of() : List.copyOf(rateBands);
     }
 }
