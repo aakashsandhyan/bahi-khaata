@@ -117,6 +117,16 @@ public class Lot extends UuidEntity {
     @Column(name = "is_manual", nullable = false)
     private boolean isManual = false;
 
+    /**
+     * The default category for products added to this lot. Optional — a lot created before
+     * this field existed, or one whose operator has not chosen one, is {@code null} and falls
+     * back to {@link LotCategoryResolver}'s derived value. Set through the setter, not a
+     * constructor parameter, since it is unknown at receipt time for a manual lot with no
+     * products yet, and {@code add-product} may still override it per line.
+     */
+    @Column(name = "category", columnDefinition = "text")
+    private String category;
+
     /** For Hibernate. */
     protected Lot() {}
 
@@ -189,20 +199,56 @@ public class Lot extends UuidEntity {
         return supplierRef;
     }
 
+    /**
+     * Re-points this lot at a different supplier, refreshing the denormalised {@link #supplier}
+     * name snapshot to match — the same pairing the constructor establishes, kept in sync here
+     * so a corrected supplier is not left showing the old name.
+     */
+    public void setSupplierRef(Supplier supplierRef) {
+        this.supplierRef = Objects.requireNonNull(supplierRef, "supplierRef");
+        this.supplier = supplierRef.getName();
+    }
+
     public LocalDate getReceivedOn() {
         return receivedOn;
+    }
+
+    public void setReceivedOn(LocalDate receivedOn) {
+        this.receivedOn = Objects.requireNonNull(receivedOn, "receivedOn");
     }
 
     public Money getAmountPaid() {
         return amountPaid;
     }
 
+    public void setAmountPaid(Money amountPaid) {
+        this.amountPaid = Objects.requireNonNull(amountPaid, "amountPaid");
+    }
+
     public Money getFreight() {
         return freight;
     }
 
+    public void setFreight(Money freight) {
+        this.freight = Objects.requireNonNull(freight, "freight");
+    }
+
     public AllocationMethod getAllocationMethod() {
         return allocationMethod;
+    }
+
+    public void setAllocationMethod(AllocationMethod allocationMethod) {
+        this.allocationMethod = Objects.requireNonNull(allocationMethod, "allocationMethod");
+    }
+
+    /** This lot's default category, or null if it has none set — see {@link #category}. */
+    public String getCategory() {
+        return category;
+    }
+
+    /** {@code null} leaves the lot without a default; the update path also accepts "" to clear it. */
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public LotState getState() {

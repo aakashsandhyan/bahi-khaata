@@ -335,6 +335,7 @@ import type {
   LotSummary as _LotSummary,
   ReceivingBoxes as _ReceivingBoxes,
   CreateManualLotRequest as _CreateManualLotRequest,
+  UpdateLotRequest as _UpdateLotRequest,
   AddProductRequest as _AddProductRequest,
   AddProductResponse as _AddProductResponse,
 } from './types'
@@ -348,13 +349,22 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
-  createManualLot: (supplierId: string, receivedOn: string, amountPaidPaise: number) =>
+  createManualLot: (
+    supplierId: string,
+    receivedOn: string,
+    amountPaidPaise: number,
+    categoryCode?: string | null,
+  ) =>
     post<_LotSummary>('/api/lots/manual', {
       supplierId,
       receivedOn,
       amountPaidPaise,
       allocationMethod: 'RELATIVE_MRP',
+      categoryCode: categoryCode || null,
     }),
+  // A lot's data-entry fields, guarded by the freeze rule — the backend answers 409 once stock
+  // has been consumed from it. Every field is optional; omitting one leaves it unchanged.
+  updateLot: (lotId: string, body: _UpdateLotRequest) => put<_LotSummary>(`/api/lots/${lotId}`, body),
   addProduct: (
     lotId: string,
     code: string | null,

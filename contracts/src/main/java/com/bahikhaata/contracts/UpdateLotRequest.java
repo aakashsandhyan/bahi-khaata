@@ -17,26 +17,32 @@
  */
 package com.bahikhaata.contracts;
 
-public record CreateManualLotRequest(
+/**
+ * Correcting a lot's data-entry fields — every field is a partial update, not a replacement.
+ *
+ * <p>{@code null} on any field means "leave it as it is"; there is no other way to send "no
+ * change" over JSON for a field that also has a legitimate empty value. {@code categoryCode} is
+ * the one exception: {@code null} leaves the lot's category alone, but {@code ""} explicitly
+ * clears it back to "no default", since a lot losing its category is a real, distinct choice
+ * from simply not mentioning it.
+ *
+ * <p>Applying any of these is guarded by {@code LotEditPolicy} — once stock has been consumed
+ * from the lot, its costs are already recorded against sales and none of these fields may move.
+ */
+public record UpdateLotRequest(
         String supplierId,
         String receivedOn,
-        long amountPaidPaise,
+        Long amountPaidPaise,
+        Long freightPaise,
         AllocationMethod allocationMethod,
         String categoryCode) {
 
-    public CreateManualLotRequest {
-        if (supplierId == null || supplierId.isBlank()) {
-            throw new IllegalArgumentException("supplierId required");
-        }
-        if (receivedOn == null || receivedOn.isBlank()) {
-            throw new IllegalArgumentException("receivedOn required");
-        }
-        if (amountPaidPaise <= 0) {
+    public UpdateLotRequest {
+        if (amountPaidPaise != null && amountPaidPaise <= 0) {
             throw new IllegalArgumentException("amountPaidPaise must be greater than 0");
         }
-        if (allocationMethod == null) {
-            throw new IllegalArgumentException("allocationMethod required");
+        if (freightPaise != null && freightPaise < 0) {
+            throw new IllegalArgumentException("freightPaise must be non-negative");
         }
-        // categoryCode is optional: a manual lot with no products yet may not have one chosen.
     }
 }
