@@ -26,7 +26,7 @@ RELEASE="$ROOT/deploy/release"
 echo "==> 1/4  Building the frontend (vite build)"
 ( cd dashboard/web && npm ci --no-audit --no-fund && npx vite build )
 
-echo "==> 2/4  Baking the frontend into the backend (served on :8080 with the API)"
+echo "==> 2/4  Baking the frontend into the backend (served on one port with the API)"
 rm -rf "$STATIC"
 mkdir -p "$STATIC"
 cp -R dashboard/web/dist/. "$STATIC/"
