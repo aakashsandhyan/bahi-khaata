@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { receiving, suppliers as suppliersApi, shelfPricing, BackendError } from './api'
-import type { LotSummary, Supplier } from './types'
+import type { CostAnchor, CostBasisFields, CostBasisStrategy, LotSummary, MultiplierBase, Supplier } from './types'
 
 const emptyCreateForm = {
   supplierId: '',
@@ -8,6 +9,270 @@ const emptyCreateForm = {
   amountPaidPaise: '',
   categoryCode: '',
   type: 'manifest',
+}
+
+// The cost-basis section of a create/edit form, held as strings so every input is controlled —
+// parsed to the request shape only at submit time. An empty rate-band row (no min or cost typed
+// yet) is dropped rather than sent as a malformed band.
+interface CostBasisFormState {
+  strategy: CostBasisStrategy | ''
+  anchor: CostAnchor | ''
+  flatUnitCostPaise: string
+  percentBp: string
+  multiplierMilli: string
+  multiplierBase: MultiplierBase | ''
+  rateBands: { minMrpPaise: string; maxMrpPaise: string; costPaise: string }[]
+}
+
+const emptyCostBasisForm: CostBasisFormState = {
+  strategy: '',
+  anchor: '',
+  flatUnitCostPaise: '',
+  percentBp: '',
+  multiplierMilli: '',
+  multiplierBase: '',
+  rateBands: [],
+}
+
+/** Reads a lot's declared cost basis back into editable form state, for the edit modal to open pre-filled. */
+function costBasisFormFromLot(lot: LotSummary): CostBasisFormState {
+  return {
+    strategy: lot.costBasisStrategy ?? '',
+    anchor: lot.costAnchor ?? '',
+    flatUnitCostPaise: lot.flatUnitCostPaise != null ? String(lot.flatUnitCostPaise) : '',
+    percentBp: lot.percentBp != null ? String(lot.percentBp) : '',
+    multiplierMilli: lot.multiplierMilli != null ? String(lot.multiplierMilli) : '',
+    multiplierBase: lot.multiplierBase ?? '',
+    rateBands: (lot.rateBands ?? []).map((b) => ({
+      minMrpPaise: String(b.minMrpPaise),
+      maxMrpPaise: b.maxMrpPaise != null ? String(b.maxMrpPaise) : '',
+      costPaise: String(b.costPaise),
+    })),
+  }
+}
+
+/**
+ * Converts form state to the request shape, or null when no strategy is chosen — which on create
+ * means "no declared basis" and on update means "leave the basis unchanged", matching the
+ * backend's null-means-untouched contract for this field group.
+ */
+function costBasisFieldsFromForm(form: CostBasisFormState): CostBasisFields | null {
+  if (!form.strategy) return null
+  return {
+    costBasisStrategy: form.strategy,
+    costAnchor: form.anchor || null,
+    flatUnitCostPaise: form.flatUnitCostPaise ? parseInt(form.flatUnitCostPaise, 10) : null,
+    percentBp: form.percentBp ? parseInt(form.percentBp, 10) : null,
+    multiplierMilli: form.multiplierMilli ? parseInt(form.multiplierMilli, 10) : null,
+    multiplierBase: form.multiplierBase || null,
+    rateBands: form.rateBands
+      .filter((b) => b.minMrpPaise !== '' && b.costPaise !== '')
+      .map((b) => ({
+        minMrpPaise: parseInt(b.minMrpPaise, 10),
+        maxMrpPaise: b.maxMrpPaise ? parseInt(b.maxMrpPaise, 10) : null,
+        costPaise: parseInt(b.costPaise, 10),
+      })),
+  }
+}
+
+const fieldLabelStyle: CSSProperties = {
+  display: 'block',
+  fontSize: '13px',
+  fontWeight: 600,
+  marginBottom: 'var(--s1)',
+}
+
+const fieldInputStyle: CSSProperties = {
+  width: '100%',
+  padding: '8px',
+  border: '1px solid var(--line)',
+  borderRadius: 'var(--r1)',
+  fontSize: '14px',
+  fontFamily: 'inherit',
+}
+
+/**
+ * The cost-basis section shared by the create and edit modals: a strategy picker, the anchor —
+ * shown only for the strategies that read one — and each strategy's own parameter inputs, plus a
+ * small add/remove editor for an MRP rate card. Nothing here is required: leaving the strategy
+ * blank declares no basis (create) or leaves the existing one alone (edit).
+ */
+function CostBasisEditor({
+  value,
+  onChange,
+}: {
+  value: CostBasisFormState
+  onChange: (next: CostBasisFormState) => void
+}) {
+  const needsAnchor =
+    value.strategy === 'PERCENT_OF_ANCHOR' ||
+    value.strategy === 'MRP_RATE_RANGE' ||
+    (value.strategy === 'MULTIPLIER' && value.multiplierBase === 'ANCHOR')
+  const anchorLocked = value.strategy === 'MRP_RATE_RANGE' // this strategy only ever anchors to MRP
+
+  const addBand = () =>
+    onChange({
+      ...value,
+      rateBands: [...value.rateBands, { minMrpPaise: '', maxMrpPaise: '', costPaise: '' }],
+    })
+  const removeBand = (index: number) =>
+    onChange({ ...value, rateBands: value.rateBands.filter((_, i) => i !== index) })
+  const updateBand = (index: number, field: 'minMrpPaise' | 'maxMrpPaise' | 'costPaise', text: string) =>
+    onChange({
+      ...value,
+      rateBands: value.rateBands.map((b, i) => (i === index ? { ...b, [field]: text } : b)),
+    })
+
+  return (
+    <div style={{ marginTop: 'var(--s3)', paddingTop: 'var(--s3)', borderTop: '1px solid var(--line-soft)' }}>
+      <label style={fieldLabelStyle}>Cost Basis (optional)</label>
+      <select
+        value={value.strategy}
+        onChange={(e) => {
+          const strategy = e.target.value as CostBasisStrategy | ''
+          onChange({
+            ...value,
+            strategy,
+            anchor: strategy === 'MRP_RATE_RANGE' ? 'MRP' : value.anchor,
+          })
+        }}
+        style={{ ...fieldInputStyle, marginBottom: 'var(--s2)' }}
+      >
+        <option value="">No declared basis — use the manifest rate / apportionment</option>
+        <option value="FLAT_PER_UNIT">Flat per unit</option>
+        <option value="PERCENT_OF_ANCHOR">Percent of anchor (MRP or ASP)</option>
+        <option value="MRP_RATE_RANGE">MRP rate card</option>
+        <option value="MULTIPLIER">Multiplier on a base</option>
+      </select>
+
+      {value.strategy && needsAnchor && (
+        <div style={{ marginBottom: 'var(--s2)' }}>
+          <label style={fieldLabelStyle}>Anchor</label>
+          <select
+            value={value.anchor}
+            disabled={anchorLocked}
+            onChange={(e) => onChange({ ...value, anchor: e.target.value as CostAnchor | '' })}
+            style={fieldInputStyle}
+          >
+            <option value="">Select an anchor…</option>
+            <option value="MRP">MRP (batch's recorded maximum retail price)</option>
+            <option value="ASP">ASP (product's observed online selling price)</option>
+          </select>
+        </div>
+      )}
+
+      {value.strategy === 'FLAT_PER_UNIT' && (
+        <div style={{ marginBottom: 'var(--s2)' }}>
+          <label style={fieldLabelStyle}>Flat unit cost (paise)</label>
+          <input
+            type="number"
+            value={value.flatUnitCostPaise}
+            onChange={(e) => onChange({ ...value, flatUnitCostPaise: e.target.value })}
+            placeholder="e.g. 800 for ₹8.00"
+            style={fieldInputStyle}
+          />
+        </div>
+      )}
+
+      {value.strategy === 'PERCENT_OF_ANCHOR' && (
+        <div style={{ marginBottom: 'var(--s2)' }}>
+          <label style={fieldLabelStyle}>Percent, in basis points (30% = 3000)</label>
+          <input
+            type="number"
+            value={value.percentBp}
+            onChange={(e) => onChange({ ...value, percentBp: e.target.value })}
+            placeholder="e.g. 3000 for 30%"
+            style={fieldInputStyle}
+          />
+        </div>
+      )}
+
+      {value.strategy === 'MRP_RATE_RANGE' && (
+        <div style={{ marginBottom: 'var(--s2)' }}>
+          <label style={fieldLabelStyle}>Rate bands (min inclusive, max exclusive, blank max = open top)</label>
+          {value.rateBands.map((band, i) => (
+            <div key={i} style={{ display: 'flex', gap: 'var(--s1)', marginBottom: 'var(--s1)', alignItems: 'center' }}>
+              <input
+                type="number"
+                value={band.minMrpPaise}
+                onChange={(e) => updateBand(i, 'minMrpPaise', e.target.value)}
+                placeholder="min (paise)"
+                style={{ ...fieldInputStyle, flex: 1 }}
+              />
+              <input
+                type="number"
+                value={band.maxMrpPaise}
+                onChange={(e) => updateBand(i, 'maxMrpPaise', e.target.value)}
+                placeholder="max (blank = open)"
+                style={{ ...fieldInputStyle, flex: 1 }}
+              />
+              <input
+                type="number"
+                value={band.costPaise}
+                onChange={(e) => updateBand(i, 'costPaise', e.target.value)}
+                placeholder="cost (paise)"
+                style={{ ...fieldInputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={() => removeBand(i)}
+                style={{ padding: '8px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 'var(--r1)', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addBand}
+            style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 'var(--r1)', cursor: 'pointer', fontSize: '13px' }}
+          >
+            + Add band
+          </button>
+        </div>
+      )}
+
+      {value.strategy === 'MULTIPLIER' && (
+        <>
+          <div style={{ marginBottom: 'var(--s2)' }}>
+            <label style={fieldLabelStyle}>Multiplier, in milli-units (1.25× = 1250)</label>
+            <input
+              type="number"
+              value={value.multiplierMilli}
+              onChange={(e) => onChange({ ...value, multiplierMilli: e.target.value })}
+              placeholder="e.g. 1250 for 1.25x"
+              style={fieldInputStyle}
+            />
+          </div>
+          <div style={{ marginBottom: 'var(--s2)' }}>
+            <label style={fieldLabelStyle}>Base</label>
+            <select
+              value={value.multiplierBase}
+              onChange={(e) => onChange({ ...value, multiplierBase: e.target.value as MultiplierBase | '' })}
+              style={fieldInputStyle}
+            >
+              <option value="">Select a base…</option>
+              <option value="ENTERED_UNIT_COST">Entered unit cost</option>
+              <option value="ANCHOR">Anchor (MRP or ASP)</option>
+              <option value="STATED_VALUE">Manifest stated value</option>
+            </select>
+          </div>
+          {value.multiplierBase === 'ENTERED_UNIT_COST' && (
+            <div style={{ marginBottom: 'var(--s2)' }}>
+              <label style={fieldLabelStyle}>Entered unit cost (paise)</label>
+              <input
+                type="number"
+                value={value.flatUnitCostPaise}
+                onChange={(e) => onChange({ ...value, flatUnitCostPaise: e.target.value })}
+                placeholder="e.g. 800 for ₹8.00"
+                style={fieldInputStyle}
+              />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
 }
 
 export function LotManagement() {
@@ -19,6 +284,7 @@ export function LotManagement() {
   const [editingLot, setEditingLot] = useState<LotSummary | null>(null)
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
   const [formData, setFormData] = useState(emptyCreateForm)
+  const [costBasisForm, setCostBasisForm] = useState<CostBasisFormState>(emptyCostBasisForm)
   const [editFormData, setEditFormData] = useState({
     supplierId: '',
     receivedOn: '',
@@ -27,6 +293,7 @@ export function LotManagement() {
     allocationMethod: 'RELATIVE_MRP',
     categoryCode: '',
   })
+  const [editCostBasisForm, setEditCostBasisForm] = useState<CostBasisFormState>(emptyCostBasisForm)
 
   useEffect(() => {
     loadLots()
@@ -87,10 +354,12 @@ export function LotManagement() {
         formData.receivedOn,
         parseInt(formData.amountPaidPaise),
         formData.categoryCode || null,
+        costBasisFieldsFromForm(costBasisForm),
       )
       setMessage({ text: `✓ ${supplierName} created`, tone: 'ok' })
       setShowCreateModal(false)
       setFormData(emptyCreateForm)
+      setCostBasisForm(emptyCostBasisForm)
       await loadLots()
     } catch (err) {
       setMessage({
@@ -102,7 +371,7 @@ export function LotManagement() {
 
   // LotSummary now carries the lot's real supplierId/amount/freight/allocation method, so the
   // form opens pre-filled with what is actually stored rather than blank fields the operator
-  // has to re-key from scratch.
+  // has to re-key from scratch — including its cost basis, if it has declared one.
   const openEditModal = (lot: LotSummary) => {
     setEditingLot(lot)
     setEditFormData({
@@ -113,6 +382,7 @@ export function LotManagement() {
       allocationMethod: lot.allocationMethod,
       categoryCode: lot.categoryCode ?? '',
     })
+    setEditCostBasisForm(costBasisFormFromLot(lot))
   }
 
   const handleUpdateLot = async () => {
@@ -125,13 +395,17 @@ export function LotManagement() {
         freightPaise: editFormData.freightPaise ? parseInt(editFormData.freightPaise) : null,
         allocationMethod: editFormData.allocationMethod || null,
         categoryCode: editFormData.categoryCode,
+        // Leaving the strategy blank in the form leaves the lot's basis untouched — see
+        // costBasisFieldsFromForm; a chosen strategy replaces the whole basis and re-pins.
+        ...costBasisFieldsFromForm(editCostBasisForm),
       })
       setMessage({ text: '✓ Lot updated', tone: 'ok' })
       setEditingLot(null)
       await loadLots()
     } catch (err) {
       // A 409 here is the freeze rule: stock from this lot has already sold, so its costs are
-      // load-bearing on recorded sales and the message says as much.
+      // load-bearing on recorded sales and the message says as much. A 400 is an incomplete or
+      // invalid cost basis, naming what's missing.
       setMessage({
         text: err instanceof BackendError ? err.message : 'Error updating lot.',
         tone: 'stop',
@@ -262,6 +536,22 @@ export function LotManagement() {
                           </div>
                         </>
                       )}
+                      {/* The amount-paid cross-check: only present once a cost basis is declared
+                          (see LotClosing.crossCheckCost). Reported, never blocking — a mismatch
+                          is a flag to look at, not a reason receiving or pricing stops. */}
+                      {lot.costVariancePaise != null && (
+                        <div
+                          style={{
+                            marginTop: 'var(--s2)',
+                            fontSize: '12px',
+                            color: lot.costReconciles ? 'var(--ink-faint)' : 'var(--stop, #b45309)',
+                          }}
+                        >
+                          {lot.costReconciles
+                            ? 'Cost basis reconciles with amount paid'
+                            : `Amount paid vs. derived cost differs by ₹${(Math.abs(lot.costVariancePaise) / 100).toFixed(2)}`}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -376,6 +666,10 @@ export function LotManagement() {
                     ))}
                   </select>
                 </div>
+              )}
+
+              {formData.type === 'manual' && (
+                <CostBasisEditor value={costBasisForm} onChange={setCostBasisForm} />
               )}
             </div>
 
@@ -536,6 +830,13 @@ export function LotManagement() {
                   ))}
                 </select>
               </div>
+
+              <CostBasisEditor value={editCostBasisForm} onChange={setEditCostBasisForm} />
+              {editCostBasisForm.strategy && (
+                <p style={{ fontSize: '12px', color: 'var(--ink-faint)', marginTop: 'var(--s1)' }}>
+                  Saving replaces the whole cost basis and re-costs every not-yet-sold unit in this lot.
+                </p>
+              )}
             </div>
 
             <div className="modal-footer">

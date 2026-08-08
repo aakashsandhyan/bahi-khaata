@@ -22,10 +22,15 @@ import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.AddProductRequest;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.CostAnchor;
+import com.bahikhaata.contracts.CostBasisStrategy;
 import com.bahikhaata.contracts.CreateManualLotRequest;
+import com.bahikhaata.contracts.LotCostReconciliation;
 import com.bahikhaata.contracts.LotLineResponse;
 import com.bahikhaata.contracts.LotResponse;
 import com.bahikhaata.contracts.Money;
+import com.bahikhaata.contracts.MrpRateBand;
+import com.bahikhaata.contracts.MultiplierBase;
 import com.bahikhaata.contracts.ReceiveLotRequest;
 import com.bahikhaata.contracts.UpdateLotRequest;
 import java.time.LocalDate;
@@ -65,6 +70,10 @@ class LotController {
     private final LotCategoryResolver lotCategories;
     private final CategoryCatalog categoryCatalog;
     private final LotEditPolicy lotEditPolicy;
+    private final LotCostBasis lotCostBasis;
+    private final LotMrpRateBandRepository rateBandRepository;
+    private final BatchRepository batchRepository;
+    private final LotClosing lotClosing;
 
     LotController(
             GoodsInService goodsIn,
@@ -76,7 +85,11 @@ class LotController {
             SupplierService supplierService,
             LotCategoryResolver lotCategories,
             CategoryCatalog categoryCatalog,
-            LotEditPolicy lotEditPolicy) {
+            LotEditPolicy lotEditPolicy,
+            LotCostBasis lotCostBasis,
+            LotMrpRateBandRepository rateBandRepository,
+            BatchRepository batchRepository,
+            LotClosing lotClosing) {
         this.goodsIn = goodsIn;
         this.lotRepository = lotRepository;
         this.boxReceiptRepository = boxReceiptRepository;
@@ -87,6 +100,10 @@ class LotController {
         this.lotCategories = lotCategories;
         this.categoryCatalog = categoryCatalog;
         this.lotEditPolicy = lotEditPolicy;
+        this.lotCostBasis = lotCostBasis;
+        this.rateBandRepository = rateBandRepository;
+        this.batchRepository = batchRepository;
+        this.lotClosing = lotClosing;
     }
 
     /** The category a lot's own field, then anything a manual lot's list falls back to, must be one of. */
@@ -115,6 +132,11 @@ class LotController {
      * update responses so the three never drift on how a lot is summarised, and so the edit
      * modal always has the lot's real supplier/amount/freight/allocation method to pre-fill from
      * rather than opening blind.
+     *
+     * <p>Where a lot declares a cost basis, the summary also carries it (for the edit modal to
+     * pre-fill) and the amount-paid cross-check ({@link LotClosing#crossCheckCost}) — a reporting
+     * figure, never withheld, but only meaningful once there is a basis whose derived costs the
+     * amount paid is being checked against; a lot with no declared basis leaves both null.
      */
     private LotSummaryDto toSummary(Lot lot, Map<UUID, String> categoryByLot) {
         List<BoxReceipt> boxes = boxReceiptRepository.findByLotId(lot.getId());
@@ -125,10 +147,98 @@ class LotController {
         long notReceived = boxReceiptRepository.countByLotIdAndState(lot.getId(), com.bahikhaata.contracts.BoxState.NOT_RECEIVED);
         String category = lot.getCategory() != null ? lot.getCategory() : categoryByLot.get(lot.getId());
         String supplierId = lot.getSupplierRef() != null ? lot.getSupplierRef().getId().toString() : null;
+
+        List<MrpRateBand> bands = List.of();
+        Long variance = null;
+        Boolean reconciles = null;
+        if (lot.declaresCostBasis()) {
+            bands = rateBandRepository.findByLotIdOrderByMinMrp(lot.getId()).stream()
+                    .map(band -> new MrpRateBand(
+                            band.getMinMrp().paise(),
+                            band.getMaxMrp() == null ? null : band.getMaxMrp().paise(),
+                            band.getCost().paise()))
+                    .toList();
+            LotCostReconciliation crossCheck = lotClosing.crossCheckCost(lot.getId());
+            variance = crossCheck.differencePaise();
+            reconciles = crossCheck.reconciles();
+        }
+
         return new LotSummaryDto(lot.getId(), lot.getSupplier(), supplierId, lot.getReceivedOn(),
                 lot.isReceivingComplete(), lot.isManual(), category, lot.getAmountPaid().paise(),
                 lot.getFreight().paise(), lot.getAllocationMethod(), expected, received, unpacked, rejected,
-                notReceived);
+                notReceived, lot.getCostBasisStrategy(), lot.getCostAnchor(),
+                lot.getFlatUnitCost() == null ? null : lot.getFlatUnitCost().paise(), lot.getPercentBp(),
+                lot.getMultiplierMilli(), lot.getMultiplierBase(), bands, variance, reconciles);
+    }
+
+    /**
+     * Validates a candidate cost basis, then sets it onto the lot (scalars only — the caller
+     * saves the lot and then persists the bands with {@link #saveRateBands}, in that order, so an
+     * invalid request is rejected before anything is written and the bands' foreign key always
+     * has a saved lot row to point at). Shared by create and update: both offer the same seven
+     * fields, and a strategy is validated the same way regardless of which endpoint declared it.
+     */
+    private void applyCostBasis(
+            Lot lot,
+            CostBasisStrategy strategy,
+            CostAnchor anchor,
+            Long flatUnitCostPaise,
+            Long percentBp,
+            Long multiplierMilli,
+            MultiplierBase multiplierBase,
+            List<MrpRateBand> bands) {
+        Money flatUnitCost = flatUnitCostPaise == null ? null : Money.ofPaise(flatUnitCostPaise);
+        List<MrpRateBand> rateBands = bands == null ? List.of() : bands;
+        lotCostBasis.requireValidBasis(
+                strategy, anchor, flatUnitCost, percentBp, multiplierMilli, multiplierBase, rateBands);
+
+        lot.setCostBasisStrategy(strategy);
+        lot.setCostAnchor(anchor);
+        lot.setFlatUnitCost(flatUnitCost);
+        lot.setPercentBp(percentBp);
+        lot.setMultiplierMilli(multiplierMilli);
+        lot.setMultiplierBase(multiplierBase);
+    }
+
+    /** Replaces a lot's rate-card rows whole — an edit does not merge into the existing bands. */
+    private void saveRateBands(Lot lot, List<MrpRateBand> bands) {
+        rateBandRepository.deleteByLotId(lot.getId());
+        for (MrpRateBand band : bands) {
+            rateBandRepository.save(
+                    new LotMrpRateBand(
+                            lot,
+                            Money.ofPaise(band.minMrpPaise()),
+                            band.maxMrpPaise() == null ? null : Money.ofPaise(band.maxMrpPaise()),
+                            Money.ofPaise(band.costPaise())));
+        }
+    }
+
+    /**
+     * Re-derives and re-pins every batch of a lot whose cost basis just changed, so the new basis
+     * takes effect on stock already counted but not yet sold. Only reachable once the lot has
+     * passed {@link LotEditPolicy#requireEditable}, which for the whole-lot freeze rule means no
+     * stock from any batch here has been consumed — so there is nothing "already sold" to protect
+     * and every batch is fair game. A batch the new basis cannot yet resolve — its anchor still
+     * unknown — is left as it was rather than un-pinned; {@link Batch} has no "uncost" operation,
+     * and a stale pin under the old basis is judged the lesser problem versus reverting cost to
+     * something no code path can then re-derive on its own.
+     */
+    private void rePinBatches(Lot lot) {
+        List<LotMrpRateBand> bands = rateBandRepository.findByLotIdOrderByMinMrp(lot.getId());
+        for (Batch batch : batchRepository.findByLotId(lot.getId())) {
+            Money anchor = lotCostBasis.anchorValue(lot, batch, batch.getProduct());
+            Money statedValue =
+                    expectedLineRepository
+                            .findByLotIdAndProductIdOrderByCode(lot.getId(), batch.getProduct().getId())
+                            .stream()
+                            .findFirst()
+                            .map(ExpectedLine::getStatedValue)
+                            .orElse(null);
+            Money resolved = lotCostBasis.unitCost(lot, bands, anchor, statedValue);
+            if (resolved != null) {
+                batch.pinUnitCost(resolved);
+            }
+        }
     }
 
     @PostMapping
@@ -177,7 +287,17 @@ class LotController {
             requireKnownCategory(request.categoryCode());
             lot.setCategory(request.categoryCode());
         }
+        // Validated before anything is saved, so a bad cost basis never reaches the database.
+        if (request.costBasisStrategy() != null) {
+            applyCostBasis(
+                    lot, request.costBasisStrategy(), request.costAnchor(), request.flatUnitCostPaise(),
+                    request.percentBp(), request.multiplierMilli(), request.multiplierBase(),
+                    request.rateBands());
+        }
         lot = lotRepository.save(lot);
+        if (request.costBasisStrategy() != null) {
+            saveRateBands(lot, request.rateBands());
+        }
 
         // A freshly created manual lot has no boxes yet, so toSummary's box counts all come back
         // zero — the same zeros this endpoint always returned, just computed the shared way.
@@ -240,13 +360,16 @@ class LotController {
 
     /**
      * Corrects a manual-entry mistake on a lot: supplier, date, amount paid, freight,
-     * allocation method, or default category. Guarded by {@link LotEditPolicy} — once stock
-     * from the lot has been consumed, its costs are already recorded against sales, so none of
-     * these fields may move without rewriting margin history.
+     * allocation method, default category, or cost basis. Guarded by {@link LotEditPolicy} —
+     * once stock from the lot has been consumed, its costs are already recorded against sales,
+     * so none of these fields may move without rewriting margin history.
      *
-     * <p>Every field is optional: {@code null} leaves it unchanged. {@code categoryCode} is the
-     * one field where an explicit {@code ""} means something different from absent — it clears
-     * the lot back to "no default" rather than leaving the existing one in place.
+     * <p>Every field is optional: {@code null} leaves it unchanged. {@code categoryCode} is one
+     * exception — an explicit {@code ""} clears it back to "no default" rather than leaving the
+     * existing one in place. {@code costBasisStrategy} is the other: naming one replaces the
+     * lot's whole cost basis (see {@link #applyCostBasis}), and having done so, every
+     * not-yet-consumed batch in the lot is re-derived and re-pinned to it — safe only because
+     * passing the freeze guard below means nothing in this lot has been consumed yet.
      */
     @PutMapping("/{lotId}")
     ResponseEntity<LotSummaryDto> updateLot(
@@ -279,8 +402,20 @@ class LotController {
                 lot.setCategory(request.categoryCode());
             }
         }
+        // Validated before anything is saved, so a bad cost basis never reaches the database.
+        if (request.costBasisStrategy() != null) {
+            applyCostBasis(
+                    lot, request.costBasisStrategy(), request.costAnchor(), request.flatUnitCostPaise(),
+                    request.percentBp(), request.multiplierMilli(), request.multiplierBase(),
+                    request.rateBands());
+        }
 
         lot = lotRepository.save(lot);
+
+        if (request.costBasisStrategy() != null) {
+            saveRateBands(lot, request.rateBands());
+            rePinBatches(lot);
+        }
 
         return ResponseEntity.ok(toSummary(lot, lotCategories.categoryByLot()));
     }
@@ -321,7 +456,19 @@ record LotSummaryDto(
     long received,
     long unpacked,
     long rejected,
-    long notReceived) {}
+    long notReceived,
+    // Null throughout when the lot declares no cost basis — the whole group travels together,
+    // same as on the request DTOs.
+    CostBasisStrategy costBasisStrategy,
+    CostAnchor costAnchor,
+    Long flatUnitCostPaise,
+    Long percentBp,
+    Long multiplierMilli,
+    MultiplierBase multiplierBase,
+    List<MrpRateBand> rateBands,
+    // The amount-paid cross-check (LotClosing.crossCheckCost): null unless a basis is declared.
+    Long costVariancePaise,
+    Boolean costReconciles) {}
 
 record AddProductResponse(
     boolean success,

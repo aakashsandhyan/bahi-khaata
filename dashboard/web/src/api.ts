@@ -338,6 +338,7 @@ import type {
   UpdateLotRequest as _UpdateLotRequest,
   AddProductRequest as _AddProductRequest,
   AddProductResponse as _AddProductResponse,
+  CostBasisFields as _CostBasisFields,
 } from './types'
 
 export const receiving = {
@@ -349,11 +350,14 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
+  // costBasis is optional and, when given, travels as the whole group (see CostBasisFields) —
+  // omitting it (or passing costBasisStrategy: null within it) declares no basis.
   createManualLot: (
     supplierId: string,
     receivedOn: string,
     amountPaidPaise: number,
     categoryCode?: string | null,
+    costBasis?: _CostBasisFields | null,
   ) =>
     post<_LotSummary>('/api/lots/manual', {
       supplierId,
@@ -361,6 +365,7 @@ export const receiving = {
       amountPaidPaise,
       allocationMethod: 'RELATIVE_MRP',
       categoryCode: categoryCode || null,
+      ...costBasis,
     }),
   // A lot's data-entry fields, guarded by the freeze rule — the backend answers 409 once stock
   // has been consumed from it. Every field is optional; omitting one leaves it unchanged.
