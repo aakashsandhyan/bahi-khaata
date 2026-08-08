@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { receiving, BackendError } from './api'
+import { receiving, shelfPricing, BackendError } from './api'
 import type { LotSummary, ReceivingBoxes } from './types'
 import { QtyInput } from './QtyInput'
 
@@ -10,11 +10,26 @@ export function Receiving() {
   const [cartonId, setCartonId] = useState('')
   const [message, setMessage] = useState<{ text: string; tone: string } | null>(null)
   const [state, setState] = useState<'in-progress' | 'complete'>('in-progress')
-  const [productForm, setProductForm] = useState({ code: '', name: '', quantity: 1, categoryCode: 'KITCHEN', estimatedCost: '' })
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
+  const [productForm, setProductForm] = useState({ code: '', name: '', quantity: 1, categoryCode: '', estimatedCost: '' })
 
   useEffect(() => {
     loadLots()
+    loadCategories()
   }, [])
+
+  const loadCategories = async () => {
+    try {
+      const codes = await shelfPricing.categories()
+      setCategoryOptions(codes)
+      setProductForm((form) => (form.categoryCode ? form : { ...form, categoryCode: codes[0] ?? '' }))
+    } catch (err) {
+      setMessage({
+        text: err instanceof BackendError ? err.message : 'Cannot load categories.',
+        tone: 'stop',
+      })
+    }
+  }
 
   const loadLots = async () => {
     try {
@@ -266,10 +281,9 @@ export function Receiving() {
                     fontFamily: 'inherit',
                   }}
                 >
-                  <option value="KITCHEN">Kitchen</option>
-                  <option value="PERSONAL_CARE">Personal Care</option>
-                  <option value="HOME_ESSENTIALS">Home</option>
-                  <option value="WIRELESS">Electronics</option>
+                  {categoryOptions.map((code) => (
+                    <option key={code} value={code}>{code}</option>
+                  ))}
                 </select>
               </div>
               <div>

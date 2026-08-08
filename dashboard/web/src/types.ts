@@ -356,10 +356,14 @@ export interface CatalogDetail {
 export interface LotSummary {
   id: string
   supplier: string
+  supplierId: string | null
   receivedOn: string
   receivingComplete: boolean
   isManual: boolean
   categoryCode: string | null
+  amountPaidPaise: number
+  freightPaise: number
+  allocationMethod: string
   expected: number
   received: number
   unpacked: number
@@ -392,6 +396,16 @@ export interface CreateManualLotRequest {
   receivedOn: string
   amountPaidPaise: number
   allocationMethod: string
+  categoryCode?: string | null
+}
+
+export interface UpdateLotRequest {
+  supplierId?: string | null
+  receivedOn?: string | null
+  amountPaidPaise?: number | null
+  freightPaise?: number | null
+  allocationMethod?: string | null
+  categoryCode?: string | null
 }
 
 export interface AddProductRequest {
