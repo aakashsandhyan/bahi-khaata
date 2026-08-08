@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 // HTTPS with a certificate a phone can actually trust, made by mkcert. A self-signed cert let
 // the page load but Chrome still refused the camera on it, silently — the camera needs a
@@ -16,13 +18,19 @@ import { existsSync, readFileSync } from 'node:fs'
 // If the PC's LAN address changes, regenerate the cert for the new one and update these paths.
 const CERT = './certs/lan.pem'
 const KEY = './certs/lan-key.pem'
+// VITE_NO_HTTPS=1 forces plain http even when the cert files exist — for local tooling
+// (browser automation, curl) when the cert does not match the machine's current address.
 const https =
-  existsSync(CERT) && existsSync(KEY)
+  !process.env.VITE_NO_HTTPS && existsSync(CERT) && existsSync(KEY)
     ? { cert: readFileSync(CERT), key: readFileSync(KEY) }
     : undefined
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    // The "@/" alias the shadcn components are written against.
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   server: {
     port: 5173,
     host: true, // reachable from other devices on the Wi-Fi

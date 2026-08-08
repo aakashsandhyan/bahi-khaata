@@ -49,7 +49,10 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 h2 { font-size: 19px; font-weight: 650; margin: 0 0 var(--s3); }
 
 /* ---- buttons -------------------------------------------------------------- */
-button {
+/* Shell components (shadcn, marked data-slot) style themselves with Tailwind; this unlayered
+   sheet would out-rank those layered utilities, so the base button rule steps around them.
+   :where() keeps the exclusion at zero specificity — screen buttons are styled exactly as before. */
+button:where(:not([data-slot])) {
   font-family: inherit;
   font-size: 16px;
   font-weight: 550;
@@ -62,8 +65,8 @@ button {
   transition: transform 0.04s ease, background 0.12s ease, border-color 0.12s ease;
   -webkit-tap-highlight-color: transparent;
 }
-button:active { transform: translateY(1px); }
-button:disabled { opacity: 0.45; cursor: default; }
+button:where(:not([data-slot])):active { transform: translateY(1px); }
+button:where(:not([data-slot])):disabled { opacity: 0.45; cursor: default; }
 
 .btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
 .btn-primary:hover { background: var(--brand-dark); }
@@ -73,16 +76,6 @@ button:disabled { opacity: 0.45; cursor: default; }
 .btn-stop { background: var(--stop); border-color: var(--stop); color: #fff; }
 .btn-block { display: block; width: 100%; }
 .btn-lg { padding: 16px 20px; font-size: 18px; }
-
-/* ---- top nav (desktop admin) ---------------------------------------------- */
-.topnav {
-  display: flex; align-items: center; gap: var(--s2);
-  padding: var(--s3) var(--s5); background: var(--ink); color: #fff;
-}
-.topnav .brand { font-weight: 700; margin-right: var(--s4); letter-spacing: 0.01em; }
-.topnav button { background: transparent; color: #cfcfe0; border: 1px solid transparent; font-size: 15px; }
-.topnav button.on { background: #fff; color: var(--ink); }
-@media (max-width: 760px) { .topnav { display: none; } }
 
 /* ---- banners / toasts ----------------------------------------------------- */
 .banner {
