@@ -1,10 +1,10 @@
 ## 1. Schema and entities (migrations V47+)
 
-- [ ] 1.1 Migration: `sub_category` reference table (`code` PK, `name`, `category` FK, timestamps); seed the starting vocabulary (KITCHEN_METAL/KITCHEN_PLASTIC/KITCHEN_APPLIANCE, APPAREL_LOW/HIGH, FOOTWEAR_LOW/HIGH, TOYS, WIRELESS, etc.).
-- [ ] 1.2 Migration: add nullable `product.sub_category` FK → `sub_category(code)`.
-- [ ] 1.3 Migration: `gst_rate` table (`id` CHAR(36), `sub_category` FK, `gst_percent` DECIMAL/numeric, `effective_from`, `effective_to` nullable, `is_active` bool, timestamps) + **partial unique index** `ON gst_rate(sub_category) WHERE is_active = 1`; seed a default rate per seeded sub_category (metal/toys 5, most 18) — placeholders, CA-editable.
-- [ ] 1.4 Migration: add tax snapshot columns to `cart_line` and `sale_line` (`gst_percent`, `tax_paise` — and store enough to render CGST/SGST/taxable; CGST=SGST=tax/2, taxable = price − tax).
-- [ ] 1.5 Migration: update `bill_settings` seed to Tax Invoice defaults (title "Tax Invoice", retire the composition declaration). Add/confirm a `SETTING` global default GST percent (18).
+- [x] 1.1 Migration: `sub_category` reference table (`code` PK, `name`, `category` FK, timestamps); seed the starting vocabulary (KITCHEN_METAL/KITCHEN_PLASTIC/KITCHEN_APPLIANCE, APPAREL_LOW/HIGH, FOOTWEAR_LOW/HIGH, TOYS, WIRELESS, etc.).
+- [x] 1.2 Migration: add nullable `product.sub_category` FK → `sub_category(code)`.
+- [x] 1.3 Migration: `gst_rate` table (`id` CHAR(36), `sub_category` FK, `gst_percent` DECIMAL/numeric, `effective_from`, `effective_to` nullable, `is_active` bool, timestamps) + **partial unique index** `ON gst_rate(sub_category) WHERE is_active = 1`; seed a default rate per seeded sub_category (metal/toys 5, most 18) — placeholders, CA-editable.
+- [x] 1.4 Migration: add tax snapshot columns to `cart_line` and `sale_line` (`gst_percent`, `tax_paise` — and store enough to render CGST/SGST/taxable; CGST=SGST=tax/2, taxable = price − tax).
+- [x] 1.5 Migration: update `bill_settings` seed to Tax Invoice defaults (title "Tax Invoice", retire the composition declaration). Add/confirm a `SETTING` global default GST percent (18).
 - [ ] 1.6 Entities: `SubCategory`, `GstRate`; `Product` gains `subCategory`; `CartLine`/`SaleLine` gain the tax snapshot fields. Confirm Hibernate `ddl-auto=validate` passes (CHAR(36)/types match).
 
 ## 2. Rate resolver and admin service
