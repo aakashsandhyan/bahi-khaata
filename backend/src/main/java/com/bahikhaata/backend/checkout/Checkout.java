@@ -180,6 +180,7 @@ public class Checkout {
                 sale.getId(), sale.getBillNo(), sale.formattedBillNo(),
                 PaymentMethod.valueOf(sale.getPaymentMethod()),
                 sale.getSubtotal().paise(), sale.getSaving().paise(), sale.getTax().paise(),
+                sale.getCgst().paise(), sale.getSgst().paise(), sale.getTaxable().paise(),
                 sale.getTotal().paise(), sale.getOperatorName(), sale.getCreatedAt(),
                 lineViews, printFailed);
     }

@@ -22,8 +22,8 @@
 
 ## 4. Receipt / Tax Invoice
 
-- [ ] 4.1 `ReceiptTemplateService` + `BillSettings`: render a **Tax Invoice** — print taxable value, CGST, SGST, total; drop the composition/no-tax path. Read the tax from the stored sale, never recompute.
-- [ ] 4.2 Reprint renders the same snapshotted tax.
+- [x] 4.1 `ReceiptTemplateService` + `BillSettings`: render a **Tax Invoice** — print taxable value, CGST, SGST, total; drop the composition/no-tax path. Read the tax from the stored sale, never recompute.
+- [x] 4.2 Reprint renders the same snapshotted tax.
 
 ## 5. Classification backfill
 

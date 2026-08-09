@@ -58,7 +58,7 @@ class ReceiptTemplateServiceTest {
                         99_900, 49_900, 2, 99_800, 100_000));
         return new SaleView(
                 UUID.randomUUID(), 42, "BB-000042", PaymentMethod.CASH,
-                199_700, 149_600, 0, 199_700, "Ravi",
+                199_700, 149_600, 0, 0, 0, 199_700, 199_700, "Ravi",
                 Instant.parse("2026-08-02T09:00:00Z"), lines, false);
     }
 

@@ -35,9 +35,9 @@ import org.springframework.stereotype.Service;
  * the two can never drift.
  *
  * <p>The fixed text — shop name, GSTIN, bill title, declaration — comes from {@link BillSettings},
- * so the shop's tax treatment (a composition Bill of Supply for now) is a settings change, not
- * code. No tax is printed: a composition dealer collects none, and the total is simply the sum of
- * the line prices. Dates print in the shop's timezone (IST).
+ * so the shop's presentation is a settings change, not code. As a regular-dealer Tax Invoice the
+ * bill prints the GST extracted inclusively from the total — the taxable value and the CGST/SGST
+ * split — from the figures frozen on the sale. Dates print in the shop's timezone (IST).
  */
 @Service
 public class ReceiptTemplateService {
@@ -125,6 +125,14 @@ public class ReceiptTemplateService {
         rows.add(Row.of(rule()));
         if (sale.savingPaise() > 0) {
             rows.add(Row.of(lr("You saved", rupees(sale.savingPaise()))));
+        }
+        // GST is inclusive — shown extracted from the total, not added. A regular-dealer Tax Invoice
+        // prints the taxable value and the CGST/SGST split; a zero-tax sale prints none.
+        if (sale.taxPaise() > 0) {
+            rows.add(Row.of(lr("Taxable value", rupees(sale.taxablePaise()))));
+            rows.add(Row.of(lr("CGST", rupees(sale.cgstPaise()))));
+            rows.add(Row.of(lr("SGST", rupees(sale.sgstPaise()))));
+            rows.add(Row.of(lr("GST (incl.)", rupees(sale.taxPaise()))));
         }
         rows.add(new Row(lr("TOTAL", rupees(sale.totalPaise())), false, true, 1));
         rows.add(Row.of("Paid: " + sale.paymentMethod()));
