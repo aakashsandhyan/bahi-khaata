@@ -69,6 +69,14 @@ public class Product extends UuidEntity {
     @Column(name = "category", nullable = false, columnDefinition = "text")
     private String categoryCode;
 
+    /**
+     * The GST rate-group this product belongs to (its parent is the category), or null while
+     * unclassified. The rate that applies at sale is resolved from this; an unclassified product is
+     * prompted for it once at the till.
+     */
+    @Column(name = "sub_category", columnDefinition = "text")
+    private String subCategory;
+
     @Convert(converter = MoneyConverter.class)
     @Column(name = "selling_price_paise")
     private Money sellingPrice;
@@ -188,6 +196,15 @@ public class Product extends UuidEntity {
      */
     public void setCategory(Category category) {
         this.categoryCode = Objects.requireNonNull(category, "category").code();
+    }
+
+    /** The GST rate-group code, or null while unclassified. */
+    public String getSubCategory() {
+        return subCategory;
+    }
+
+    public void setSubCategory(String subCategory) {
+        this.subCategory = subCategory;
     }
 
     /** The selling price, or null when the product is unpriced. Never zero for "no price". */

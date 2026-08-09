@@ -5,19 +5,19 @@
 - [x] 1.3 Migration: `gst_rate` table (`id` CHAR(36), `sub_category` FK, `gst_percent` DECIMAL/numeric, `effective_from`, `effective_to` nullable, `is_active` bool, timestamps) + **partial unique index** `ON gst_rate(sub_category) WHERE is_active = 1`; seed a default rate per seeded sub_category (metal/toys 5, most 18) — placeholders, CA-editable.
 - [x] 1.4 Migration: add tax snapshot columns to `cart_line` and `sale_line` (`gst_percent`, `tax_paise` — and store enough to render CGST/SGST/taxable; CGST=SGST=tax/2, taxable = price − tax).
 - [x] 1.5 Migration: update `bill_settings` seed to Tax Invoice defaults (title "Tax Invoice", retire the composition declaration). Add/confirm a `SETTING` global default GST percent (18).
-- [ ] 1.6 Entities: `SubCategory`, `GstRate`; `Product` gains `subCategory`; `CartLine`/`SaleLine` gain the tax snapshot fields. Confirm Hibernate `ddl-auto=validate` passes (CHAR(36)/types match).
+- [x] 1.6 Entities: `SubCategory`, `GstRate`; `Product` gains `subCategory`; `CartLine`/`SaleLine` gain the tax snapshot fields. Confirm Hibernate `ddl-auto=validate` passes (CHAR(36)/types match).
 
 ## 2. Rate resolver and admin service
 
-- [ ] 2.1 `SubCategoryRepository`, `GstRateRepository` (active row by sub_category).
-- [ ] 2.2 `GstRates` resolver (mirror `TargetMargins`): `resolve(subCategory)` → active rate → global `SETTING` default (18%). Return the numeric percent.
-- [ ] 2.3 `GstRateService`: set-rate = close-and-open (stamp old `effective_to`+`is_active=false`, insert new active) guarded by the partial-unique index; manage sub_category vocabulary.
+- [x] 2.1 `SubCategoryRepository`, `GstRateRepository` (active row by sub_category).
+- [x] 2.2 `GstRates` resolver (mirror `TargetMargins`): `resolve(subCategory)` → active rate → global `SETTING` default (18%). Return the numeric percent.
+- [x] 2.3 `GstRateService`: set-rate = close-and-open (stamp old `effective_to`+`is_active=false`, insert new active) guarded by the partial-unique index; manage sub_category vocabulary.
 
 ## 3. Inclusive tax math + checkout
 
 - [x] 3.1 A `GstMath` helper: `lineTax(price, percent) = price × percent/(100+percent)`; invoice tax = Σ line tax rounded to nearest rupee (§170); CGST = SGST = tax/2; taxable = subtotal − tax.
-- [ ] 3.2 `Checkout` (cart view + completion): remove the `taxIsPlaceholder` / +18%-on-top path; `total = subtotal`; resolve each line's rate via `GstRates` (from the product's sub_category); compute + snapshot per-line `gst_percent`/`tax` onto `cart_line`.
-- [ ] 3.3 On completion, freeze the per-line tax + the invoice CGST/SGST/taxable onto `sale_line`/`sale` (immutable).
+- [x] 3.2 `Checkout` (cart view + completion): remove the `taxIsPlaceholder` / +18%-on-top path; `total = subtotal`; resolve each line's rate via `GstRates` (from the product's sub_category); compute + snapshot per-line `gst_percent`/`tax` onto `cart_line`.
+- [x] 3.3 On completion, freeze the per-line tax + the invoice CGST/SGST/taxable onto `sale_line`/`sale` (immutable).
 - [ ] 3.4 Till prompt: a scanned product with no `sub_category` blocks the line and prompts once; the choice persists on the product, then the line rings at the resolved rate. Not a hard sellability gate elsewhere.
 
 ## 4. Receipt / Tax Invoice

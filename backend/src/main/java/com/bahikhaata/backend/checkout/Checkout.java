@@ -31,7 +31,10 @@ import com.bahikhaata.contracts.PaymentMethod;
 import com.bahikhaata.contracts.SaleLineView;
 import com.bahikhaata.contracts.SaleSummary;
 import com.bahikhaata.contracts.SaleView;
+import com.bahikhaata.backend.tax.GstMath;
+import com.bahikhaata.backend.tax.GstRates;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -45,19 +48,13 @@ import org.springframework.transaction.annotation.Transactional;
  * bearing a printed MRP — a line joins the cart at that price. Scan it again and the quantity
  * rises. The saving against MRP is carried on every line, because that is what the shop is for.
  *
- * <p>Tax here is a <strong>placeholder</strong>. Real GST is per item by its HSN code, at rates a
- * CA supplies, and until those exist this total is indicative only and issues no invoice. The
- * cart is honest about that so nobody mistakes the figure for a receipt.
+ * <p>GST is <strong>inclusive</strong>: the selling price already contains the tax (Indian MRP is
+ * tax-inclusive by law), so it is extracted from the price, never added on top — the total the
+ * customer pays is the sum of the line prices. The rate comes from each product's GST sub-category
+ * ({@link GstRates}), and the extracted CGST/SGST is frozen onto the sale at completion.
  */
 @Service
 public class Checkout {
-
-    /**
-     * A stand-in GST rate, applied flat, until real per-HSN rates arrive. Deliberately not a
-     * quiet zero — the total should look roughly right on the till — but never treated as
-     * correct, and never the basis of an invoice.
-     */
-    private static final int PLACEHOLDER_GST_PERCENT = 18;
 
     private final CartRepository carts;
     private final CartLineRepository lines;
@@ -66,6 +63,7 @@ public class Checkout {
     private final SaleRepository sales;
     private final SaleLineRepository saleLines;
     private final FifoConsumer fifo;
+    private final GstRates gstRates;
 
     Checkout(
             CartRepository carts,
@@ -74,7 +72,8 @@ public class Checkout {
             BatchRepository batches,
             SaleRepository sales,
             SaleLineRepository saleLines,
-            FifoConsumer fifo) {
+            FifoConsumer fifo,
+            GstRates gstRates) {
         this.carts = carts;
         this.lines = lines;
         this.barcodes = barcodes;
@@ -82,6 +81,7 @@ public class Checkout {
         this.sales = sales;
         this.saleLines = saleLines;
         this.fifo = fifo;
+        this.gstRates = gstRates;
     }
 
     /**
@@ -91,8 +91,9 @@ public class Checkout {
      * cart is marked paid so it cannot be completed again. The bill is a render of the returned sale
      * (printed by the caller, after this commits — a print failure never undoes the sale).
      *
-     * <p>Tax is zero: the shop bills as a composition Bill of Supply and collects no tax, so the
-     * total is simply the sum of the line prices — what the customer pays.
+     * <p>GST is extracted inclusively from the line prices at each product's rate and frozen onto the
+     * sale (tax, CGST, SGST, taxable value); the total stays the sum of the prices — the customer
+     * pays the MRP-inclusive amount, never that plus a tax add-on.
      */
     @Transactional
     public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName) {
@@ -105,21 +106,33 @@ public class Checkout {
         long billNo = sales.findTopByOrderByBillNoDesc().map(Sale::getBillNo).orElse(0L) + 1;
         Money subtotal = Money.ZERO;
         Money saving = Money.ZERO;
-        for (CartLine line : cartLines) {
+        List<GstMath.Line> gstLines = new ArrayList<>(cartLines.size());
+        int[] lineBasisPoints = new int[cartLines.size()];
+        for (int i = 0; i < cartLines.size(); i++) {
+            CartLine line = cartLines.get(i);
             subtotal = subtotal.plus(line.lineTotal());
             saving = saving.plus(line.saving());
+            int bp = gstRates.resolveBasisPoints(line.getProduct().getSubCategory());
+            lineBasisPoints[i] = bp;
+            gstLines.add(new GstMath.Line(line.lineTotal().paise(), bp));
         }
+        // GST is extracted from the MRP-inclusive prices, never added: the total stays the subtotal.
+        GstMath.Breakdown gst = GstMath.invoice(gstLines);
         Sale sale = sales.save(
-                new Sale(billNo, paymentMethod.name(), subtotal, saving, Money.ZERO, subtotal,
-                        operatorName));
+                new Sale(billNo, paymentMethod.name(), subtotal, saving,
+                        Money.ofPaise(gst.taxPaise()), Money.ofPaise(gst.cgstPaise()),
+                        Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
+                        subtotal, operatorName));
 
         Instant now = Instant.now();
-        for (CartLine line : cartLines) {
+        for (int i = 0; i < cartLines.size(); i++) {
+            CartLine line = cartLines.get(i);
             Product product = line.getProduct();
+            long lineTax = GstMath.lineTaxPaise(line.lineTotal().paise(), lineBasisPoints[i]);
             saleLines.save(new SaleLine(
                     sale.getId(), product.getId(), product.getName(), asinOf(product),
                     line.getMrp(), line.getUnitPrice(), line.getQuantity(),
-                    line.lineTotal(), line.saving()));
+                    line.lineTotal(), line.saving(), lineBasisPoints[i], Money.ofPaise(lineTax)));
             // Decrement stock through the ledger — FIFO for cost, never refused, may go negative.
             fifo.consumeForSale(product.getId(), line.getQuantity(), now);
         }
@@ -239,14 +252,20 @@ public class Checkout {
 
     @Transactional(readOnly = true)
     public CartView view(UUID cartId) {
-        List<CartLineView> views =
-                lines.findByCartIdOrderByCreatedAt(cartId).stream()
-                        .map(this::lineView)
-                        .toList();
+        List<CartLine> cartLines = lines.findByCartIdOrderByCreatedAt(cartId);
+        List<CartLineView> views = cartLines.stream().map(this::lineView).toList();
         long subtotal = views.stream().mapToLong(CartLineView::lineTotalPaise).sum();
         long saving = views.stream().mapToLong(CartLineView::savingPaise).sum();
-        long tax = subtotal * PLACEHOLDER_GST_PERCENT / 100;
-        return new CartView(cartId, views, subtotal, tax, subtotal + tax, saving, true);
+        // GST is inclusive: the price already contains it, so it is extracted, never added. The
+        // total the customer pays is the subtotal — the placeholder that added a flat % is gone.
+        GstMath.Breakdown gst =
+                GstMath.invoice(
+                        cartLines.stream()
+                                .map(l -> new GstMath.Line(
+                                        l.lineTotal().paise(),
+                                        gstRates.resolveBasisPoints(l.getProduct().getSubCategory())))
+                                .toList());
+        return new CartView(cartId, views, subtotal, gst.taxPaise(), subtotal, saving, false);
     }
 
     private CartLineView lineView(CartLine line) {

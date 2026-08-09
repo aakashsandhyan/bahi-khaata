@@ -222,8 +222,10 @@ class CheckoutTest {
         assertThat(sale.paymentMethod()).isEqualTo(PaymentMethod.CASH);
         assertThat(sale.operatorName()).isEqualTo("Ravi");
         assertThat(sale.subtotalPaise()).isEqualTo(2 * 49_900);
-        assertThat(sale.totalPaise()).isEqualTo(2 * 49_900); // composition: no tax added
-        assertThat(sale.taxPaise()).isZero();
+        // Total stays the MRP-inclusive price — GST is extracted from it, never added on top.
+        assertThat(sale.totalPaise()).isEqualTo(2 * 49_900);
+        // Unclassified → 18% default: tax = ₹998 × 18/118 = ₹152.24, rounded to ₹152 at the invoice.
+        assertThat(sale.taxPaise()).isEqualTo(15_200);
         assertThat(sale.savingPaise()).isEqualTo(2 * 50_000);
         assertThat(sale.printFailed()).isFalse();
         assertThat(sale.lines()).singleElement().satisfies(l -> {
