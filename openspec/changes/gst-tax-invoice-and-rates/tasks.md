@@ -15,7 +15,7 @@
 
 ## 3. Inclusive tax math + checkout
 
-- [ ] 3.1 A `GstMath` helper: `lineTax(price, percent) = price × percent/(100+percent)`; invoice tax = Σ line tax rounded to nearest rupee (§170); CGST = SGST = tax/2; taxable = subtotal − tax.
+- [x] 3.1 A `GstMath` helper: `lineTax(price, percent) = price × percent/(100+percent)`; invoice tax = Σ line tax rounded to nearest rupee (§170); CGST = SGST = tax/2; taxable = subtotal − tax.
 - [ ] 3.2 `Checkout` (cart view + completion): remove the `taxIsPlaceholder` / +18%-on-top path; `total = subtotal`; resolve each line's rate via `GstRates` (from the product's sub_category); compute + snapshot per-line `gst_percent`/`tax` onto `cart_line`.
 - [ ] 3.3 On completion, freeze the per-line tax + the invoice CGST/SGST/taxable onto `sale_line`/`sale` (immutable).
 - [ ] 3.4 Till prompt: a scanned product with no `sub_category` blocks the line and prompts once; the choice persists on the product, then the line rings at the resolved rate. Not a hard sellability gate elsewhere.
