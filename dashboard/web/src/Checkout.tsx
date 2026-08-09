@@ -173,6 +173,12 @@ export function Checkout() {
               <span>Subtotal</span>
               <span>{rupees(cart.subtotalPaise)}</span>
             </div>
+            {cart.taxPaise > 0 && (
+              <div className="row">
+                <span>GST (incl.)</span>
+                <span>{rupees(cart.taxPaise)}</span>
+              </div>
+            )}
             <div className="row total">
               <span>Total</span>
               <span>{rupees(cart.totalPaise)}</span>

@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -48,14 +47,23 @@ public class GstRateService {
         this.jdbc = jdbc;
     }
 
-    /** Every sub-category and its current active rate in basis points, for the admin screen. */
+    /** A sub-category and its current active rate in basis points (null if none set). */
+    public record RateRow(String code, String name, String category, Integer basisPoints) {}
+
+    /** Every sub-category with its current active rate, for the admin screen. */
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> rates() {
-        return jdbc.queryForList(
+    public List<RateRow> rates() {
+        return jdbc.query(
                 "SELECT s.code, s.name, s.category, r.gst_basis_points"
                         + " FROM sub_category s"
                         + " LEFT JOIN gst_rate r ON r.sub_category = s.code AND r.is_active = 1"
-                        + " ORDER BY s.category, s.code");
+                        + " ORDER BY s.category, s.code",
+                (rs, i) ->
+                        new RateRow(
+                                rs.getString("code"),
+                                rs.getString("name"),
+                                rs.getString("category"),
+                                (Integer) rs.getObject("gst_basis_points")));
     }
 
     /**

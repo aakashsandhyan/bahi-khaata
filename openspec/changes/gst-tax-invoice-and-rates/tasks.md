@@ -31,9 +31,9 @@
 
 ## 6. Contracts + admin API + frontend
 
-- [ ] 6.1 Contracts: `CartView`/`CartLineView`/`SaleView`/`SaleLineView` gain tax fields (taxable, CGST, SGST, per-line rate/tax); bill-settings view/text.
-- [ ] 6.2 API: sub_category CRUD + GST-rate get/set (close-and-open), mirroring the category-margins admin.
-- [ ] 6.3 Frontend: till shows the incl-GST breakdown + the unclassified prompt; new sub_category + GST-rate admin screens; catalogue product detail surfaces/edits sub_category.
+- [x] 6.1 Contracts: `CartView`/`CartLineView`/`SaleView`/`SaleLineView` gain tax fields (taxable, CGST, SGST, per-line rate/tax); bill-settings view/text.
+- [x] 6.2 API: sub_category CRUD + GST-rate get/set (close-and-open), mirroring the category-margins admin.
+- [x] 6.3 Frontend: till shows the incl-GST breakdown + the unclassified prompt; new sub_category + GST-rate admin screens; catalogue product detail surfaces/edits sub_category.
 
 ## 7. Tests and verification
 

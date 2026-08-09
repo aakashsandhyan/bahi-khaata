@@ -134,6 +134,9 @@ export interface SaleView {
   subtotalPaise: number
   savingPaise: number
   taxPaise: number
+  cgstPaise: number
+  sgstPaise: number
+  taxablePaise: number
   totalPaise: number
   operatorName: string | null
   createdAt: string
@@ -639,4 +642,12 @@ export interface SupplierLot {
   receivingComplete: boolean
   isManual: boolean
   categoryCode: string | null
+}
+
+// --- gst rates (admin) ---
+export interface GstRateRow {
+  code: string
+  name: string
+  category: string
+  basisPoints: number | null
 }

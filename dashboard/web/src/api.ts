@@ -607,3 +607,15 @@ export const bulkPrint = {
     post<_QueueAwaitingResult>(`/api/print-jobs/bulk/review/${jobId}/send`) as Promise<_QueueAwaitingResult>,
   rejectReview: (jobId: string) => delVoid(`/api/print-jobs/bulk/review/${jobId}`),
 }
+
+// --- gst rates (admin) ---
+// View and edit the per-sub_category GST rate (basis points). Editing closes the old rate and
+// opens a new one server-side; the CA sets the real percentages here before go-live.
+
+import type { GstRateRow as _GstRateRow } from './types'
+
+export const gst = {
+  rates: () => getList<_GstRateRow>('/api/admin/gst/rates'),
+  setRate: (code: string, basisPoints: number) =>
+    put(`/api/admin/gst/rates/${encodeURIComponent(code)}`, { basisPoints }),
+}
