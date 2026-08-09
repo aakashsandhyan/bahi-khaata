@@ -63,6 +63,35 @@ class ReceiptTemplateServiceTest {
     }
 
     @Test
+    void rendersARegularTaxInvoiceWithGstBreakdown() {
+        BillSettings s = compositionSettings();
+        s.setBillTitle("Tax Invoice");
+        s.setDeclaration("");
+        when(settings.findById(BillSettings.SINGLETON_ID)).thenReturn(Optional.of(s));
+        ReceiptTemplateService template = new ReceiptTemplateService(settings);
+
+        // A ₹998 sale with ₹152 GST extracted (₹76 CGST + ₹76 SGST, ₹846 taxable).
+        SaleView sale = new SaleView(
+                UUID.randomUUID(), 43, "BB-000043", PaymentMethod.CASH,
+                99_800, 0, 15_200, 7_600, 7_600, 84_600, 99_800, "Ravi",
+                Instant.parse("2026-08-02T09:00:00Z"),
+                List.of(new SaleLineView(UUID.randomUUID(), "Item", "BBZ-1", 0, 49_900, 2, 99_800, 0)),
+                false);
+
+        String bill = template.renderText(sale);
+
+        assertThat(bill)
+                .contains("Tax Invoice")
+                .contains("Taxable value")
+                .contains("CGST")
+                .contains("SGST")
+                .contains("76.00") // each of CGST/SGST
+                .contains("846.00") // taxable value
+                .contains("TOTAL"); // total stays 998, not inflated
+        assertThat(bill).doesNotContain("Composition");
+    }
+
+    @Test
     void rendersACompositionBillOfSupply() {
         when(settings.findById(BillSettings.SINGLETON_ID))
                 .thenReturn(Optional.of(compositionSettings()));

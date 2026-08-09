@@ -27,7 +27,7 @@
 
 ## 5. Classification backfill
 
-- [ ] 5.1 One-time name-heuristic backfill assigning `sub_category` **only when confident** (steel/iron/aluminium → metal 5%; plastic/glass/ceramic → 18%; fan/kettle/stove/mixer → appliance 18%; toys → 5%); leave low-confidence NULL and flagged. Reviewable (log/report what it did), not blind.
+- [x] 5.1 One-time name-heuristic backfill assigning `sub_category` **only when confident** (steel/iron/aluminium → metal 5%; plastic/glass/ceramic → 18%; fan/kettle/stove/mixer → appliance 18%; toys → 5%); leave low-confidence NULL and flagged. Reviewable (log/report what it did), not blind.
 
 ## 6. Contracts + admin API + frontend
 
@@ -37,9 +37,9 @@
 
 ## 7. Tests and verification
 
-- [ ] 7.1 `GstMath` unit tests: ₹510 @18% → tax ≈ ₹77.80, total stays ₹510; invoice-level rounding; CGST=SGST; a 5% line; a 0.25% decimal rate.
-- [ ] 7.2 Resolver tests: sub_category active rate wins; unclassified → 18% default; close-and-open leaves exactly one active row (partial-index enforced).
-- [ ] 7.3 Checkout tests: total not inflated; per-line tax snapshotted; completion freezes CGST/SGST/taxable; a later rate change does not move a past sale; unclassified item prompts before ringing.
-- [ ] 7.4 Receipt test: Tax Invoice prints the snapshotted CGST/SGST/taxable; reprint identical.
-- [ ] 7.5 Migration test: fresh DB reaches V47+ gapless; partial-unique index rejects a second active rate; backfill assigns confident items and leaves the rest NULL.
-- [ ] 7.6 Run `./gradlew :backend:test` + `npm run build`; confirm app boots (schema validation). Frontend tsc gate.
+- [x] 7.1 `GstMath` unit tests: ₹510 @18% → tax ≈ ₹77.80, total stays ₹510; invoice-level rounding; CGST=SGST; a 5% line; a 0.25% decimal rate.
+- [x] 7.2 Resolver tests: sub_category active rate wins; unclassified → 18% default; close-and-open leaves exactly one active row (partial-index enforced).
+- [x] 7.3 Checkout tests: total not inflated; per-line tax snapshotted; completion freezes CGST/SGST/taxable; a later rate change does not move a past sale; unclassified item prompts before ringing.
+- [x] 7.4 Receipt test: Tax Invoice prints the snapshotted CGST/SGST/taxable; reprint identical.
+- [x] 7.5 Migration test: fresh DB reaches V47+ gapless; partial-unique index rejects a second active rate; backfill assigns confident items and leaves the rest NULL.
+- [x] 7.6 Run `./gradlew :backend:test` + `npm run build`; confirm app boots (schema validation). Frontend tsc gate.
