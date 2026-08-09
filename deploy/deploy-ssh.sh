@@ -70,10 +70,10 @@ if [ "$RUN_NOW" -eq 1 ]; then
   # schtasks /run launches it under the scheduler, so it keeps running after we disconnect.
   winrun "schtasks /run /tn BachatBaazar" || \
     winrun "powershell -Command \"Start-Process -FilePath '${WINDIR}/run-service.bat' -WindowStyle Hidden\""
-  echo "Give it ~10s, then open  http://<the Windows machine's IP>:8080"
+  echo "Give it ~10s, then open  http://<the Windows machine's IP>"
 fi
 
 echo
-echo "Done. On the Windows machine the app is at  http://localhost:8080"
-echo "Counter 2 uses  http://<that machine's LAN IP>:8080"
+echo "Done. On the Windows machine the app is at  http://localhost (port 80)"
+echo "Counter 2 uses  http://<that machine's LAN IP>"
 echo "Logs: $WINDIR/server.log   |   check state over ssh:  ssh $WINHOST type \"${WINDIR//\//\\}\\server.log\""
