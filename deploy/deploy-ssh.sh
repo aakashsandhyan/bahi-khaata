@@ -61,9 +61,15 @@ winrun "powershell -ExecutionPolicy Bypass -File \"${WINDIR//\//\\}\\install.ps1
   echo "install.ps1 failed — you may need to run it by hand on the machine once."; }
 
 echo "==> Registering auto-start on boot (Task Scheduler)"
-# Runs the headless script at startup, as the machine's user, highest privileges. /f overwrites.
-winrun "schtasks /create /tn BachatBaazar /tr \"${WINDIR//\//\\}\\run-service.bat\" /sc onstart /rl highest /f" \
+# SYSTEM, not the logged-on user: without /ru the task is "interactive only" — it cannot fire at
+# boot before anyone logs in, and every start pops a console window on the shop desktop that
+# staff can close, killing the POS (exit 0xC000013A — the Aug 8 outages). SYSTEM runs headless.
+# The PowerShell pass then clears the default 72h execution limit (which would kill the app every
+# 3 days) and adds self-restart if the process dies.
+winrun "schtasks /create /tn BachatBaazar /tr \"${WINDIR//\//\\}\\run-service.bat\" /sc onstart /ru SYSTEM /rl highest /f" \
   || echo "(could not register the task — set it up by hand, see README)"
+winrun "powershell -Command \"\$t = Get-ScheduledTask -TaskName BachatBaazar; \$t.Settings.ExecutionTimeLimit = 'PT0S'; \$t.Settings.StartWhenAvailable = \$true; \$t.Settings.RestartCount = 3; \$t.Settings.RestartInterval = 'PT1M'; \$t | Set-ScheduledTask\"" \
+  || echo "(could not tune the task settings — clear the 72h limit by hand in Task Scheduler)"
 
 if [ "$RUN_NOW" -eq 1 ]; then
   echo "==> Starting it now (detached, survives this SSH session)"
