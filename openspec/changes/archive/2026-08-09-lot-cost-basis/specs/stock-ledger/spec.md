@@ -48,7 +48,7 @@ A batch SHALL be costed the moment the inputs its cost needs are known, and SHAL
 - **WHEN** a batch's lot anchors its cost to MRP and the MRP has not yet been recorded
 - **THEN** the batch is uncosted until the MRP is recorded, at which point it is costed
 
-#### Scenario: An uncosted batch is distinguishable from a free one
+#### Scenario: An uncosted surplus is distinguishable from a free one
 
 - **WHEN** a batch has no pinned cost because its goods were a surplus or its anchor is not yet known
 - **THEN** its cost is reported as not yet determined rather than as zero
