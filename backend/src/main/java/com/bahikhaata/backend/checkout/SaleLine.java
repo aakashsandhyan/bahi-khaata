@@ -70,6 +70,15 @@ public class SaleLine extends UuidEntity {
     @Column(name = "saving_paise", nullable = false)
     private Money saving;
 
+    /** The GST rate this line was taxed at, basis points (18% = 1800); null if unclassified. */
+    @Column(name = "gst_basis_points")
+    private Integer gstBasisPoints;
+
+    /** The GST extracted from this line's price, frozen at completion. */
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "tax_paise", nullable = false)
+    private Money tax;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -91,7 +100,9 @@ public class SaleLine extends UuidEntity {
             Money unitPrice,
             long quantity,
             Money lineTotal,
-            Money saving) {
+            Money saving,
+            Integer gstBasisPoints,
+            Money tax) {
         super(newId());
         this.saleId = saleId;
         this.productId = productId;
@@ -102,6 +113,8 @@ public class SaleLine extends UuidEntity {
         this.quantity = quantity;
         this.lineTotal = lineTotal;
         this.saving = saving;
+        this.gstBasisPoints = gstBasisPoints;
+        this.tax = tax;
     }
 
     public UUID getSaleId() {
@@ -138,5 +151,13 @@ public class SaleLine extends UuidEntity {
 
     public Money getSaving() {
         return saving;
+    }
+
+    public Integer getGstBasisPoints() {
+        return gstBasisPoints;
+    }
+
+    public Money getTax() {
+        return tax;
     }
 }

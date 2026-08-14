@@ -14,11 +14,12 @@ import { Suppliers } from './Suppliers'
 import { PrinterConfig } from './admin/PrinterConfig'
 import { ReceiptPrinterConfig } from './admin/ReceiptPrinterConfig'
 import { BillSettings } from './admin/BillSettings'
+import { GstRates } from './GstRates'
 
 type View =
   | 'checkout' | 'sales' | 'lots' | 'receiving' | 'unpacking' | 'prep'
   | 'pricing' | 'review' | 'reprint' | 'capture' | 'catalog' | 'suppliers'
-  | 'printer-config' | 'receipt-config' | 'bill-settings'
+  | 'printer-config' | 'receipt-config' | 'bill-settings' | 'gst-rates'
 
 /**
  * The admin dashboard shell.
@@ -71,6 +72,7 @@ export function App() {
         <button className={view === 'printer-config' ? 'on' : ''} onClick={() => setView('printer-config')}>Printer</button>
         <button className={view === 'receipt-config' ? 'on' : ''} onClick={() => setView('receipt-config')}>Receipt</button>
         <button className={view === 'bill-settings' ? 'on' : ''} onClick={() => setView('bill-settings')}>Bill</button>
+        <button className={view === 'gst-rates' ? 'on' : ''} onClick={() => setView('gst-rates')}>GST</button>
       </nav>
       <main>
         {view === 'checkout' ? <Checkout />
@@ -88,6 +90,7 @@ export function App() {
           : view === 'printer-config' ? <PrinterConfig />
           : view === 'receipt-config' ? <ReceiptPrinterConfig />
           : view === 'bill-settings' ? <BillSettings />
+          : view === 'gst-rates' ? <GstRates />
           : <Checkout />}
       </main>
     </>
