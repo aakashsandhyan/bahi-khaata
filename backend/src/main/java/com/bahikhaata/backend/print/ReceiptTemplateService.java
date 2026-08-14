@@ -35,9 +35,9 @@ import org.springframework.stereotype.Service;
  * the two can never drift.
  *
  * <p>The fixed text — shop name, GSTIN, bill title, declaration — comes from {@link BillSettings},
- * so the shop's tax treatment (a composition Bill of Supply for now) is a settings change, not
- * code. No tax is printed: a composition dealer collects none, and the total is simply the sum of
- * the line prices. Dates print in the shop's timezone (IST).
+ * so the shop's presentation is a settings change, not code. As a regular-dealer Tax Invoice the
+ * bill prints the GST extracted inclusively from the total — the taxable value and the CGST/SGST
+ * split — from the figures frozen on the sale. Dates print in the shop's timezone (IST).
  */
 @Service
 public class ReceiptTemplateService {
@@ -118,16 +118,37 @@ public class ReceiptTemplateService {
 
         for (SaleLineView l : sale.lines()) {
             rows.add(Row.of(clip(l.name(), WIDTH)));
-            rows.add(Row.of(lr("  " + l.quantity() + " x " + rupees(l.unitPricePaise()),
-                    rupees(l.lineTotalPaise()))));
+            // Where there is a real MRP above the price (a saving), show it inline with the percent
+            // off — the discount is the shop's pitch. Much of the liquidation stock carries no MRP,
+            // and printing "MRP = price" would be noise, so those lines just show the price.
+            String qtyPrice = l.quantity() + " x " + rupees(l.unitPricePaise());
+            String detail;
+            if (l.savingPaise() > 0) {
+                long mrpBase = (long) l.mrpPaise() * l.quantity();
+                long pct = Math.round(l.savingPaise() * 100.0 / mrpBase);
+                detail = "  MRP " + rupeesWhole(l.mrpPaise()) + " (" + pct + "% off)  " + qtyPrice;
+            } else {
+                detail = "  " + qtyPrice;
+            }
+            rows.add(Row.of(lr(detail, rupees(l.lineTotalPaise()))));
         }
 
         rows.add(Row.of(rule()));
-        if (sale.savingPaise() > 0) {
-            rows.add(Row.of(lr("You saved", rupees(sale.savingPaise()))));
+        // GST is inclusive — shown extracted from the total, not added. A regular-dealer Tax Invoice
+        // prints the taxable value and the CGST/SGST split; a zero-tax sale prints none.
+        if (sale.taxPaise() > 0) {
+            rows.add(Row.of(lr("Taxable value", rupees(sale.taxablePaise()))));
+            rows.add(Row.of(lr("CGST", rupees(sale.cgstPaise()))));
+            rows.add(Row.of(lr("SGST", rupees(sale.sgstPaise()))));
+            rows.add(Row.of(lr("GST (incl.)", rupees(sale.taxPaise()))));
         }
         rows.add(new Row(lr("TOTAL", rupees(sale.totalPaise())), false, true, 1));
         rows.add(Row.of("Paid: " + sale.paymentMethod()));
+        // The saving rides below the total, out of the tax block, so it reads as a footer boast, not
+        // a line in the arithmetic. The per-line percents already show where it came from.
+        if (sale.savingPaise() > 0) {
+            rows.add(Row.of(lr("You saved", rupees(sale.savingPaise()))));
+        }
         rows.add(Row.of(rule()));
 
         if (notBlank(s.getDeclaration())) {
@@ -146,6 +167,11 @@ public class ReceiptTemplateService {
         long rupees = paise / 100;
         long fraction = Math.abs(paise % 100);
         return String.format("%,d.%02d", rupees, fraction);
+    }
+
+    /** MRP as whole rupees, grouped — MRP is a whole-rupee figure and dropping paise keeps the line short. */
+    static String rupeesWhole(long paise) {
+        return String.format("%,d", paise / 100);
     }
 
     /** Left text and right text on one {@link #WIDTH}-wide line, right-justified; left clipped if long. */

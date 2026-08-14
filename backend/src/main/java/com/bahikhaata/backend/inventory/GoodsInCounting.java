@@ -22,6 +22,7 @@ import com.bahikhaata.backend.catalog.BarcodeRepository;
 import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.catalog.ProductRepository;
 import com.bahikhaata.contracts.CartonProgress;
+import com.bahikhaata.contracts.CostAnchor;
 import com.bahikhaata.contracts.CountOutcome;
 import com.bahikhaata.contracts.LearntCode;
 import com.bahikhaata.contracts.DeliveryProgress;
@@ -67,6 +68,8 @@ public class GoodsInCounting {
     private final StockLedgerRepository ledger;
     private final ProductRepository products;
     private final BarcodeRepository barcodes;
+    private final LotCostBasis lotCostBasis;
+    private final LotMrpRateBandRepository rateBands;
 
     GoodsInCounting(
             ExpectedLineRepository expectedLines,
@@ -77,7 +80,9 @@ public class GoodsInCounting {
             com.bahikhaata.backend.lookup.MrpBackfill mrpSuggestions,
             StockLedgerRepository ledger,
             ProductRepository products,
-            BarcodeRepository barcodes) {
+            BarcodeRepository barcodes,
+            LotCostBasis lotCostBasis,
+            LotMrpRateBandRepository rateBands) {
         this.expectedLines = expectedLines;
         this.unlistedFinds = unlistedFinds;
         this.batches = batches;
@@ -87,6 +92,8 @@ public class GoodsInCounting {
         this.ledger = ledger;
         this.products = products;
         this.barcodes = barcodes;
+        this.lotCostBasis = lotCostBasis;
+        this.rateBands = rateBands;
     }
 
     /**
@@ -170,18 +177,24 @@ public class GoodsInCounting {
         Batch batch =
                 addToBatch(
                         line.getLot(), line.getProduct(), condition, quantity, mrp, mrpIsEstimate,
-                        remark, issueType, at);
+                        remark, issueType, line.getStatedValue(), at);
 
-        // Pin the product's cost onto the batch as it is received, so it is costed at once and its
-        // product is priceable without the lot being closed. The manifest does not state the cost
-        // outright: it states each product's value (its selling price on a returns sheet, the
-        // supplier's own cost on a supply sheet) and, per category, the fraction of that value the
-        // lot was bought at. The cost is that value scaled by the fraction — a quarter of the price
-        // on one delivery, ten per cent over the supplier's cost on another — computed once here,
-        // over what was expected, and never re-settled at close. A line that states no value leaves
-        // the batch uncosted. Unusable scrap is never stock — excluded from the ledger and from
-        // pricing — so it carries no inventory cost even when its line states one.
-        if (line.getStatedValue() != null && condition != StockCondition.UNUSABLE) {
+        // Where the lot declares a cost basis, addToBatch above has already tried to derive and
+        // pin the batch's cost from it (its strategy, its anchor, and — for a MULTIPLIER on the
+        // manifest's stated value — the line's statedValue just passed through). That basis
+        // governs; the rate below is the legacy path for a lot that declares none.
+        //
+        // The rate path: the manifest does not state the cost outright, it states each product's
+        // value (its selling price on a returns sheet, the supplier's own cost on a supply sheet)
+        // and, per category, the fraction of that value the lot was bought at. The cost is that
+        // value scaled by the fraction — a quarter of the price on one delivery, ten per cent over
+        // the supplier's cost on another — computed once here, over what was expected, and never
+        // re-settled at close. A line that states no value leaves the batch uncosted. Unusable
+        // scrap is never stock — excluded from the ledger and from pricing — so it carries no
+        // inventory cost even when its line states one.
+        if (!line.getLot().declaresCostBasis()
+                && line.getStatedValue() != null
+                && condition != StockCondition.UNUSABLE) {
             Long unitCostPaise = pinnedUnitCostFor(line, ratePaidFor(line.getLot()));
             if (unitCostPaise != null) {
                 batch.pinUnitCost(Money.ofPaise(unitCostPaise));
@@ -836,6 +849,28 @@ public class GoodsInCounting {
             String remark,
             String issueType,
             Instant at) {
+        return addToBatch(lot, product, condition, quantity, mrp, mrpIsEstimate, remark, issueType, null, at);
+    }
+
+    /**
+     * As above, additionally carrying the manifest line's stated value — needed only by a
+     * cost-basis lot whose {@code MULTIPLIER} strategy bases itself on
+     * {@link com.bahikhaata.contracts.MultiplierBase#STATED_VALUE}. Callers with no manifest
+     * line (an unlisted find, a hand-entered receipt, a remediation move) pass null, which simply
+     * leaves that one base unavailable — exactly as it leaves the legacy rate path unable to pin
+     * a line with no stated value.
+     */
+    Batch addToBatch(
+            Lot lot,
+            Product product,
+            StockCondition condition,
+            long quantity,
+            Money mrp,
+            boolean mrpIsEstimate,
+            String remark,
+            String issueType,
+            Money statedValue,
+            Instant at) {
         // The printed price is a property of the product in this delivery, not of one condition:
         // a dented pack carries the same MRP as a clean one. `needsMrp` promises it is asked once
         // per product and reused across conditions, but the answer is only ever stored on the
@@ -880,7 +915,63 @@ public class GoodsInCounting {
         if (condition == StockCondition.GOOD || condition == StockCondition.DAMAGED) {
             ledger.save(StockLedgerEntry.receipt(product, batch, quantity, at));
         }
+        pinFromCostBasis(lot, batch, condition, statedValue);
         return batch;
+    }
+
+    /**
+     * Where this lot declares a cost basis, tries to derive and pin this batch's cost from it —
+     * the immediate pin for FLAT_PER_UNIT and an entered-cost MULTIPLIER, and the anchor-time pin
+     * for everything anchored to MRP or ASP, the moment that anchor is known (which may be now,
+     * on a later count, or not at all). Left uncosted, not zero, when the strategy's input is not
+     * yet known. Unusable scrap is excluded, exactly as the legacy rate path excludes it — it is
+     * never stock and carries no inventory cost. A batch already costed is left alone: this is
+     * the one-time pin at receipt, not the deliberate re-pin an edited basis performs.
+     */
+    private void pinFromCostBasis(Lot lot, Batch batch, StockCondition condition, Money statedValue) {
+        if (!lot.declaresCostBasis() || condition == StockCondition.UNUSABLE || batch.isCosted()) {
+            return;
+        }
+        Money anchor = lotCostBasis.anchorValue(lot, batch, batch.getProduct());
+        Money resolved =
+                lotCostBasis.unitCost(lot, rateBands.findByLotIdOrderByMinMrp(lot.getId()), anchor, statedValue);
+        if (resolved != null) {
+            batch.pinUnitCost(resolved);
+        }
+    }
+
+    /**
+     * Re-derives and pins any of this product's batches left uncosted because their lot anchors
+     * its cost basis to ASP and the online price was not yet known when they were counted.
+     *
+     * <p>Called wherever a product's online price is newly observed — today that is only at
+     * import ({@link ConsignmentImporter}) — so a batch counted before the price was ever seen is
+     * costed the moment it arrives, rather than waiting on another count that may never come. A
+     * batch anchored to MRP, already costed, or belonging to a lot with no declared basis is left
+     * untouched.
+     */
+    @Transactional
+    public void pinAspAnchoredBatches(Product product) {
+        for (Batch batch : batches.findByProductId(product.getId())) {
+            if (batch.isCosted() || batch.getCondition() == StockCondition.UNUSABLE) {
+                continue;
+            }
+            Lot lot = batch.getLot();
+            if (!lot.declaresCostBasis() || lot.getCostAnchor() != CostAnchor.ASP) {
+                continue;
+            }
+            Money anchor = lotCostBasis.anchorValue(lot, batch, product);
+            Money statedValue =
+                    expectedLines.findByLotIdAndProductIdOrderByCode(lot.getId(), product.getId()).stream()
+                            .findFirst()
+                            .map(ExpectedLine::getStatedValue)
+                            .orElse(null);
+            Money resolved =
+                    lotCostBasis.unitCost(lot, rateBands.findByLotIdOrderByMinMrp(lot.getId()), anchor, statedValue);
+            if (resolved != null) {
+                batch.pinUnitCost(resolved);
+            }
+        }
     }
 
     /**

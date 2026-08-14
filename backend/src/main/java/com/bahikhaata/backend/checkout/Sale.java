@@ -60,6 +60,18 @@ public class Sale extends UuidEntity {
     private Money tax;
 
     @Convert(converter = MoneyConverter.class)
+    @Column(name = "cgst_paise", nullable = false)
+    private Money cgst;
+
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "sgst_paise", nullable = false)
+    private Money sgst;
+
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "taxable_paise", nullable = false)
+    private Money taxable;
+
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "total_paise", nullable = false)
     private Money total;
 
@@ -84,6 +96,9 @@ public class Sale extends UuidEntity {
             Money subtotal,
             Money saving,
             Money tax,
+            Money cgst,
+            Money sgst,
+            Money taxable,
             Money total,
             String operatorName) {
         super(newId());
@@ -92,6 +107,9 @@ public class Sale extends UuidEntity {
         this.subtotal = subtotal;
         this.saving = saving;
         this.tax = tax;
+        this.cgst = cgst;
+        this.sgst = sgst;
+        this.taxable = taxable;
         this.total = total;
         this.operatorName = operatorName;
     }
@@ -119,6 +137,18 @@ public class Sale extends UuidEntity {
 
     public Money getTax() {
         return tax;
+    }
+
+    public Money getCgst() {
+        return cgst;
+    }
+
+    public Money getSgst() {
+        return sgst;
+    }
+
+    public Money getTaxable() {
+        return taxable;
     }
 
     public Money getTotal() {

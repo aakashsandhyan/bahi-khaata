@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { PrinterConfig } from './admin/PrinterConfig'
 import { ReceiptPrinterConfig } from './admin/ReceiptPrinterConfig'
 import { BillSettings } from './admin/BillSettings'
+import { GstRates } from './GstRates'
 
-type Tab = 'label' | 'receipt' | 'bill'
+type Tab = 'label' | 'receipt' | 'bill' | 'gst'
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'label', label: 'Label printer' },
   { value: 'receipt', label: 'Receipt printer' },
   { value: 'bill', label: 'Bill' },
+  { value: 'gst', label: 'GST rates' },
 ]
 
 /**
@@ -44,6 +46,7 @@ export function Settings() {
       {tab === 'label' && <PrinterConfig />}
       {tab === 'receipt' && <ReceiptPrinterConfig />}
       {tab === 'bill' && <BillSettings />}
+      {tab === 'gst' && <GstRates />}
     </div>
   )
 }

@@ -31,9 +31,8 @@ public record AddProductRequest(
         if (quantity <= 0) {
             throw new IllegalArgumentException("quantity must be greater than 0");
         }
-        if (categoryCode == null || categoryCode.isBlank()) {
-            throw new IllegalArgumentException("categoryCode required");
-        }
+        // categoryCode may be blank/absent: the lot's own default category fills it in, so a
+        // caller only needs to send one when overriding it for this line.
         if (estimatedCostPaise != null && estimatedCostPaise < 0) {
             throw new IllegalArgumentException("estimatedCostPaise must be non-negative");
         }

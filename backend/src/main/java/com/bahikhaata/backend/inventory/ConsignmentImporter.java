@@ -75,6 +75,7 @@ public class ConsignmentImporter {
     private final ExpectedLineRepository expectedLines;
     private final SupplierService suppliers;
     private final JdbcTemplate jdbc;
+    private final GoodsInCounting counting;
 
     ConsignmentImporter(
             ProductRepository products,
@@ -84,7 +85,8 @@ public class ConsignmentImporter {
             BoxReceiptRepository boxReceipts,
             ExpectedLineRepository expectedLines,
             SupplierService suppliers,
-            JdbcTemplate jdbc) {
+            JdbcTemplate jdbc,
+            GoodsInCounting counting) {
         this.products = products;
         this.barcodes = barcodes;
         this.lots = lots;
@@ -93,6 +95,7 @@ public class ConsignmentImporter {
         this.expectedLines = expectedLines;
         this.suppliers = suppliers;
         this.jdbc = jdbc;
+        this.counting = counting;
     }
 
     @Transactional
@@ -165,6 +168,11 @@ public class ConsignmentImporter {
                 if (onlinePrice != null) {
                     product.observeOnlinePrice(
                             Money.ofPaise(onlinePrice), line.onlinePriceSource, receivedOn);
+                    // Costs an ASP-anchored cost-basis lot's batch of this same product the
+                    // moment its anchor becomes known — covers the product having been counted
+                    // into such a lot by an earlier delivery, before any price had ever been
+                    // observed for it, and left uncosted for want of one.
+                    counting.pinAspAnchoredBatches(product);
                 }
 
                 expectedLines.save(

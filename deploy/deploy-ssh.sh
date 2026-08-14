@@ -61,19 +61,25 @@ winrun "powershell -ExecutionPolicy Bypass -File \"${WINDIR//\//\\}\\install.ps1
   echo "install.ps1 failed — you may need to run it by hand on the machine once."; }
 
 echo "==> Registering auto-start on boot (Task Scheduler)"
-# Runs the headless script at startup, as the machine's user, highest privileges. /f overwrites.
-winrun "schtasks /create /tn BachatBaazar /tr \"${WINDIR//\//\\}\\run-service.bat\" /sc onstart /rl highest /f" \
+# SYSTEM, not the logged-on user: without /ru the task is "interactive only" — it cannot fire at
+# boot before anyone logs in, and every start pops a console window on the shop desktop that
+# staff can close, killing the POS (exit 0xC000013A — the Aug 8 outages). SYSTEM runs headless.
+# The PowerShell pass then clears the default 72h execution limit (which would kill the app every
+# 3 days) and adds self-restart if the process dies.
+winrun "schtasks /create /tn BachatBaazar /tr \"${WINDIR//\//\\}\\run-service.bat\" /sc onstart /ru SYSTEM /rl highest /f" \
   || echo "(could not register the task — set it up by hand, see README)"
+winrun "powershell -Command \"\$t = Get-ScheduledTask -TaskName BachatBaazar; \$t.Settings.ExecutionTimeLimit = 'PT0S'; \$t.Settings.StartWhenAvailable = \$true; \$t.Settings.RestartCount = 3; \$t.Settings.RestartInterval = 'PT1M'; \$t | Set-ScheduledTask\"" \
+  || echo "(could not tune the task settings — clear the 72h limit by hand in Task Scheduler)"
 
 if [ "$RUN_NOW" -eq 1 ]; then
   echo "==> Starting it now (detached, survives this SSH session)"
   # schtasks /run launches it under the scheduler, so it keeps running after we disconnect.
   winrun "schtasks /run /tn BachatBaazar" || \
     winrun "powershell -Command \"Start-Process -FilePath '${WINDIR}/run-service.bat' -WindowStyle Hidden\""
-  echo "Give it ~10s, then open  http://<the Windows machine's IP>:8080"
+  echo "Give it ~10s, then open  http://<the Windows machine's IP>"
 fi
 
 echo
-echo "Done. On the Windows machine the app is at  http://localhost:8080"
-echo "Counter 2 uses  http://<that machine's LAN IP>:8080"
+echo "Done. On the Windows machine the app is at  http://localhost (port 80)"
+echo "Counter 2 uses  http://<that machine's LAN IP>"
 echo "Logs: $WINDIR/server.log   |   check state over ssh:  ssh $WINHOST type \"${WINDIR//\//\\}\\server.log\""

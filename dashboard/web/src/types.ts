@@ -134,6 +134,9 @@ export interface SaleView {
   subtotalPaise: number
   savingPaise: number
   taxPaise: number
+  cgstPaise: number
+  sgstPaise: number
+  taxablePaise: number
   totalPaise: number
   operatorName: string | null
   createdAt: string
@@ -404,18 +407,57 @@ export interface ProductCountResult {
 
 // --- receiving ---
 
-export interface LotSummary {
+// A lot's cost-basis strategy — how its products' per-unit cost is derived instead of the
+// manifest rate / amount-paid apportionment. Mirrors backend CostBasisStrategy.
+export type CostBasisStrategy = 'FLAT_PER_UNIT' | 'PERCENT_OF_ANCHOR' | 'MRP_RATE_RANGE' | 'MULTIPLIER'
+
+// The figure an anchor-dependent strategy reads: the batch's recorded MRP, or the product's
+// observed online selling price. Mirrors backend CostAnchor.
+export type CostAnchor = 'MRP' | 'ASP'
+
+// What a MULTIPLIER strategy multiplies. Mirrors backend MultiplierBase.
+export type MultiplierBase = 'ENTERED_UNIT_COST' | 'ANCHOR' | 'STATED_VALUE'
+
+// One band of an MRP_RATE_RANGE rate card: an item whose MRP falls in [minMrpPaise, maxMrpPaise)
+// costs costPaise; maxMrpPaise null is the open-topped final band.
+export interface MrpRateBand {
+  minMrpPaise: number
+  maxMrpPaise: number | null
+  costPaise: number
+}
+
+// The cost-basis fields travel together on every DTO that carries them: costBasisStrategy null
+// means "no declared basis" (or, on an update, "leave the basis unchanged") and every other field
+// in the group is then meaningless; naming a strategy is what makes the rest of the group apply.
+export interface CostBasisFields {
+  costBasisStrategy: CostBasisStrategy | null
+  costAnchor: CostAnchor | null
+  flatUnitCostPaise: number | null
+  percentBp: number | null
+  multiplierMilli: number | null
+  multiplierBase: MultiplierBase | null
+  rateBands: MrpRateBand[]
+}
+
+export interface LotSummary extends CostBasisFields {
   id: string
   supplier: string
+  supplierId: string | null
   receivedOn: string
   receivingComplete: boolean
   isManual: boolean
   categoryCode: string | null
+  amountPaidPaise: number
+  freightPaise: number
+  allocationMethod: string
   expected: number
   received: number
   unpacked: number
   rejected: number
   notReceived: number
+  // The amount-paid cross-check: null unless a cost basis is declared. Reported, never blocking.
+  costVariancePaise: number | null
+  costReconciles: boolean | null
 }
 
 export interface ReceivingBox {
@@ -443,6 +485,35 @@ export interface CreateManualLotRequest {
   receivedOn: string
   amountPaidPaise: number
   allocationMethod: string
+  categoryCode?: string | null
+  // Optional, and travels as a whole group — see CostBasisFields. Omitted entirely (or
+  // costBasisStrategy left undefined/null) means the lot declares no basis.
+  costBasisStrategy?: CostBasisStrategy | null
+  costAnchor?: CostAnchor | null
+  flatUnitCostPaise?: number | null
+  percentBp?: number | null
+  multiplierMilli?: number | null
+  multiplierBase?: MultiplierBase | null
+  rateBands?: MrpRateBand[]
+}
+
+export interface UpdateLotRequest {
+  supplierId?: string | null
+  receivedOn?: string | null
+  amountPaidPaise?: number | null
+  freightPaise?: number | null
+  allocationMethod?: string | null
+  categoryCode?: string | null
+  // costBasisStrategy undefined/null leaves the lot's whole cost basis unchanged; naming one
+  // replaces the whole group atomically (see CostBasisFields) — there is no per-field partial
+  // update within the basis itself.
+  costBasisStrategy?: CostBasisStrategy | null
+  costAnchor?: CostAnchor | null
+  flatUnitCostPaise?: number | null
+  percentBp?: number | null
+  multiplierMilli?: number | null
+  multiplierBase?: MultiplierBase | null
+  rateBands?: MrpRateBand[]
 }
 
 export interface AddProductRequest {
@@ -721,4 +792,12 @@ export interface InventoryDetail {
 export interface SetBinResult {
   batchId: string
   bin: string | null
+}
+
+// --- gst rates (admin) ---
+export interface GstRateRow {
+  code: string
+  name: string
+  category: string
+  basisPoints: number | null
 }

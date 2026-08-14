@@ -372,8 +372,10 @@ import type {
   LotSummary as _LotSummary,
   ReceivingBoxes as _ReceivingBoxes,
   CreateManualLotRequest as _CreateManualLotRequest,
+  UpdateLotRequest as _UpdateLotRequest,
   AddProductRequest as _AddProductRequest,
   AddProductResponse as _AddProductResponse,
+  CostBasisFields as _CostBasisFields,
 } from './types'
 
 export const receiving = {
@@ -386,13 +388,26 @@ export const receiving = {
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
   markReceivingComplete: (lotId: string) => post(`/api/lots/${lotId}/receiving-complete`, {}),
-  createManualLot: (supplierId: string, receivedOn: string, amountPaidPaise: number) =>
+  // costBasis is optional and, when given, travels as the whole group (see CostBasisFields) —
+  // omitting it (or passing costBasisStrategy: null within it) declares no basis.
+  createManualLot: (
+    supplierId: string,
+    receivedOn: string,
+    amountPaidPaise: number,
+    categoryCode?: string | null,
+    costBasis?: _CostBasisFields | null,
+  ) =>
     post<_LotSummary>('/api/lots/manual', {
       supplierId,
       receivedOn,
       amountPaidPaise,
       allocationMethod: 'RELATIVE_MRP',
+      categoryCode: categoryCode || null,
+      ...costBasis,
     }),
+  // A lot's data-entry fields, guarded by the freeze rule — the backend answers 409 once stock
+  // has been consumed from it. Every field is optional; omitting one leaves it unchanged.
+  updateLot: (lotId: string, body: _UpdateLotRequest) => put<_LotSummary>(`/api/lots/${lotId}`, body),
   addProduct: (
     lotId: string,
     code: string | null,
@@ -663,4 +678,16 @@ export const bulkPrint = {
   sendReviewOne: (jobId: string) =>
     post<_QueueAwaitingResult>(`/api/print-jobs/bulk/review/${jobId}/send`) as Promise<_QueueAwaitingResult>,
   rejectReview: (jobId: string) => delVoid(`/api/print-jobs/bulk/review/${jobId}`),
+}
+
+// --- gst rates (admin) ---
+// View and edit the per-sub_category GST rate (basis points). Editing closes the old rate and
+// opens a new one server-side; the CA sets the real percentages here before go-live.
+
+import type { GstRateRow as _GstRateRow } from './types'
+
+export const gst = {
+  rates: () => getList<_GstRateRow>('/api/admin/gst/rates'),
+  setRate: (code: string, basisPoints: number) =>
+    put(`/api/admin/gst/rates/${encodeURIComponent(code)}`, { basisPoints }),
 }
