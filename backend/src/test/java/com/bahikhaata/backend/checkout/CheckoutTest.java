@@ -66,6 +66,7 @@ class CheckoutTest {
     @Autowired private SupplierRepository suppliers;
     @Autowired private SaleRepository sales;
     @Autowired private com.bahikhaata.backend.inventory.StockLevels stock;
+    @Autowired private com.bahikhaata.backend.register.RegisterService registerService;
 
     private String supplierId(String name) {
         return suppliers.findByNameNormalized(Supplier.normalize(name))
@@ -330,5 +331,48 @@ class CheckoutTest {
         UUID cartId = checkout.open().cartId();
         checkout.scan(cartId, code);
         return cartId;
+    }
+
+    @Test
+    @DisplayName("A sale completed under a register session references it")
+    void saleUnderASessionReferencesIt() {
+        String code = onTheShelf("SESSA", 20_000, 40_000, 15_000);
+        var session = registerService.open("Register 1", "Shakti", 100_000);
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Shakti", session.getId());
+
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getRegisterSessionId()).isEqualTo(session.getId());
+        // And the session filter returns exactly this bill.
+        List<SaleSummary> sessionBills = checkout.sessionSales(session.getId());
+        assertThat(sessionBills).hasSize(1);
+        assertThat(sessionBills.get(0).billNo()).isEqualTo(sale.getBillNo());
+    }
+
+    @Test
+    @DisplayName("A classic sessionless sale stays valid with no session reference")
+    void sessionlessSaleStaysValid() {
+        String code = onTheShelf("SESSB", 20_000, 40_000, 15_000);
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Ravi");
+
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getRegisterSessionId()).isNull();
+    }
+
+    @Test
+    @DisplayName("Cash sales under a session feed its close; UPI sales do not")
+    void sessionCloseCountsOnlyCash() {
+        String code = onTheShelf("SESSC", 20_000, 40_000, 15_000);
+        var session = registerService.open("Register 2", "Aakash", 50_000);
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash", session.getId());
+        checkout.complete(scannedCart(code), PaymentMethod.UPI, "Aakash", session.getId());
+
+        // expected = 50,000 float + 15,000 cash sale; the UPI 15,000 must not appear
+        var summary = registerService.close("Register 2", 65_000);
+        assertThat(summary.expectedPaise()).isEqualTo(65_000);
+        assertThat(summary.cashSalesPaise()).isEqualTo(15_000);
+        assertThat(summary.overShortPaise()).isZero();
     }
 }

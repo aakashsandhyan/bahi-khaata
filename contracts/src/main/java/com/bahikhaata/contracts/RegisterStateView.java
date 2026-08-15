@@ -17,9 +17,18 @@
  */
 package com.bahikhaata.contracts;
 
+import java.time.Instant;
+import java.util.UUID;
+
 /**
- * Completes the cart into a sale: the payment method, who was at the till (may be null), and the
- * open register session the sale belongs to — null from the classic till, which sells sessionless.
+ * One register's live state for the Register screen: closed (session fields null) or open, with
+ * the running expected-cash figure so the drawer can be sanity-checked mid-day.
  */
-public record CompleteSaleRequest(
-        PaymentMethod paymentMethod, String operatorName, java.util.UUID registerSessionId) {}
+public record RegisterStateView(
+        String registerName,
+        boolean open,
+        UUID sessionId,
+        String operatorName,
+        Long floatPaise,
+        Long expectedPaise,
+        Instant openedAt) {}

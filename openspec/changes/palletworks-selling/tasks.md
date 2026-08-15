@@ -2,17 +2,17 @@
 
 ## 1. Register sessions (backend)
 
-- [ ] 1.1 Migration V50 (verify ceiling first): `register_session` + `register_cash_movement` tables; nullable `register_session_id` on `sale`
-- [ ] 1.2 Entities + repositories; one-open-session-per-register enforced in the service
-- [ ] 1.3 `RegisterService`: open (float, operator), cash movement (open session required), close (expected = float + cash sales + in − out; pin over/short + closed_at)
-- [ ] 1.4 Endpoints: `GET /api/registers`, `POST /api/registers/{name}/open`, `/cash-movements`, `/close`; contracts for session state and close summary
-- [ ] 1.5 Unit tests: double-open refused, movement without session refused, close math (cash-only expected, UPI excluded), pinned figure immutable, sessionless sale untouched
+- [x] 1.1 Migration V50 (verify ceiling first): `register_session` + `register_cash_movement` tables; nullable `register_session_id` on `sale`
+- [x] 1.2 Entities + repositories; one-open-session-per-register enforced in the service
+- [x] 1.3 `RegisterService`: open (float, operator), cash movement (open session required), close (expected = float + cash sales + in − out; pin over/short + closed_at)
+- [x] 1.4 Endpoints: `GET /api/registers`, `POST /api/registers/{name}/open`, `/cash-movements`, `/close`; contracts for session state and close summary
+- [x] 1.5 Unit tests: double-open refused, movement without session refused, close math (cash-only expected, UPI excluded), pinned figure immutable, sessionless sale untouched
 
 ## 2. Sale linkage
 
-- [ ] 2.1 `complete-sale` request gains optional `registerSessionId`; recorded on the sale; absent = sessionless (classic path unchanged)
-- [ ] 2.2 `GET /api/sales` accepts a session filter for the close-drawer review
-- [ ] 2.3 Tests: modern sale references session; classic sale does not; session filter returns exactly its bills
+- [x] 2.1 `complete-sale` request gains optional `registerSessionId`; recorded on the sale; absent = sessionless (classic path unchanged)
+- [x] 2.2 `GET /api/sales` accepts a session filter for the close-drawer review
+- [x] 2.3 Tests: modern sale references session; classic sale does not; session filter returns exactly its bills
 
 ## 3. Classic UX restored
 

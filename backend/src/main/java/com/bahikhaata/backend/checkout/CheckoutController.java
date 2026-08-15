@@ -43,10 +43,15 @@ class CheckoutController {
 
     private final Checkout checkout;
     private final ReceiptPrinting receiptPrinting;
+    private final com.bahikhaata.backend.register.RegisterService registerService;
 
-    CheckoutController(Checkout checkout, ReceiptPrinting receiptPrinting) {
+    CheckoutController(
+            Checkout checkout,
+            ReceiptPrinting receiptPrinting,
+            com.bahikhaata.backend.register.RegisterService registerService) {
         this.checkout = checkout;
         this.receiptPrinting = receiptPrinting;
+        this.registerService = registerService;
     }
 
     /** Starts a fresh sale. */
@@ -89,10 +94,16 @@ class CheckoutController {
     SaleView complete(
             @PathVariable UUID cartId,
             @RequestBody com.bahikhaata.contracts.CompleteSaleRequest request) {
+        // A session id is validated here, at the edge, so Checkout stays register-ignorant and the
+        // classic till's sessionless completes flow through untouched.
+        if (request.registerSessionId() != null) {
+            registerService.requireOpenById(request.registerSessionId());
+        }
         // complete() opens its own transaction and commits the sale + ledger before returning; the
         // bill is only printed afterwards, so a jammed or offline printer can never roll it back — a
         // print failure is flagged as printFailed and the operator reprints from the stored sale.
-        Sale sale = checkout.complete(cartId, request.paymentMethod(), request.operatorName());
+        Sale sale = checkout.complete(
+                cartId, request.paymentMethod(), request.operatorName(), request.registerSessionId());
         boolean printFailed = receiptPrinting.printBill(checkout.toView(sale, false));
         return checkout.toView(sale, printFailed);
     }

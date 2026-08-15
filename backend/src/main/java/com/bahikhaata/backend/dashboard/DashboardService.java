@@ -80,10 +80,10 @@ public class DashboardService {
                 new ReceivedVsPricedKpi(
                         stages.receivedUnits(), stages.pricedUnits(), stages.unpricedBacklogUnits()),
                 recovery(recovery),
-                // GST is not computed until the separate gst-inclusive-pricing change ships — the
-                // sum is always structurally zero today, and the flag says so rather than letting
-                // the tile's ₹0 be mistaken for an actual figure (D5).
-                new GstKpi(dashboard.gstAllTimePaise(), false));
+                // gst-inclusive-pricing has shipped: the till writes tax_paise on every sale, so
+                // the sum is a real figure now and the tile may present it as one (D5's caveat
+                // retired with the merge that brought the GST engine in).
+                new GstKpi(dashboard.gstAllTimePaise(), true));
 
         List<DashboardFunnelPoint> funnel = List.of(
                 new DashboardFunnelPoint(

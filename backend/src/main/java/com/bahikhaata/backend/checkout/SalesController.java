@@ -52,7 +52,12 @@ class SalesController {
     }
 
     @GetMapping
-    List<SaleSummary> recent(@RequestParam(defaultValue = "" + DEFAULT_LIMIT) int limit) {
+    List<SaleSummary> recent(
+            @RequestParam(defaultValue = "" + DEFAULT_LIMIT) int limit,
+            @RequestParam(required = false) UUID sessionId) {
+        if (sessionId != null) {
+            return checkout.sessionSales(sessionId);
+        }
         return checkout.recentSales(Math.min(Math.max(limit, 1), MAX_LIMIT));
     }
 

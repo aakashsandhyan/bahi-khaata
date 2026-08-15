@@ -97,6 +97,16 @@ public class Checkout {
      */
     @Transactional
     public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName) {
+        return complete(cartId, paymentMethod, operatorName, null);
+    }
+
+    /**
+     * As {@link #complete(UUID, PaymentMethod, String)}, additionally attaching the sale to a
+     * register session. The id arrives pre-validated (the controller checks it is open) — this
+     * class stays register-ignorant and just records the fact.
+     */
+    @Transactional
+    public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName, UUID registerSessionId) {
         Cart cart = openCart(cartId); // rejects a cart already paid/abandoned — completion is once
         List<CartLine> cartLines = lines.findByCartIdOrderByCreatedAt(cartId);
         if (cartLines.isEmpty()) {
@@ -118,11 +128,12 @@ public class Checkout {
         }
         // GST is extracted from the MRP-inclusive prices, never added: the total stays the subtotal.
         GstMath.Breakdown gst = GstMath.invoice(gstLines);
-        Sale sale = sales.save(
-                new Sale(billNo, paymentMethod.name(), subtotal, saving,
-                        Money.ofPaise(gst.taxPaise()), Money.ofPaise(gst.cgstPaise()),
-                        Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
-                        subtotal, operatorName));
+        Sale sale = new Sale(billNo, paymentMethod.name(), subtotal, saving,
+                Money.ofPaise(gst.taxPaise()), Money.ofPaise(gst.cgstPaise()),
+                Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
+                subtotal, operatorName);
+        sale.setRegisterSessionId(registerSessionId);
+        sale = sales.save(sale);
 
         Instant now = Instant.now();
         for (int i = 0; i < cartLines.size(); i++) {
@@ -144,11 +155,22 @@ public class Checkout {
     @Transactional(readOnly = true)
     public List<SaleSummary> recentSales(int limit) {
         return sales.findByOrderByCreatedAtDesc(PageRequest.of(0, limit)).stream()
-                .map(s -> new SaleSummary(
-                        s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
-                        PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
-                        saleLines.countBySaleId(s.getId())))
+                .map(this::toSummary)
                 .toList();
+    }
+
+    /** One register session's bills, oldest first — the close-drawer review. */
+    public List<SaleSummary> sessionSales(UUID registerSessionId) {
+        return sales.findByRegisterSessionIdOrderByCreatedAtAsc(registerSessionId).stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    private SaleSummary toSummary(Sale s) {
+        return new SaleSummary(
+                s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
+                PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
+                saleLines.countBySaleId(s.getId()));
     }
 
     /** A single stored sale by its bill number, fully lined, for viewing or reprint. */

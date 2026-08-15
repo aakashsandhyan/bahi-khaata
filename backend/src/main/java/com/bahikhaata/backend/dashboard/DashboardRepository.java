@@ -90,7 +90,7 @@ class DashboardRepository {
                 (rs, rowNum) -> new Recovery(rs.getLong("revenue_paise"), rs.getLong("paid_paise")));
     }
 
-    /** All-time GST collected — structurally zero until gst-inclusive-pricing ships. */
+    /** All-time GST collected — the till writes {@code tax_paise} per sale since gst-inclusive-pricing. */
     long gstAllTimePaise() {
         Long total = jdbc.queryForObject(
                 "SELECT COALESCE(SUM(tax_paise), 0) FROM sale", Long.class);

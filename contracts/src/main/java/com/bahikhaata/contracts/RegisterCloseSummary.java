@@ -17,9 +17,21 @@
  */
 package com.bahikhaata.contracts;
 
+import java.time.Instant;
+import java.util.UUID;
+
 /**
- * Completes the cart into a sale: the payment method, who was at the till (may be null), and the
- * open register session the sale belongs to — null from the classic till, which sells sessionless.
+ * What closing a drawer settled: the expected-cash arithmetic and the pinned over/short.
+ * {@code overShortPaise} is signed — positive is a drawer over, negative short.
  */
-public record CompleteSaleRequest(
-        PaymentMethod paymentMethod, String operatorName, java.util.UUID registerSessionId) {}
+public record RegisterCloseSummary(
+        UUID sessionId,
+        String registerName,
+        String operatorName,
+        long floatPaise,
+        long cashSalesPaise,
+        long expectedPaise,
+        long countedPaise,
+        long overShortPaise,
+        Instant openedAt,
+        Instant closedAt) {}

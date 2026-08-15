@@ -120,7 +120,7 @@ class DashboardServiceTest {
         assertThat(view.kpis().recovery().ratio()).as("no lots, no ratio").isNull();
 
         assertThat(view.kpis().gst().taxAllTimePaise()).isZero();
-        assertThat(view.kpis().gst().computed()).isFalse();
+        assertThat(view.kpis().gst().computed()).isTrue();
 
         assertThat(view.funnel()).hasSize(3);
         assertThat(view.funnel()).allSatisfy(stage -> {
@@ -193,9 +193,9 @@ class DashboardServiceTest {
         assertThat(view.kpis().recovery().paidPaise()).isEqualTo(20_000);
         assertThat(view.kpis().recovery().ratio()).isEqualTo(5.0);
 
-        // --- gst: still not computed ---
-        assertThat(view.kpis().gst().taxAllTimePaise()).isZero();
-        assertThat(view.kpis().gst().computed()).isFalse();
+        // --- gst: the till wrote tax_paise on the one sale; the dashboard just sums the column ---
+        assertThat(view.kpis().gst().taxAllTimePaise()).isEqualTo(15_300);
+        assertThat(view.kpis().gst().computed()).isTrue();
 
         // --- funnel: received 9 @ (5*1000 + 4*600) MRP; priced 3 @ 3*1000; sold 2 @ 2*1000 ---
         assertThat(view.funnel())
