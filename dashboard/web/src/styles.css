@@ -1143,13 +1143,19 @@ tr.damaged { background: var(--color-accent-2-100); }
 .pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; min-height: 0; align-content: start; padding-bottom: 8px; }
 .pos-tile {
   display: flex; flex-direction: column; gap: 6px; text-align: left;
-  padding: 12px; min-height: 130px; cursor: pointer;
+  padding: 12px; height: 150px; cursor: pointer; overflow: hidden;
   background: var(--color-neutral-100); border: 1px solid var(--color-neutral-300); border-radius: 8px;
   font: inherit; color: inherit;
 }
 .pos-tile:hover { border-color: var(--color-accent); }
 .pos-tile-cat { font-size: 11px; letter-spacing: 0.08em; color: var(--color-neutral-600); text-transform: uppercase; }
-.pos-tile-name { font-weight: 600; flex: 1; }
+.pos-tile-name {
+  font-weight: 600; flex: 1; min-height: 0;
+  /* Real catalogue names are full marketplace titles — clamp to three lines so a long name can
+     never spill over neighbouring tiles; the full name rides the title tooltip. */
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
 .pos-tile-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
 .pos-cart { border-left: 1px solid var(--color-divider); padding: 16px; display: flex; flex-direction: column; background: var(--color-neutral-100); min-height: 0; }
 .pos-cart-head { display: flex; justify-content: space-between; align-items: baseline; }

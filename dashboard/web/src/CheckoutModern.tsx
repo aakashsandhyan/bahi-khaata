@@ -241,7 +241,7 @@ function Pos({ register }: { register: RegisterStateView }) {
         </div>
         <div className="pos-grid">
           {picks.map((r) => (
-            <button key={r.productId} type="button" className="pos-tile"
+            <button key={r.productId} type="button" className="pos-tile" title={r.productName}
               onClick={() => cart && mutate(() => checkout.addProduct(cart.cartId, r.productId))}>
               <span className="pos-tile-cat">{r.categoryCode}</span>
               <span className="pos-tile-name">{r.productName}</span>
