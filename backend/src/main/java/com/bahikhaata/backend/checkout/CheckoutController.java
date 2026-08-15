@@ -45,16 +45,19 @@ class CheckoutController {
     private final ReceiptPrinting receiptPrinting;
     private final com.bahikhaata.backend.register.RegisterService registerService;
     private final com.bahikhaata.backend.tax.GstRates gstRates;
+    private final com.bahikhaata.backend.customer.CustomerService customerService;
 
     CheckoutController(
             Checkout checkout,
             ReceiptPrinting receiptPrinting,
             com.bahikhaata.backend.register.RegisterService registerService,
-            com.bahikhaata.backend.tax.GstRates gstRates) {
+            com.bahikhaata.backend.tax.GstRates gstRates,
+            com.bahikhaata.backend.customer.CustomerService customerService) {
         this.checkout = checkout;
         this.receiptPrinting = receiptPrinting;
         this.registerService = registerService;
         this.gstRates = gstRates;
+        this.customerService = customerService;
     }
 
     /** Starts a fresh sale. */
@@ -135,11 +138,15 @@ class CheckoutController {
         if (request.registerSessionId() != null) {
             registerService.requireOpenById(request.registerSessionId());
         }
+        if (request.customerId() != null) {
+            customerService.require(request.customerId());
+        }
         // complete() opens its own transaction and commits the sale + ledger before returning; the
         // bill is only printed afterwards, so a jammed or offline printer can never roll it back — a
         // print failure is flagged as printFailed and the operator reprints from the stored sale.
         Sale sale = checkout.complete(
-                cartId, request.paymentMethod(), request.operatorName(), request.registerSessionId());
+                cartId, request.paymentMethod(), request.operatorName(),
+                request.registerSessionId(), request.customerId());
         boolean printFailed = receiptPrinting.printBill(checkout.toView(sale, false));
         return checkout.toView(sale, printFailed);
     }

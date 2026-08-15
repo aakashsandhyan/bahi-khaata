@@ -67,6 +67,7 @@ class CheckoutTest {
     @Autowired private SaleRepository sales;
     @Autowired private com.bahikhaata.backend.inventory.StockLevels stock;
     @Autowired private com.bahikhaata.backend.register.RegisterService registerService;
+    @Autowired private com.bahikhaata.backend.customer.CustomerService customerService;
 
     private String supplierId(String name) {
         return suppliers.findByNameNormalized(Supplier.normalize(name))
@@ -402,6 +403,21 @@ class CheckoutTest {
         assertThatThrownBy(() -> checkout.addCustomLine(cartId, "Jar", 100, null, null, UUID.randomUUID()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("lot");
+    }
+
+    @Test
+    @DisplayName("A captured customer rides the sale; a walk-in stays unreferenced")
+    void customerAttachmentIsOptional() {
+        String code = onTheShelf("CUSTA", 20_000, 40_000, 15_000);
+        var meera = customerService.save("Meera Joshi", "+91 98214 55120");
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash", null, meera.getId());
+        Sale attached = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(attached.getCustomerId()).isEqualTo(meera.getId());
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash");
+        Sale walkIn = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(walkIn.getCustomerId()).isNull();
     }
 
     @Test

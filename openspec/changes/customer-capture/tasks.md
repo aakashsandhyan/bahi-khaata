@@ -2,16 +2,16 @@
 
 ## 1. Customer records (backend)
 
-- [ ] 1.1 Migration V52 (verify ceiling first): `customer` table (normalized unique mobile) + nullable `sale.customer_id` + indexes — additive only
-- [ ] 1.2 `Customer` entity + repository; mobile normalization (strip +91/punctuation → ten digits starting 6–9, else refused)
-- [ ] 1.3 `CustomerService`: lookup by mobile, upsert (create unknown / return known with name refresh on a different non-blank name)
-- [ ] 1.4 Endpoints: `GET /api/customers/by-mobile/{mobile}`, `POST /api/customers`; contracts
-- [ ] 1.5 Unit tests: normalization variants resolve to one customer, non-mobile refused, name refresh sticks, blank name never clobbers
+- [x] 1.1 Migration V52 (verify ceiling first): `customer` table (normalized unique mobile) + nullable `sale.customer_id` + indexes — additive only
+- [x] 1.2 `Customer` entity + repository; mobile normalization (strip +91/punctuation → ten digits starting 6–9, else refused)
+- [x] 1.3 `CustomerService`: lookup by mobile, upsert (create unknown / return known with name refresh on a different non-blank name)
+- [x] 1.4 Endpoints: `GET /api/customers/by-mobile/{mobile}`, `POST /api/customers`; contracts
+- [x] 1.5 Unit tests: normalization variants resolve to one customer, non-mobile refused, name refresh sticks, blank name never clobbers
 
 ## 2. Sale linkage
 
-- [ ] 2.1 `CompleteSaleRequest` gains optional `customerId`, validated at the API edge; recorded on the sale; null = walk-in
-- [ ] 2.2 Tests: attached sale references the customer; walk-in and pre-capture history stay null and valid
+- [x] 2.1 `CompleteSaleRequest` gains optional `customerId`, validated at the API edge; recorded on the sale; null = walk-in
+- [x] 2.2 Tests: attached sale references the customer; walk-in and pre-capture history stay null and valid
 
 ## 3. Checkout payment flow
 
@@ -21,7 +21,7 @@
 
 ## 4. Customers screen
 
-- [ ] 4.1 Stats + history queries (derived only): per-customer visits/spent/avg/likes/last, shop strip (people on file, repeat share, avg repeat basket vs walk-in, lapsed 60+); endpoints + contracts
+- [x] 4.1 Stats + history queries (derived only): per-customer visits/spent/avg/likes/last, shop strip (people on file, repeat share, avg repeat basket vs walk-in, lapsed 60+); endpoints + contracts
 - [ ] 4.2 Customers screen per the artifact: stats strip, list (masked mobiles, last four), customer detail with full number + visit history
 - [ ] 4.3 Sidebar entry under Back office; screenMeta
 - [ ] 4.4 Tests: stats math (repeat share, lapsed boundary), masking in the list payload or view

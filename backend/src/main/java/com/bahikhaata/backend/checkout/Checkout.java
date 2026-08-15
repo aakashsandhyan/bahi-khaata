@@ -111,6 +111,17 @@ public class Checkout {
      */
     @Transactional
     public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName, UUID registerSessionId) {
+        return complete(cartId, paymentMethod, operatorName, registerSessionId, null);
+    }
+
+    /**
+     * As above, additionally recording the captured customer. Null is a walk-in. The id arrives
+     * pre-validated at the API edge, like the session's — this class records facts, not policy.
+     */
+    @Transactional
+    public Sale complete(
+            UUID cartId, PaymentMethod paymentMethod, String operatorName,
+            UUID registerSessionId, UUID customerId) {
         Cart cart = openCart(cartId); // rejects a cart already paid/abandoned — completion is once
         List<CartLine> cartLines = lines.findByCartIdOrderByCreatedAt(cartId);
         if (cartLines.isEmpty()) {
@@ -137,6 +148,7 @@ public class Checkout {
                 Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
                 subtotal, operatorName);
         sale.setRegisterSessionId(registerSessionId);
+        sale.setCustomerId(customerId);
         sale = sales.save(sale);
 
         Instant now = Instant.now();

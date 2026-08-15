@@ -15,15 +15,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.contracts;
+package com.bahikhaata.backend.customer;
 
-/**
- * Completes the cart into a sale: the payment method, who was at the till (may be null), the open
- * register session the sale belongs to (null from the classic till, which sells sessionless), and
- * the captured customer — null is a walk-in, the ones who decline the counter's ask.
- */
-public record CompleteSaleRequest(
-        PaymentMethod paymentMethod,
-        String operatorName,
-        java.util.UUID registerSessionId,
-        java.util.UUID customerId) {}
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CustomerRepository extends JpaRepository<Customer, UUID> {
+    Optional<Customer> findByMobile(String mobile);
+}
