@@ -131,6 +131,15 @@ public class Batch extends UuidEntity {
     @Column(name = "remark", columnDefinition = "text")
     private String remark;
 
+    /**
+     * Where this batch's stock physically sits, in the operator's own shorthand — "A-01",
+     * "back shelf 3". Free text, verbatim, with no registry or lookup table (design decision D7 of
+     * palletworks-inventory): a bin is a tag someone wrote down, not a taxonomy the shop has
+     * defined. Null until someone sets one.
+     */
+    @Column(name = "bin", columnDefinition = "text")
+    private String bin;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -556,5 +565,20 @@ public class Batch extends UuidEntity {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    /** Where this batch's stock sits, or null if nobody has recorded one. */
+    public String getBin() {
+        return bin;
+    }
+
+    /**
+     * Sets this batch's bin. Blank or whitespace-only trims to null rather than being stored as
+     * an empty string (design decision D8 of palletworks-inventory) — a single rule here covers
+     * every caller (the pricing workbench's save and the item-detail bin edit) rather than each
+     * repeating it.
+     */
+    public void setBin(String bin) {
+        this.bin = (bin == null || bin.isBlank()) ? null : bin.strip();
     }
 }

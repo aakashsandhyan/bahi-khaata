@@ -1,0 +1,125 @@
+import { useEffect, useState } from 'react'
+
+export type View =
+  | 'dashboard' | 'checkout' | 'sales' | 'intake' | 'unpacking' | 'prep'
+  | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'suppliers'
+  | 'settings' | 'register'
+  // Opened with a product id (App's `detailProductId`), not a param-less nav click — reachable
+  // from any Inventory row (design decision D9 of palletworks-inventory, carried forward as the
+  // sole opener by D9 of palletworks-nav), so deliberately absent from NAV_GROUPS like 'capture'.
+  // screenMeta special-cases it below rather than falling through to capture's phone-only
+  // kicker/title.
+  | 'item-detail'
+
+type NavItem = { view: View; label: string; kicker: string }
+type NavGroup = { label: string; items: NavItem[] }
+
+/**
+ * One config drives both the sidebar entries and the per-screen header
+ * (kicker + title), so the two can never disagree. Capture is phone-only
+ * and deliberately absent.
+ */
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Operations',
+    items: [
+      { view: 'dashboard', label: 'Dashboard', kicker: 'Overview' },
+      { view: 'intake', label: 'Intake', kicker: 'Goods in' },
+      { view: 'unpacking', label: 'Unpacking', kicker: 'Warehouse' },
+      { view: 'prep', label: 'Prep', kicker: 'Remediation' },
+      { view: 'pricing', label: 'Pricing', kicker: 'Shelf pricing' },
+      { view: 'review', label: 'Review', kicker: 'Capture queue' },
+      { view: 'inventory', label: 'Inventory', kicker: 'Stock' },
+    ],
+  },
+  {
+    label: 'Selling',
+    items: [
+      // The selling suite (palletworks-selling): drawer sessions, the session-gated till, the
+      // bill record. Checkout here is the modern, register-gated till — the classic till stays
+      // reachable via #till and the classic shell.
+      { view: 'register', label: 'Register', kicker: 'Drawer' },
+      { view: 'checkout', label: 'Checkout', kicker: 'Point of sale' },
+      { view: 'sales', label: 'Invoices', kicker: 'Bill record' },
+      { view: 'reprint', label: 'Reprint', kicker: 'Labels' },
+    ],
+  },
+  {
+    label: 'Back office',
+    items: [
+      { view: 'suppliers', label: 'Suppliers', kicker: 'Sourcing' },
+      { view: 'settings', label: 'Settings', kicker: 'Admin' },
+    ],
+  },
+]
+
+export function screenMeta(view: View): { kicker: string; title: string } {
+  // Item detail carries a product id and isn't a nav entry, so it isn't in NAV_GROUPS to find —
+  // the header stays generic ("Inventory" / "Item detail") and the view itself renders the
+  // product's actual name as its own on-page heading.
+  if (view === 'item-detail') return { kicker: 'Inventory', title: 'Item detail' }
+  // 'checkout' is a listed Selling entry since palletworks-selling (D8's unlisting retired —
+  // the modern, register-gated till IS the revival phase), so NAV_GROUPS answers for it below.
+  for (const g of NAV_GROUPS) {
+    const hit = g.items.find((i) => i.view === view)
+    if (hit) return { kicker: hit.kicker, title: hit.label }
+  }
+  return { kicker: 'Phone', title: 'Capture' }
+}
+
+export function Sidebar({
+  view, onNavigate, sandbox, open, onClose, onSwitchUx,
+}: {
+  view: View
+  onNavigate: (v: View) => void
+  sandbox: boolean
+  open: boolean
+  onClose: () => void
+  onSwitchUx: () => void
+}) {
+  // The operator name is set on the Pricing screen and shared app-wide.
+  const [operator, setOperator] = useState(() => localStorage.getItem('pricing.operator') ?? '')
+  useEffect(() => {
+    const read = () => setOperator(localStorage.getItem('pricing.operator') ?? '')
+    window.addEventListener('storage', read)
+    window.addEventListener('focus', read)
+    return () => { window.removeEventListener('storage', read); window.removeEventListener('focus', read) }
+  }, [])
+
+  return (
+    <>
+      {open && <div className="sidebar-scrim" onClick={onClose} />}
+      <aside className={open ? 'sidebar open' : 'sidebar'}>
+        <div className="sidebar-brand">
+          <div className="sidebar-name">BACHAT BAZAAR</div>
+          <div className="sidebar-sub">{sandbox ? 'SANDBOX — throwaway copy' : 'Bhopal · liquidation retail'}</div>
+        </div>
+        <nav className="sidebar-nav">
+          {NAV_GROUPS.map((g) => (
+            <div key={g.label}>
+              <div className="sidebar-group">{g.label}</div>
+              {g.items.map((i) => (
+                <button
+                  key={i.view}
+                  type="button"
+                  className={view === i.view ? 'sidebar-item on' : 'sidebar-item'}
+                  onClick={() => { onNavigate(i.view); onClose() }}
+                >
+                  {i.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          {operator
+            ? <>Signed in as <strong>{operator}</strong></>
+            : <span className="text-muted">No operator set — see Pricing</span>}
+          <button type="button" className="ux-switch" onClick={onSwitchUx}>
+            Classic UX
+          </button>
+        </div>
+      </aside>
+    </>
+  )
+}

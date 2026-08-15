@@ -1,7 +1,9 @@
+// CLASSIC UX — restored verbatim from main (604825a) for the classic shell; frozen at restore,
+// not maintained in step with modern screens. See openspec change palletworks-selling.
 import { useEffect, useState } from 'react'
-import { api, catalog, unpacking, BackendError } from './api'
-import type { CatalogDetail, CatalogEntry, DeliveryProgress, StockCondition } from './types'
-import { ProductCountPane } from './ProductCountPane'
+import { api, catalog, unpacking, BackendError } from '../api'
+import type { CatalogDetail, CatalogEntry, DeliveryProgress, StockCondition } from '../types'
+import { ProductCountPane } from '../ProductCountPane'
 
 /**
  * Browsing the product catalogue: every product the shop knows of, whether it has been laid

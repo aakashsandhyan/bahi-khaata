@@ -66,6 +66,7 @@ class CheckoutTest {
     @Autowired private SupplierRepository suppliers;
     @Autowired private SaleRepository sales;
     @Autowired private com.bahikhaata.backend.inventory.StockLevels stock;
+    @Autowired private com.bahikhaata.backend.register.RegisterService registerService;
 
     private String supplierId(String name) {
         return suppliers.findByNameNormalized(Supplier.normalize(name))
@@ -330,5 +331,92 @@ class CheckoutTest {
         UUID cartId = checkout.open().cartId();
         checkout.scan(cartId, code);
         return cartId;
+    }
+
+    @Test
+    @DisplayName("A sale completed under a register session references it")
+    void saleUnderASessionReferencesIt() {
+        String code = onTheShelf("SESSA", 20_000, 40_000, 15_000);
+        var session = registerService.open("Register 1", "Shakti", 100_000);
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Shakti", session.getId());
+
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getRegisterSessionId()).isEqualTo(session.getId());
+        // And the session filter returns exactly this bill.
+        List<SaleSummary> sessionBills = checkout.sessionSales(session.getId());
+        assertThat(sessionBills).hasSize(1);
+        assertThat(sessionBills.get(0).billNo()).isEqualTo(sale.getBillNo());
+    }
+
+    @Test
+    @DisplayName("A classic sessionless sale stays valid with no session reference")
+    void sessionlessSaleStaysValid() {
+        String code = onTheShelf("SESSB", 20_000, 40_000, 15_000);
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Ravi");
+
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getRegisterSessionId()).isNull();
+    }
+
+    @Test
+    @DisplayName("A manual entry sells with GST, attributes its lot, and touches no ledger")
+    void customLineSellsWithGstAndLotAttribution() {
+        // A real lot to attribute the loose item to (also proves attribution is optional elsewhere).
+        onTheShelf("JARFIX", 20_000, 40_000, 15_000);
+        UUID lotId = lots.findAll().get(0).getId();
+        long onHandBefore = stock.onHand(
+                expectedLines.findByLotIdOrderByCode(lotId).get(0).getProduct().getId());
+
+        UUID cartId = checkout.open().cartId();
+        CartView cart = checkout.addCustomLine(cartId, "Loose glass jar", 25_000, 40_000L, null, lotId);
+        assertThat(cart.lines()).hasSize(1);
+        assertThat(cart.lines().get(0).name()).isEqualTo("Loose glass jar");
+        assertThat(cart.lines().get(0).productId()).isNull();
+        assertThat(cart.lines().get(0).savingPaise()).isEqualTo(15_000);
+
+        checkout.complete(cartId, PaymentMethod.CASH, "Aakash");
+
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getTotal().paise()).isEqualTo(25_000);
+        // GST extracted inclusively at the default rate — a real, non-zero figure.
+        assertThat(sale.getTax().paise()).isGreaterThan(0);
+        SaleView view = checkout.saleByBillNo(sale.getBillNo());
+        assertThat(view.lines().get(0).productId()).isNull();
+        assertThat(view.lines().get(0).name()).isEqualTo("Loose glass jar");
+        // No ledger movement: the shelf product's stock is exactly as it was.
+        assertThat(stock.onHand(
+                expectedLines.findByLotIdOrderByCode(lotId).get(0).getProduct().getId()))
+                .isEqualTo(onHandBefore);
+    }
+
+    @Test
+    @DisplayName("A manual entry refuses a blank name, a zero price, and an unknown lot")
+    void customLineGuards() {
+        UUID cartId = checkout.open().cartId();
+        assertThatThrownBy(() -> checkout.addCustomLine(cartId, " ", 100, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> checkout.addCustomLine(cartId, "Jar", 0, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> checkout.addCustomLine(cartId, "Jar", 100, null, null, UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("lot");
+    }
+
+    @Test
+    @DisplayName("Cash sales under a session feed its close; UPI sales do not")
+    void sessionCloseCountsOnlyCash() {
+        String code = onTheShelf("SESSC", 20_000, 40_000, 15_000);
+        var session = registerService.open("Register 2", "Aakash", 50_000);
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash", session.getId());
+        checkout.complete(scannedCart(code), PaymentMethod.UPI, "Aakash", session.getId());
+
+        // expected = 50,000 float + 15,000 cash sale; the UPI 15,000 must not appear
+        var summary = registerService.close("Register 2", 65_000);
+        assertThat(summary.expectedPaise()).isEqualTo(65_000);
+        assertThat(summary.cashSalesPaise()).isEqualTo(15_000);
+        assertThat(summary.overShortPaise()).isZero();
     }
 }

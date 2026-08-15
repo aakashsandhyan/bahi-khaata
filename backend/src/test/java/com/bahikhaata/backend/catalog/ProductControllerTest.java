@@ -18,14 +18,21 @@
 package com.bahikhaata.backend.catalog;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.bahikhaata.backend.shelf.PriceHistory;
+import com.bahikhaata.backend.shelf.PriceHistoryRepository;
 import com.bahikhaata.contracts.Category;
+import com.bahikhaata.contracts.Money;
 import com.bahikhaata.contracts.Origin;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -53,6 +60,9 @@ class ProductControllerTest {
 
     @Autowired
     private ObjectMapper json;
+
+    @Autowired
+    private PriceHistoryRepository priceHistory;
 
     @Test
     @DisplayName("A known barcode resolves to its product")
@@ -121,5 +131,64 @@ class ProductControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"sellingPricePaise\":15000}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Setting a price through the catalog inline edit journals the change")
+    void settingAPriceJournals() throws Exception {
+        Product product = products.save(new Product("Journal Wall clock", Category.of("DECOR"), Map.of()));
+
+        mockMvc.perform(
+                        put("/api/products/{id}/price", product.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"sellingPricePaise\":15000}"))
+                .andExpect(status().isOk());
+
+        List<PriceHistory> rows = priceHistory.findByProductIdOrderByCreatedAtDesc(product.getId());
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getOldPrice()).as("first-ever set").isNull();
+        assertThat(rows.get(0).getNewPrice()).isEqualTo(Money.ofPaise(15000));
+    }
+
+    @Test
+    @DisplayName("Editing the category persists via PATCH /api/products/{id}/category")
+    void settingCategoryPersists() throws Exception {
+        Product product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
+
+        mockMvc.perform(
+                        patch("/api/products/{id}/category", product.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"categoryCode\":\"HOME_ESSENTIALS\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category").value("HOME_ESSENTIALS"));
+
+        assertThat(products.findById(product.getId()).orElseThrow().getCategory())
+                .isEqualTo(Category.of("HOME_ESSENTIALS"));
+    }
+
+    @Test
+    @DisplayName("Reclassifying a product that does not exist is 404")
+    void reclassifyingUnknownProductIsNotFound() throws Exception {
+        mockMvc.perform(
+                        patch("/api/products/{id}/category", UUID.randomUUID())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"categoryCode\":\"KITCHEN\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("An unknown category is refused as a bad request, not a database fault")
+    void unknownCategoryIsRejected() throws Exception {
+        Product product = products.save(new Product("Steel kettle", Category.of("KITCHEN"), Map.of()));
+
+        mockMvc.perform(
+                        patch("/api/products/{id}/category", product.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"categoryCode\":\"NO_SUCH_CATEGORY\"}"))
+                .andExpect(status().isBadRequest());
+
+        // Refused before anything was written — the product still carries its original category.
+        assertThat(products.findById(product.getId()).orElseThrow().getCategory())
+                .isEqualTo(Category.of("KITCHEN"));
     }
 }

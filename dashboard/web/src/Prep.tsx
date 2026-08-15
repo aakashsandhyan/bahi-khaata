@@ -114,7 +114,6 @@ export function Prep() {
         <StatesPanel states={states} onBack={() => setStates(null)} onMove={move} />
       ) : (
         <>
-          <h1>Prep</h1>
           <div className="mode-toggle">
             <button className={mode === 'backlog' ? 'on' : ''} onClick={() => setMode('backlog')}>
               Backlog

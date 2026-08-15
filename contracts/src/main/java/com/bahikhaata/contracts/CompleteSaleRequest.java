@@ -17,5 +17,9 @@
  */
 package com.bahikhaata.contracts;
 
-/** Completes the cart into a sale: the payment method, and who was at the till (may be null). */
-public record CompleteSaleRequest(PaymentMethod paymentMethod, String operatorName) {}
+/**
+ * Completes the cart into a sale: the payment method, who was at the till (may be null), and the
+ * open register session the sale belongs to — null from the classic till, which sells sessionless.
+ */
+public record CompleteSaleRequest(
+        PaymentMethod paymentMethod, String operatorName, java.util.UUID registerSessionId) {}

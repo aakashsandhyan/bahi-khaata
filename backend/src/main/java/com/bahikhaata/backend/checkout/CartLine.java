@@ -49,9 +49,23 @@ public class CartLine extends UuidEntity {
     @JoinColumn(name = "cart_id", nullable = false)
     private Cart cart;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
+    // Null for a custom (manual-entry) line — a thing sold with no product record (V51).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
     private Product product;
+
+    /** The keyed name of a custom line; null on a product line, whose product carries the name. */
+    @Column(name = "custom_name", columnDefinition = "text")
+    private String customName;
+
+    /** A custom line's GST sub-category; a product line resolves through its product instead. */
+    @Column(name = "sub_category", columnDefinition = "text")
+    private String subCategory;
+
+    /** Optional delivery attribution for a custom line — recovery reporting, when known. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.CHAR)
+    @Column(name = "lot_id")
+    private java.util.UUID lotId;
 
     @Convert(converter = MoneyConverter.class)
     @Column(name = "unit_price_paise", nullable = false)
@@ -83,6 +97,42 @@ public class CartLine extends UuidEntity {
         this.unitPrice = Objects.requireNonNull(unitPrice);
         this.mrp = Objects.requireNonNull(mrp);
         this.quantity = quantity;
+    }
+
+    private CartLine(Cart cart, String customName, Money unitPrice, Money mrp, String subCategory,
+            java.util.UUID lotId) {
+        super(newId());
+        this.cart = Objects.requireNonNull(cart);
+        this.customName = Objects.requireNonNull(customName);
+        this.unitPrice = Objects.requireNonNull(unitPrice);
+        this.mrp = Objects.requireNonNull(mrp);
+        this.quantity = 1;
+        this.subCategory = subCategory;
+        this.lotId = lotId;
+    }
+
+    /** A custom line: keyed name and price, no product, optional lot attribution. */
+    public static CartLine custom(
+            Cart cart, String name, Money unitPrice, Money mrp, String subCategory, java.util.UUID lotId) {
+        return new CartLine(cart, name, unitPrice, mrp, subCategory, lotId);
+    }
+
+    /** The name the counter shows, wherever it came from. */
+    public String displayName() {
+        return product != null ? product.getName() : customName;
+    }
+
+    /** The sub-category GST resolves against — the product's, or the custom line's own. */
+    public String gstSubCategory() {
+        return product != null ? product.getSubCategory() : subCategory;
+    }
+
+    public String getCustomName() {
+        return customName;
+    }
+
+    public java.util.UUID getLotId() {
+        return lotId;
     }
 
     public Cart getCart() {

@@ -24,6 +24,7 @@ import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.FifoConsumer;
+import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.contracts.CartLineView;
 import com.bahikhaata.contracts.CartView;
 import com.bahikhaata.contracts.Money;
@@ -64,6 +65,7 @@ public class Checkout {
     private final SaleLineRepository saleLines;
     private final FifoConsumer fifo;
     private final GstRates gstRates;
+    private final LotRepository lotRepository;
 
     Checkout(
             CartRepository carts,
@@ -73,7 +75,8 @@ public class Checkout {
             SaleRepository sales,
             SaleLineRepository saleLines,
             FifoConsumer fifo,
-            GstRates gstRates) {
+            GstRates gstRates,
+            LotRepository lotRepository) {
         this.carts = carts;
         this.lines = lines;
         this.barcodes = barcodes;
@@ -82,6 +85,7 @@ public class Checkout {
         this.saleLines = saleLines;
         this.fifo = fifo;
         this.gstRates = gstRates;
+        this.lotRepository = lotRepository;
     }
 
     /**
@@ -97,6 +101,16 @@ public class Checkout {
      */
     @Transactional
     public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName) {
+        return complete(cartId, paymentMethod, operatorName, null);
+    }
+
+    /**
+     * As {@link #complete(UUID, PaymentMethod, String)}, additionally attaching the sale to a
+     * register session. The id arrives pre-validated (the controller checks it is open) — this
+     * class stays register-ignorant and just records the fact.
+     */
+    @Transactional
+    public Sale complete(UUID cartId, PaymentMethod paymentMethod, String operatorName, UUID registerSessionId) {
         Cart cart = openCart(cartId); // rejects a cart already paid/abandoned — completion is once
         List<CartLine> cartLines = lines.findByCartIdOrderByCreatedAt(cartId);
         if (cartLines.isEmpty()) {
@@ -112,29 +126,37 @@ public class Checkout {
             CartLine line = cartLines.get(i);
             subtotal = subtotal.plus(line.lineTotal());
             saving = saving.plus(line.saving());
-            int bp = gstRates.resolveBasisPoints(line.getProduct().getSubCategory());
+            int bp = gstRates.resolveBasisPoints(line.gstSubCategory());
             lineBasisPoints[i] = bp;
             gstLines.add(new GstMath.Line(line.lineTotal().paise(), bp));
         }
         // GST is extracted from the MRP-inclusive prices, never added: the total stays the subtotal.
         GstMath.Breakdown gst = GstMath.invoice(gstLines);
-        Sale sale = sales.save(
-                new Sale(billNo, paymentMethod.name(), subtotal, saving,
-                        Money.ofPaise(gst.taxPaise()), Money.ofPaise(gst.cgstPaise()),
-                        Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
-                        subtotal, operatorName));
+        Sale sale = new Sale(billNo, paymentMethod.name(), subtotal, saving,
+                Money.ofPaise(gst.taxPaise()), Money.ofPaise(gst.cgstPaise()),
+                Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
+                subtotal, operatorName);
+        sale.setRegisterSessionId(registerSessionId);
+        sale = sales.save(sale);
 
         Instant now = Instant.now();
         for (int i = 0; i < cartLines.size(); i++) {
             CartLine line = cartLines.get(i);
             Product product = line.getProduct();
             long lineTax = GstMath.lineTaxPaise(line.lineTotal().paise(), lineBasisPoints[i]);
-            saleLines.save(new SaleLine(
-                    sale.getId(), product.getId(), product.getName(), asinOf(product),
+            SaleLine saleLine = new SaleLine(
+                    sale.getId(), product != null ? product.getId() : null, line.displayName(),
+                    product != null ? asinOf(product) : null,
                     line.getMrp(), line.getUnitPrice(), line.getQuantity(),
-                    line.lineTotal(), line.saving(), lineBasisPoints[i], Money.ofPaise(lineTax)));
-            // Decrement stock through the ledger — FIFO for cost, never refused, may go negative.
-            fifo.consumeForSale(product.getId(), line.getQuantity(), now);
+                    line.lineTotal(), line.saving(), lineBasisPoints[i], Money.ofPaise(lineTax));
+            saleLine.setLotId(line.getLotId());
+            saleLines.save(saleLine);
+            if (product != null) {
+                // Decrement stock through the ledger — FIFO for cost, never refused, may go negative.
+                fifo.consumeForSale(product.getId(), line.getQuantity(), now);
+            }
+            // A custom line writes no ledger movement: its stock was never in the system — that is
+            // exactly why it was keyed by hand. Its lot reference is attribution, not consumption.
         }
         cart.markPaid();
         return sale;
@@ -144,11 +166,22 @@ public class Checkout {
     @Transactional(readOnly = true)
     public List<SaleSummary> recentSales(int limit) {
         return sales.findByOrderByCreatedAtDesc(PageRequest.of(0, limit)).stream()
-                .map(s -> new SaleSummary(
-                        s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
-                        PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
-                        saleLines.countBySaleId(s.getId())))
+                .map(this::toSummary)
                 .toList();
+    }
+
+    /** One register session's bills, oldest first — the close-drawer review. */
+    public List<SaleSummary> sessionSales(UUID registerSessionId) {
+        return sales.findByRegisterSessionIdOrderByCreatedAtAsc(registerSessionId).stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    private SaleSummary toSummary(Sale s) {
+        return new SaleSummary(
+                s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
+                PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
+                saleLines.countBySaleId(s.getId()));
     }
 
     /** A single stored sale by its bill number, fully lined, for viewing or reprint. */
@@ -206,7 +239,54 @@ public class Checkout {
                 barcodes.findByCode(code).map(Barcode::getProduct)
                         .orElseThrow(() -> new IllegalArgumentException(
                                 "Nothing scans as " + code + "."));
+        return addLine(cart, cartId, product);
+    }
 
+    /**
+     * Adds a product picked by identity rather than by scan — the quick-picks grid, where the
+     * operator taps a tile instead of holding a barcode. Same rules as a scan from here on.
+     */
+    @Transactional
+    public CartView addProduct(UUID cartId, UUID productId) {
+        Cart cart = openCart(cartId);
+        Product product = barcodes.findByProductId(productId).stream()
+                .findFirst()
+                .map(Barcode::getProduct)
+                .orElseThrow(() -> new IllegalArgumentException("No such product to add."));
+        return addLine(cart, cartId, product);
+    }
+
+    /**
+     * A manual-entry line: a thing sold with no product record — name and price keyed at the
+     * counter. GST resolves from the chosen sub-category (or the global default). The lot is
+     * optional attribution to the delivery it came from; no stock ledger entry is written, since
+     * the stock was never in the system. MRP is optional — absent, the price stands in and the
+     * saving is zero, same rule as a product without an MRP.
+     */
+    @Transactional
+    public CartView addCustomLine(
+            UUID cartId, String name, long pricePaise, Long mrpPaise, String subCategory, UUID lotId) {
+        Cart cart = openCart(cartId);
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("A manual entry needs a name.");
+        }
+        if (pricePaise <= 0) {
+            throw new IllegalArgumentException("A manual entry needs a price above zero.");
+        }
+        if (mrpPaise != null && mrpPaise < pricePaise) {
+            throw new IllegalArgumentException("MRP cannot be below the selling price.");
+        }
+        if (lotId != null && lotRepository.findById(lotId).isEmpty()) {
+            throw new IllegalArgumentException("No such lot to attribute this entry to.");
+        }
+        Money price = Money.ofPaise(pricePaise);
+        Money mrp = mrpPaise != null ? Money.ofPaise(mrpPaise) : price;
+        lines.save(CartLine.custom(cart, name.trim(), price, mrp, subCategory, lotId));
+        return view(cartId);
+    }
+
+    /** The one way a product enters a cart, however it was picked. */
+    private CartView addLine(Cart cart, UUID cartId, Product product) {
         Money price = product.getSellingPrice();
         if (price == null) {
             throw new IllegalStateException(
@@ -264,7 +344,7 @@ public class Checkout {
                         cartLines.stream()
                                 .map(l -> new GstMath.Line(
                                         l.lineTotal().paise(),
-                                        gstRates.resolveBasisPoints(l.getProduct().getSubCategory())))
+                                        gstRates.resolveBasisPoints(l.gstSubCategory())))
                                 .toList());
         return new CartView(cartId, views, subtotal, gst.taxPaise(), subtotal, saving, false);
     }
@@ -275,11 +355,12 @@ public class Checkout {
         long mrp = line.getMrp().paise();
         // Shared with the shelf label (Money.percentOffTo) so the counter and the sticker agree.
         int percent = line.getMrp().percentOffTo(line.getUnitPrice());
+        Product product = line.getProduct();
         return new CartLineView(
                 line.getId(),
-                line.getProduct().getId(),
-                line.getProduct().getName(),
-                asinOf(line.getProduct()),
+                product != null ? product.getId() : null,
+                line.displayName(),
+                product != null ? asinOf(product) : null,
                 mrp,
                 line.getUnitPrice().paise(),
                 line.getQuantity(),

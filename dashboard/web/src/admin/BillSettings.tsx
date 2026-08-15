@@ -39,7 +39,7 @@ export function BillSettings() {
 
   if (!form) {
     return (
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: 'var(--s4)' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: 'var(--space-4)' }}>
         <h1>Bill Settings</h1>
         {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
       </div>
@@ -47,16 +47,16 @@ export function BillSettings() {
   }
 
   const field: React.CSSProperties = {
-    width: '100%', padding: '8px', border: '1px solid var(--line)',
-    borderRadius: 'var(--r1)', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box',
+    width: '100%', padding: '8px', border: '1px solid var(--color-divider)',
+    borderRadius: 'var(--radius-md)', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box',
   }
   const label: React.CSSProperties = {
-    display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)', marginTop: 'var(--s3)',
+    display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)', marginTop: 'var(--space-3)',
   }
   const set = (patch: Partial<BillSettingsType>) => setForm({ ...form, ...patch })
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: 'var(--s4)' }}>
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: 'var(--space-4)' }}>
       <h1>Bill Settings</h1>
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
@@ -89,7 +89,7 @@ export function BillSettings() {
       <label style={label}>Footer</label>
       <input style={field} value={form.footer} onChange={(e) => set({ footer: e.target.value })} />
 
-      <button onClick={save} disabled={saving} className="btn-primary" style={{ marginTop: 'var(--s4)' }}>
+      <button onClick={save} disabled={saving} className="btn-primary" style={{ marginTop: 'var(--space-4)' }}>
         {saving ? 'Saving…' : 'Save Settings'}
       </button>
     </div>

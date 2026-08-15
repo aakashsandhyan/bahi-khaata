@@ -133,6 +133,10 @@ saving SHALL also move the captured quantity onto the shelf with an append-only 
 receipt. When the product was resolved by scanning an already-counted item, saving SHALL write no
 stock movement, because the stock was already received at counting. Selling price SHALL be set
 only through the product's sanctioned price mutation; receiving stock SHALL never change it.
+Every selling-price set or change made through that sanctioned mutation SHALL be journaled to
+price history from the single pricing choke point, regardless of caller — workbench save, manual
+save, single or bulk reprice, and catalog inline edit all funnel through it — so no save path can
+set a price without recording the change. A pricing save MAY also set the batch's bin.
 
 #### Scenario: Saving a scanned, already-counted product writes no stock movement
 - **WHEN** the user saves a product resolved by scanning an already-counted item
@@ -147,6 +151,15 @@ only through the product's sanctioned price mutation; receiving stock SHALL neve
 #### Scenario: A product that already has a barcode keeps it
 - **WHEN** the user saves a product that already has a BBZ barcode
 - **THEN** no new barcode is minted and the existing code is kept
+
+#### Scenario: Saving a price journals the change
+- **WHEN** the user saves a product with a selling price different from its current one
+- **THEN** the price is set through the single pricing choke point and a price-history row is
+  recorded for the change
+
+#### Scenario: Pricing save sets the batch bin
+- **WHEN** the user supplies a bin while saving a priced product
+- **THEN** the batch is saved with that bin on the same save
 
 ### Requirement: Offer to print a label after saving
 After a product is saved, the workbench SHALL offer to print its label, queuing a self-contained
@@ -202,4 +215,3 @@ A quantity field at pricing SHALL let the operator delete the current value and 
 
 - **WHEN** the operator deletes every digit in a quantity field and types a new number
 - **THEN** the field shows what was typed while typing and holds the new number after focus leaves it
-

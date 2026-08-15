@@ -154,6 +154,69 @@ export interface SaleSummary {
   itemCount: number
 }
 
+// --- dashboard ---
+// Mirrors com.bahikhaata.contracts.DashboardView and its nested records. One aggregate payload
+// for the whole screen — see api.ts's dashboard.get().
+
+export interface RevenueTodayKpi {
+  totalPaise: number
+  billCount: number
+  // null when there are no bills yet — never a bare ₹0 average.
+  averagePaise: number | null
+}
+
+export interface ReceivedVsPricedKpi {
+  receivedUnits: number
+  pricedUnits: number
+  unpricedBacklogUnits: number
+}
+
+export interface RecoveryKpi {
+  revenuePaise: number
+  paidPaise: number
+  // null when no lot has any amount paid recorded yet — never a divide-by-zero.
+  ratio: number | null
+}
+
+export interface GstKpi {
+  taxAllTimePaise: number
+  // Always false today: GST is not computed until the separate gst-inclusive-pricing change
+  // ships. The tile must show this rather than let a bare ₹0 read as a real figure.
+  computed: boolean
+}
+
+export interface DashboardKpis {
+  revenueToday: RevenueTodayKpi
+  receivedVsPriced: ReceivedVsPricedKpi
+  recovery: RecoveryKpi
+  gst: GstKpi
+}
+
+export type DashboardFunnelStage = 'RECEIVED' | 'PRICED' | 'SOLD'
+
+export interface DashboardFunnelPoint {
+  stage: DashboardFunnelStage
+  units: number
+  mrpPaise: number
+}
+
+export interface DashboardAlert {
+  signal: string
+  count: number
+  // A View literal (see Sidebar.tsx) — the screen this alert's row navigates to when clicked.
+  targetView: string
+  message: string
+}
+
+export interface DashboardView {
+  kpis: DashboardKpis
+  // Always exactly three points, in order: RECEIVED, PRICED, SOLD.
+  funnel: DashboardFunnelPoint[]
+  // Only the signals with a non-zero count — a zero-count signal is omitted, never a "0" row.
+  alerts: DashboardAlert[]
+  recentSales: SaleSummary[]
+}
+
 // The receipt printer's config, and the editable text on a bill — both admin-only, single-row.
 export interface ReceiptPrinterConfig {
   address: string
@@ -282,7 +345,10 @@ export interface MrpBackfillStatus {
 }
 
 // --- catalog ---
-// Browsing the product catalogue by name and found status, and opening one product to its detail.
+// Browsing the product catalogue by name and found status (palletworks-nav: surfaced by
+// Inventory's On paper / All scopes, not a standalone screen). Opening one product to its detail
+// is owned by item-detail now; the catalogue's own per-product detail payload is gone with the
+// deleted Catalog screen — see CatalogEntry's own doc.
 
 export type CatalogStatus = 'FOUND' | 'ON_PAPER'
 
@@ -296,9 +362,20 @@ export interface CatalogEntry {
   unitsCounted: number
 }
 
+// Restored for the CLASSIC Catalog screen (the nav fold orphan-deleted them; the backend
+// endpoint /api/catalog/products/{id} never went away).
 export interface ProductCode {
   code: string
   origin: 'MANUFACTURER' | 'INTERNAL' | 'MARKETPLACE' | 'UNIT_LABEL'
+}
+
+export interface CatalogDetail {
+  states: ProductStates
+  codes: ProductCode[]
+  status: CatalogStatus
+  priced: boolean
+  unitsExpected: number
+  unitsCounted: number
 }
 
 // --- product-centric counting ---
@@ -342,16 +419,6 @@ export interface ProductCountResult {
   linesCounted: number
   unitsCounted: number
   rejected: RejectedEntry[]
-}
-
-// Reuses ProductStates verbatim — the catalogue detail and the remediation view stay one shape.
-export interface CatalogDetail {
-  states: ProductStates
-  codes: ProductCode[]
-  status: CatalogStatus
-  priced: boolean
-  unitsExpected: number
-  unitsCounted: number
 }
 
 // --- receiving ---
@@ -478,6 +545,35 @@ export interface AddProductResponse {
   totalProducts: number
   totalQuantity: number
   allocationPerUnit: number
+}
+
+// --- intake (palletworks-intake) --------------------------------------------------------------
+// The Intake screen's one read-only aggregate: header stats and lot-math-rail figures for a
+// single lot, from one call (design decision D5 of palletworks-intake). Fields that would
+// otherwise divide by an as-yet-zero denominator come back null, never a computed zero or an
+// infinity — an empty lot, or a lot nothing has been counted into yet, answers honestly (D5, D6).
+export interface LotIntakeStats {
+  lotId: string
+  paidPaise: number
+  pinnedPaise: number
+  mrpFoundPaise: number
+  costOfMrpPercent: number | null
+  expectedUnits: number | null
+  countedUnits: number
+  shortUnits: number
+  overUnits: number
+  effectiveCostPerUnitPaise: number | null
+  projectedRetailPaise: number
+}
+
+// What closing a delivery did — the response of `POST /api/unpacking/lots/{lotId}/close`.
+export interface DeliveryClosed {
+  lotId: string
+  batchesCosted: number
+  unitsCosted: number
+  amountApportionedPaise: number
+  batchesWeighedAtLotAverage: number
+  unopenedCartons: string[]
 }
 
 // --- printer (barcode labels) ---------------------------------------------------------------
@@ -644,10 +740,107 @@ export interface SupplierLot {
   categoryCode: string | null
 }
 
+// --- inventory ---
+// Mirrors com.bahikhaata.contracts.InventoryRow/InventoryDetail and friends. The list and the
+// bin write are the Inventory screen's reads/write; detail composes one product's full story —
+// see api.ts's `inventory` namespace.
+
+export interface InventoryRow {
+  productId: string
+  productName: string
+  categoryCode: string
+  condition: 'GOOD' | 'DAMAGED'
+  // The single backing lot's "supplier · received-on" label, or an "N lots" marker.
+  lotLabel: string
+  // Every distinct bin backing this row — empty when none of its stock has one.
+  bins: string[]
+  onHandQuantity: number
+  // null when any contributing batch is not yet costed — an honest absence, never a fake zero.
+  costBasisPaise: number | null
+  sellingPricePaise: number | null
+  marginPercent: number | null
+  ageDays: number
+}
+
+export interface InventoryBatchLine {
+  batchId: string
+  condition: 'GOOD' | 'DAMAGED' | 'NEEDS_WORK' | 'UNUSABLE'
+  lotLabel: string
+  bin: string | null
+  quantityReceived: number
+  quantityDamaged: number
+  allocatedUnitCostPaise: number | null
+  mrpPaise: number | null
+  createdAt: string | null
+}
+
+export interface InventoryMovement {
+  movementType: 'PURCHASE_RECEIPT' | 'SALE' | 'WRITE_OFF' | 'ADJUSTMENT'
+  quantity: number
+  cogsPaise: number | null
+  effectiveAt: string
+}
+
+export interface PriceChange {
+  // null marks the product's first-ever price set — rendered as an explicit "first price" marker,
+  // never a zero or blank.
+  oldPricePaise: number | null
+  newPricePaise: number
+  operatorName: string | null
+  changedAt: string
+}
+
+export interface InventoryDetail {
+  productId: string
+  productName: string
+  categoryCode: string
+  barcodes: string[]
+  costBasisPaise: number | null
+  sellingPricePaise: number | null
+  marginPercent: number | null
+  receivedUnits: number
+  soldUnits: number
+  batches: InventoryBatchLine[]
+  movements: InventoryMovement[]
+  priceHistory: PriceChange[]
+}
+
+export interface SetBinResult {
+  batchId: string
+  bin: string | null
+}
+
 // --- gst rates (admin) ---
 export interface GstRateRow {
   code: string
   name: string
   category: string
   basisPoints: number | null
+}
+
+// --- register sessions (palletworks-selling) ---
+// One drawer's live state; session fields are null while the register is closed.
+export interface RegisterStateView {
+  registerName: string
+  open: boolean
+  sessionId: string | null
+  operatorName: string | null
+  floatPaise: number | null
+  expectedPaise: number | null
+  openedAt: string | null
+}
+
+// What closing settled: the expected-cash arithmetic and the pinned over/short (signed —
+// positive is a drawer over, negative short).
+export interface RegisterCloseSummary {
+  sessionId: string
+  registerName: string
+  operatorName: string
+  floatPaise: number
+  cashSalesPaise: number
+  expectedPaise: number
+  countedPaise: number
+  overShortPaise: number
+  openedAt: string
+  closedAt: string
 }

@@ -34,4 +34,7 @@ public record PriceManualRequest(
         long sellingPricePaise,
         Long mrpPaise,
         // Who priced it (remembered per device), shown on the review screen. Null when not set.
-        String operatorName) {}
+        String operatorName,
+        // Where the newly-materialised batch's stock physically sits, or null to leave it unset
+        // (design decision D8 of palletworks-inventory).
+        String bin) {}

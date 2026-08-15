@@ -78,6 +78,12 @@ public class Sale extends UuidEntity {
     @Column(name = "operator_name", columnDefinition = "text")
     private String operatorName;
 
+    /** The drawer session this sale was rung under, or null — the classic till and all history
+     * before registers sell sessionless, and that stays valid forever. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.CHAR)
+    @Column(name = "register_session_id")
+    private java.util.UUID registerSessionId;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -157,6 +163,14 @@ public class Sale extends UuidEntity {
 
     public String getOperatorName() {
         return operatorName;
+    }
+
+    public java.util.UUID getRegisterSessionId() {
+        return registerSessionId;
+    }
+
+    public void setRegisterSessionId(java.util.UUID registerSessionId) {
+        this.registerSessionId = registerSessionId;
     }
 
     public Instant getCreatedAt() {

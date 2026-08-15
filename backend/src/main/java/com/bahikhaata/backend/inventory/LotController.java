@@ -26,6 +26,7 @@ import com.bahikhaata.contracts.CostAnchor;
 import com.bahikhaata.contracts.CostBasisStrategy;
 import com.bahikhaata.contracts.CreateManualLotRequest;
 import com.bahikhaata.contracts.LotCostReconciliation;
+import com.bahikhaata.contracts.LotIntakeStats;
 import com.bahikhaata.contracts.LotLineResponse;
 import com.bahikhaata.contracts.LotResponse;
 import com.bahikhaata.contracts.Money;
@@ -49,6 +50,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Receiving deliveries.
@@ -305,6 +307,28 @@ class LotController {
                 .body(toSummary(lot, lotCategories.categoryByLot()));
     }
 
+    /**
+     * Marks a lot's receiving finished by hand. A manifest-backed lot completes on its own when
+     * its last box goes terminal; a manual lot has no such event, so without this action it sits
+     * in the dashboard's still-receiving alert forever with nothing anyone can do about it. This
+     * sets the same fact the automatic path sets — nothing else: the lot stays open, stock is
+     * untouched.
+     */
+    @PostMapping("/{lotId}/receiving-complete")
+    ResponseEntity<?> markReceivingComplete(@PathVariable UUID lotId) {
+        Lot lot = lotRepository.findById(lotId)
+                .orElseThrow(() -> new IllegalArgumentException("lot not found"));
+        if (!lot.isOpen()) {
+            throw new IllegalArgumentException("lot is closed");
+        }
+        if (lot.isReceivingComplete()) {
+            throw new IllegalArgumentException("receiving is already complete");
+        }
+        lot.setReceivingComplete(true);
+        lotRepository.save(lot);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{lotId}/add-product")
     ResponseEntity<?> addProductToLot(
             @PathVariable UUID lotId,
@@ -356,6 +380,78 @@ class LotController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new AddProductResponse(true, allLines.size(), totalQuantity, allocationPerUnit));
+    }
+
+    /**
+     * The Intake screen's one read-only aggregate: header stats and lot-math-rail figures for a
+     * single lot, from one call (design decision D5 of palletworks-intake). Composes {@code
+     * LotClosing.crossCheckCost} (paid, pinned), a single pass over the lot's expected lines
+     * (expected, counted, short, over), and a single pass over the lot's batches (MRP found,
+     * projected retail) — no per-line or per-batch query.
+     *
+     * <p>Figures that would otherwise divide by an as-yet-zero denominator come back null rather
+     * than as a computed zero or an exception: an empty lot, or a lot nothing has been counted
+     * into yet, answers honestly (D5, D6).
+     */
+    @Transactional(readOnly = true)
+    @GetMapping("/{lotId}/stats")
+    ResponseEntity<LotIntakeStats> stats(@PathVariable UUID lotId) {
+        if (lotRepository.findById(lotId).isEmpty()) {
+            throw new IllegalArgumentException("no such lot: " + lotId);
+        }
+
+        List<ExpectedLine> lines = expectedLineRepository.findByLotIdOrderByCode(lotId);
+        long expectedSum = 0;
+        long countedSum = 0;
+        long shortSum = 0;
+        long overSum = 0;
+        for (ExpectedLine line : lines) {
+            long expected = line.getQuantityExpected();
+            long counted = line.getQuantityCounted();
+            expectedSum += expected;
+            countedSum += counted;
+            if (counted < expected) {
+                shortSum += expected - counted;
+            } else if (counted > expected) {
+                overSum += counted - expected;
+            }
+        }
+        Long expectedUnits = lines.isEmpty() ? null : expectedSum;
+
+        long mrpFound = 0;
+        long projectedRetail = 0;
+        for (Batch batch : batchRepository.findByLotId(lotId)) {
+            Money mrp = batch.getMrp();
+            if (mrp != null) {
+                mrpFound += mrp.paise() * batch.getQuantityReceived();
+            }
+            Money price = batch.sellingPrice();
+            if (price != null) {
+                projectedRetail += price.paise() * batch.sellableQuantity();
+            }
+        }
+
+        LotCostReconciliation reconciliation = lotClosing.crossCheckCost(lotId);
+        long paid = reconciliation.amountPaidPaise();
+        long pinned = reconciliation.pinnedTotalPaise();
+
+        Integer costOfMrpPercent =
+                mrpFound == 0 ? null : (int) Math.round(paid * 100.0 / mrpFound);
+        Long effectiveCostPerUnit = countedSum == 0 ? null : paid / countedSum;
+
+        return ResponseEntity.ok(
+                new LotIntakeStats(
+                        lotId,
+                        paid,
+                        pinned,
+                        mrpFound,
+                        costOfMrpPercent,
+                        expectedUnits,
+                        countedSum,
+                        shortSum,
+                        overSum,
+                        effectiveCostPerUnit,
+                        projectedRetail));
     }
 
     /**

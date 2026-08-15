@@ -80,32 +80,32 @@ export function PrinterConfig() {
   }
 
   const getStatusBadgeColor = () => {
-    if (!config?.testStatus) return 'var(--ink-faint)'
-    if (config.testStatus === 'OK') return 'var(--good)'
-    return 'var(--stop)'
+    if (!config?.testStatus) return 'var(--color-neutral-500)'
+    if (config.testStatus === 'OK') return 'var(--color-neutral-800)'
+    return 'var(--color-accent-700)'
   }
 
   const getStatusBadgeBg = () => {
-    if (!config?.testStatus) return 'var(--line-soft)'
-    if (config.testStatus === 'OK') return 'var(--good-tint)'
-    return 'var(--stop-tint)'
+    if (!config?.testStatus) return 'var(--color-neutral-200)'
+    if (config.testStatus === 'OK') return 'var(--color-neutral-100)'
+    return 'var(--color-accent-100)'
   }
 
   return (
-    <div style={{ maxWidth: '560px', margin: '0 auto', padding: 'var(--s4)' }}>
+    <div style={{ maxWidth: '560px', margin: '0 auto', padding: 'var(--space-4)' }}>
       <h1>Printer Configuration</h1>
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 
       <div
         style={{
-          padding: 'var(--s3)',
+          padding: 'var(--space-3)',
           background: getStatusBadgeBg(),
-          borderRadius: 'var(--r1)',
-          marginBottom: 'var(--s3)',
+          borderRadius: 'var(--radius-md)',
+          marginBottom: 'var(--space-3)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', marginBottom: 'var(--s1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
           <span
             style={{
               width: '12px',
@@ -124,15 +124,15 @@ export function PrinterConfig() {
           </div>
         )}
         {config?.testError && (
-          <div style={{ fontSize: '12px', color: getStatusBadgeColor(), marginTop: 'var(--s1)' }}>
+          <div style={{ fontSize: '12px', color: getStatusBadgeColor(), marginTop: 'var(--space-1)' }}>
             {config.testError}
           </div>
         )}
       </div>
 
-      <div style={{ marginBottom: 'var(--s3)', padding: 'var(--s3)', background: 'var(--line-soft)', borderRadius: 'var(--r1)' }}>
-        <div style={{ marginBottom: 'var(--s3)' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--s1)' }}>
+      <div style={{ marginBottom: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--color-neutral-200)', borderRadius: 'var(--radius-md)' }}>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--space-1)' }}>
             Printer Address
           </label>
           <input
@@ -143,17 +143,17 @@ export function PrinterConfig() {
             style={{
               width: '100%',
               padding: '8px',
-              border: '1px solid var(--line)',
-              borderRadius: 'var(--r1)',
+              border: '1px solid var(--color-divider)',
+              borderRadius: 'var(--radius-md)',
               fontSize: '14px',
               fontFamily: 'inherit',
             }}
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s2)', marginBottom: 'var(--s3)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--s1)' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--space-1)' }}>
               Port Speed
             </label>
             <input
@@ -163,15 +163,15 @@ export function PrinterConfig() {
               style={{
                 width: '100%',
                 padding: '8px',
-                border: '1px solid var(--line)',
-                borderRadius: 'var(--r1)',
+                border: '1px solid var(--color-divider)',
+                borderRadius: 'var(--radius-md)',
                 fontSize: '14px',
                 fontFamily: 'inherit',
               }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--s1)' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: 'var(--space-1)' }}>
               Default Copies
             </label>
             <input
@@ -183,8 +183,8 @@ export function PrinterConfig() {
               style={{
                 width: '100%',
                 padding: '8px',
-                border: '1px solid var(--line)',
-                borderRadius: 'var(--r1)',
+                border: '1px solid var(--color-divider)',
+                borderRadius: 'var(--radius-md)',
                 fontSize: '14px',
                 fontFamily: 'inherit',
               }}
@@ -192,8 +192,8 @@ export function PrinterConfig() {
           </div>
         </div>
 
-        <div style={{ marginBottom: 'var(--s3)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', cursor: 'pointer' }}>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={formData.enabled}
@@ -203,7 +203,7 @@ export function PrinterConfig() {
           </label>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button
             onClick={handleSave}
             disabled={saveLoading}

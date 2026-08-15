@@ -44,9 +44,10 @@ class ProductPricingGuardTest {
 
     @Mock private ProductRepository products;
     @Mock private BatchRepository batches;
+    @Mock private PriceHistoryRepository priceHistory;
 
     private ProductPricing pricing() {
-        return new ProductPricing(products, batches);
+        return new ProductPricing(products, batches, priceHistory);
     }
 
     private Product stubProduct() {

@@ -182,7 +182,7 @@ public class BulkLabelPrint {
         // change since inHandQuantity is null). This re-enqueues nothing — enqueue is the caller's job.
         shelfPricing.saveExisting(new PriceExistingRequest(
                 productId, batchId, req.categoryCode(), req.sellingPricePaise(), req.mrpPaise(),
-                null, req.name(), false, null));
+                null, req.name(), false, null, null));
         // Update the entry in place (same id) with the reviewer's copies and the corrected details.
         Product edited = products.findById(productId).orElseThrow();
         entry.setCopies(Math.max(0, req.copies()));

@@ -32,4 +32,14 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     /** Recent sales, newest first, for the sales screen. */
     List<Sale> findByOrderByCreatedAtDesc(Pageable pageable);
+
+    /** One session's bills, oldest first — the register's close-drawer review. */
+    List<Sale> findByRegisterSessionIdOrderByCreatedAtAsc(UUID registerSessionId);
+
+    /** Cash taken through a session's sales — the sales part of expected drawer cash at close. */
+    @org.springframework.data.jpa.repository.Query(
+            value = "SELECT COALESCE(SUM(total_paise), 0) FROM sale "
+                    + "WHERE register_session_id = :sessionId AND payment_method = 'CASH'",
+            nativeQuery = true)
+    long cashTotalPaiseForSession(String sessionId);
 }

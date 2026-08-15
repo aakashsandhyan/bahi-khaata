@@ -32,9 +32,14 @@ export default defineConfig({
     // a substitute for that — the app has no login of its own.
     allowedHosts: ['.ngrok-free.app', '.ngrok.app'],
     // The API is proxied so the browser stays on one origin — no mixed content, no cross-origin.
+    // The target is overridable by E2E_BACKEND_URL (deliberately not VITE_ prefixed, so it is a
+    // Node-side setting only and never leaks into the client bundle via import.meta.env) — the
+    // Playwright e2e harness runs its own backend on a dedicated port and points the proxy at it,
+    // so requests stay same-origin through this proxy rather than a cross-origin fetch that the
+    // backend's CORS policy (scoped to :5173 dev traffic, GET/POST only) would refuse.
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.E2E_BACKEND_URL ?? 'http://localhost:8080',
         changeOrigin: true,
         // Strip the browser's Origin before forwarding. To the browser these calls are
         // same-origin — page and api share this https address — but a POST carries an Origin

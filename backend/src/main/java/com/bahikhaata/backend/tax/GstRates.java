@@ -55,6 +55,14 @@ public class GstRates {
         return globalDefaultBasisPoints();
     }
 
+    /** Every active rate, for pickers: sub-category code and its basis points. */
+    @Transactional(readOnly = true)
+    public java.util.List<java.util.Map<String, Object>> activeOptions() {
+        return jdbc.queryForList(
+                "SELECT sub_category, gst_basis_points FROM gst_rate WHERE is_active = 1 "
+                        + "ORDER BY sub_category");
+    }
+
     /** The fallback rate for an unclassified product — the `gst.default_basis_points` setting (18%). */
     @Transactional(readOnly = true)
     public int globalDefaultBasisPoints() {

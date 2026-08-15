@@ -42,8 +42,14 @@ public class SaleLine extends UuidEntity {
     private UUID saleId;
 
     @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "product_id", nullable = false)
+    // Null for a custom (manual-entry) line — sold with no product record (V51).
+    @Column(name = "product_id")
     private UUID productId;
+
+    /** Optional delivery attribution for a custom line — which lot the thing came from. */
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "lot_id")
+    private UUID lotId;
 
     @Column(name = "name", nullable = false, columnDefinition = "text")
     private String name;
@@ -119,6 +125,14 @@ public class SaleLine extends UuidEntity {
 
     public UUID getSaleId() {
         return saleId;
+    }
+
+    public UUID getLotId() {
+        return lotId;
+    }
+
+    public void setLotId(UUID lotId) {
+        this.lotId = lotId;
     }
 
     public UUID getProductId() {

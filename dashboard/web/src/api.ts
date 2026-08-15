@@ -59,6 +59,17 @@ async function put<T>(path: string, body?: unknown): Promise<T | null> {
   return text ? (JSON.parse(text) as T) : null
 }
 
+async function patch<T>(path: string, body?: unknown): Promise<T | null> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!response.ok) throw new BackendError(await message(response))
+  const text = await response.text()
+  return text ? (JSON.parse(text) as T) : null
+}
+
 async function message(response: Response): Promise<string> {
   const text = await response.text()
   return text || `The backend answered ${response.status}.`
@@ -75,6 +86,12 @@ export const api = {
 
   setPrice: (productId: string, pricePaise: number) =>
     post<void>(`/api/admin/pricing/products/${productId}`, { pricePaise }),
+
+  // A plain reclassification — no price, no batch, no stock movement (design decision D4 of
+  // palletworks-nav). PATCH /api/products/{id}/category is the only new backend endpoint this
+  // change adds.
+  setCategory: (productId: string, categoryCode: string) =>
+    patch<void>(`/api/products/${productId}/category`, { categoryCode }),
 
   priceCategory: (category: string, marginPercent: number) =>
     post<BulkResult>(
@@ -99,6 +116,7 @@ export { BackendError }
 
 import type {
   CountOutcome as _CountOutcome,
+  DeliveryClosed as _DeliveryClosed,
   DeliveryProgress as _DeliveryProgress,
   LearntCode as _LearntCode,
   SuggestedMrp as _SuggestedMrp,
@@ -202,6 +220,16 @@ export const unpacking = {
   // Forget a code put on the wrong goods, so the sticker can be scanned onto the right item.
   releaseCode: (code: string) =>
     post<void>(`/api/unpacking/codes/release?code=${encodeURIComponent(code)}`),
+
+  // Cartons nobody has opened — asked before closing, so the Reconcile & close tab can surface
+  // the list rather than let the close's own refusal be the first anyone hears of it (D9).
+  unopened: (lotId: string) => getList<string>(`/api/unpacking/lots/${lotId}/unopened`),
+
+  // Finishes a delivery. `confirm` is required only when cartons remain unopened; the endpoint
+  // never blocks on them outright (design.md context, D9) — goods that never arrived would
+  // otherwise hold a lot open forever. No caller wired this from the dashboard before this change.
+  closeLot: (lotId: string, confirm: boolean) =>
+    post<_DeliveryClosed>(`/api/unpacking/lots/${lotId}/close?confirm=${confirm}`) as Promise<_DeliveryClosed>,
 }
 
 // --- checkout ---
@@ -229,6 +257,23 @@ async function delVoid(path: string): Promise<void> {
 export const checkout = {
   open: () => post<_CartView>('/api/checkout/cart') as Promise<_CartView>,
   view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
+  addProduct: (cartId: string, productId: string) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/add-product`, { productId }) as Promise<_CartView>,
+  // Manual entry: a keyed name and price; GST by chosen sub-category; lot attribution optional.
+  addCustomLine: (
+    cartId: string,
+    name: string,
+    pricePaise: number,
+    mrpPaise: number | null,
+    subCategory: string | null,
+    lotId: string | null,
+  ) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/custom-line`, {
+      name, pricePaise, mrpPaise, subCategory, lotId,
+    }) as Promise<_CartView>,
+  gstOptions: () =>
+    get<{ defaultBasisPoints: number; options: { subCategory: string; basisPoints: number }[] }>(
+      '/api/checkout/gst-options'),
   scan: (cartId: string, code: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/scan`, { code }) as Promise<_CartView>,
   setQuantity: (cartId: string, lineId: string, quantity: number) =>
@@ -241,20 +286,53 @@ export const checkout = {
     post<_CartView>(`/api/checkout/cart/${cartId}/clear`) as Promise<_CartView>,
   // Turns the cart into a recorded sale and prints its bill. The returned sale carries printFailed
   // so the till can offer a reprint when the printer did not answer — the sale is recorded either way.
-  complete: (cartId: string, paymentMethod: _PaymentMethod, operatorName: string | null) =>
+  complete: (
+    cartId: string,
+    paymentMethod: _PaymentMethod,
+    operatorName: string | null,
+    registerSessionId: string | null = null,
+  ) =>
     post<_SaleView>(`/api/checkout/cart/${cartId}/complete`, {
       paymentMethod,
       operatorName,
+      registerSessionId,
     }) as Promise<_SaleView>,
+}
+
+// --- register sessions (palletworks-selling) ---
+// The drawer lifecycle: state of both registers, open with a float, cash in/out, close with a
+// counted drawer. Only the modern checkout uses these; the classic till sells sessionless.
+export const registers = {
+  state: () => getList<import('./types').RegisterStateView>('/api/registers'),
+  open: (name: string, operatorName: string, floatPaise: number) =>
+    post<import('./types').RegisterStateView>(
+      `/api/registers/${encodeURIComponent(name)}/open`, { operatorName, floatPaise }),
+  cashMovement: (name: string, direction: 'IN' | 'OUT', amountPaise: number, note: string) =>
+    post<import('./types').RegisterStateView>(
+      `/api/registers/${encodeURIComponent(name)}/cash-movements`, { direction, amountPaise, note }),
+  close: (name: string, countedPaise: number) =>
+    post<import('./types').RegisterCloseSummary>(
+      `/api/registers/${encodeURIComponent(name)}/close`, { countedPaise }),
 }
 
 // --- sales (records + reprint) ---
 // A sale, once completed, is immutable; a reprint re-renders from the stored sale, never a cart.
 
 export const sales = {
-  recent: (limit = 50) => getList<_SaleSummary>(`/api/sales?limit=${limit}`),
+  recent: (limit = 50, sessionId?: string) =>
+    getList<_SaleSummary>(
+      `/api/sales?limit=${limit}${sessionId ? `&sessionId=${encodeURIComponent(sessionId)}` : ''}`),
   byBillNo: (billNo: number) => get<_SaleView>(`/api/sales/${billNo}`),
   reprint: (saleId: string) => post<_SaleView>(`/api/sales/${saleId}/reprint`) as Promise<_SaleView>,
+}
+
+// --- dashboard ---
+// One read-only aggregate call for the whole Dashboard screen.
+
+import type { DashboardView as _DashboardView } from './types'
+
+export const dashboard = {
+  get: () => get<_DashboardView>('/api/dashboard'),
 }
 
 // --- receipt printer + bill settings (admin) ---
@@ -350,6 +428,7 @@ export const receiving = {
     post(`/api/lots/${lotId}/mark-not-received`, { manifestCartonId }),
   rejectBox: (lotId: string, manifestCartonId: string, reason: string) =>
     post(`/api/lots/${lotId}/reject-box`, { manifestCartonId, reason }),
+  markReceivingComplete: (lotId: string) => post(`/api/lots/${lotId}/receiving-complete`, {}),
   // costBasis is optional and, when given, travels as the whole group (see CostBasisFields) —
   // omitting it (or passing costBasisStrategy: null within it) declares no basis.
   createManualLot: (
@@ -387,6 +466,16 @@ export const receiving = {
     }),
 }
 
+// --- intake (palletworks-intake) ------------------------------------------------------------
+// The Intake screen's one read-only aggregate: header stats and lot-math-rail figures for a
+// single lot, from one call (design decision D5 of palletworks-intake).
+
+import type { LotIntakeStats as _LotIntakeStats } from './types'
+
+export const intake = {
+  stats: (lotId: string) => get<_LotIntakeStats>(`/api/lots/${lotId}/stats`),
+}
+
 // --- suppliers ---
 // The supplier master: list (all, or active-only for the receipt pick-list), search, create, edit,
 // deactivate/reactivate, and the lots received from one supplier.
@@ -411,10 +500,12 @@ export const suppliers = {
 }
 
 // --- catalog ---
-// Browsing the product catalogue by name and found status, and opening one product to its detail.
-// Setting a price on a catalogue product reuses api.setPrice — there is no separate endpoint for it.
+// Browsing the product catalogue by name and found status — Inventory's On paper / All scopes'
+// only caller now that the Catalog screen (which also opened a product to its own detail panel)
+// is deleted (design decisions D2, D9 of palletworks-nav). Opening a product to its detail is
+// item-detail's job (`inventory.detail`, below); there is no separate catalogue detail call left.
 
-import type { CatalogDetail as _CatalogDetail, CatalogEntry as _CatalogEntry } from './types'
+import type { CatalogEntry as _CatalogEntry } from './types'
 
 export const catalog = {
   // Name, status, category, and lot narrow together; a blank lot spans every delivery.
@@ -425,7 +516,9 @@ export const catalog = {
         `&lot=${encodeURIComponent(lot)}`,
     ),
 
-  detail: (productId: string) => get<_CatalogDetail>(`/api/catalog/products/${productId}`),
+  // Restored for the CLASSIC Catalog screen only; Inventory/ItemDetail use inventory.detail.
+  detail: (productId: string) =>
+    get<import('./types').CatalogDetail>(`/api/catalog/products/${productId}`),
 }
 
 // --- product-centric counting ---
@@ -540,6 +633,9 @@ export const shelfPricing = {
     name?: string | null
     setInHandAsTotal?: boolean
     operatorName?: string | null
+    // Where the batch physically sits, or null/omitted to leave it untouched — not the same as
+    // clearing it (that is item detail's own bin edit; see the `inventory` namespace above).
+    bin?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/existing', body) as Promise<_ShelfPricedProduct>,
 
   saveManual: (body: {
@@ -551,6 +647,7 @@ export const shelfPricing = {
     sellingPricePaise: number
     mrpPaise: number | null
     operatorName?: string | null
+    bin?: string | null
   }) => post<_ShelfPricedProduct>('/api/pricing/shelf/manual', body) as Promise<_ShelfPricedProduct>,
 
   phantomReport: (lotId: string) =>
@@ -558,6 +655,26 @@ export const shelfPricing = {
 
   writeOff: (lotId: string) =>
     post<_WriteOffResult>(`/api/pricing/lots/${lotId}/write-off`) as Promise<_WriteOffResult>,
+}
+
+// --- inventory ---
+// The stock table's one aggregate call, one product's full detail, and the one write this
+// feature adds — a batch's bin. Filtering, totals, and CSV export all happen client-side against
+// the loaded rows, so there is nothing to pass as query parameters to `rows()`.
+
+import type {
+  InventoryDetail as _InventoryDetail,
+  InventoryRow as _InventoryRow,
+  SetBinResult as _SetBinResult,
+} from './types'
+
+export const inventory = {
+  rows: () => get<_InventoryRow[]>('/api/inventory'),
+
+  detail: (productId: string) => get<_InventoryDetail>(`/api/inventory/product/${productId}`),
+
+  setBin: (batchId: string, bin: string) =>
+    put<_SetBinResult>(`/api/inventory/batch/${batchId}/bin`, { bin }) as Promise<_SetBinResult>,
 }
 
 export const reviewQueue = {

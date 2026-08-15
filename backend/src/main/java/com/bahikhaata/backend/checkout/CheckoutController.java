@@ -43,10 +43,18 @@ class CheckoutController {
 
     private final Checkout checkout;
     private final ReceiptPrinting receiptPrinting;
+    private final com.bahikhaata.backend.register.RegisterService registerService;
+    private final com.bahikhaata.backend.tax.GstRates gstRates;
 
-    CheckoutController(Checkout checkout, ReceiptPrinting receiptPrinting) {
+    CheckoutController(
+            Checkout checkout,
+            ReceiptPrinting receiptPrinting,
+            com.bahikhaata.backend.register.RegisterService registerService,
+            com.bahikhaata.backend.tax.GstRates gstRates) {
         this.checkout = checkout;
         this.receiptPrinting = receiptPrinting;
+        this.registerService = registerService;
+        this.gstRates = gstRates;
     }
 
     /** Starts a fresh sale. */
@@ -64,6 +72,39 @@ class CheckoutController {
     @PostMapping("/cart/{cartId}/scan")
     CartView scan(@PathVariable UUID cartId, @RequestBody ScanRequest request) {
         return checkout.scan(cartId, request.code());
+    }
+
+    record AddProductRequest(UUID productId) {}
+
+    record CustomLineRequest(String name, long pricePaise, Long mrpPaise, String subCategory, UUID lotId) {}
+
+    record GstOption(String subCategory, int basisPoints) {}
+
+    record GstOptions(int defaultBasisPoints, java.util.List<GstOption> options) {}
+
+    /** The quick-picks grid's add — a tile tap instead of a barcode in hand. */
+    @PostMapping("/cart/{cartId}/add-product")
+    CartView addProduct(@PathVariable UUID cartId, @RequestBody AddProductRequest request) {
+        return checkout.addProduct(cartId, request.productId());
+    }
+
+    /** Manual entry: a keyed name and price, GST by chosen sub-category, optional lot attribution. */
+    @PostMapping("/cart/{cartId}/custom-line")
+    CartView addCustomLine(@PathVariable UUID cartId, @RequestBody CustomLineRequest request) {
+        return checkout.addCustomLine(
+                cartId, request.name(), request.pricePaise(), request.mrpPaise(),
+                request.subCategory(), request.lotId());
+    }
+
+    /** The GST choices the manual-entry dialog offers — active per-sub-category rates + default. */
+    @GetMapping("/gst-options")
+    GstOptions gstOptions() {
+        var options = gstRates.activeOptions().stream()
+                .map(row -> new GstOption(
+                        (String) row.get("sub_category"),
+                        ((Number) row.get("gst_basis_points")).intValue()))
+                .toList();
+        return new GstOptions(gstRates.globalDefaultBasisPoints(), options);
     }
 
     @PostMapping("/cart/{cartId}/lines/{lineId}/quantity")
@@ -89,10 +130,16 @@ class CheckoutController {
     SaleView complete(
             @PathVariable UUID cartId,
             @RequestBody com.bahikhaata.contracts.CompleteSaleRequest request) {
+        // A session id is validated here, at the edge, so Checkout stays register-ignorant and the
+        // classic till's sessionless completes flow through untouched.
+        if (request.registerSessionId() != null) {
+            registerService.requireOpenById(request.registerSessionId());
+        }
         // complete() opens its own transaction and commits the sale + ledger before returning; the
         // bill is only printed afterwards, so a jammed or offline printer can never roll it back — a
         // print failure is flagged as printFailed and the operator reprints from the stored sale.
-        Sale sale = checkout.complete(cartId, request.paymentMethod(), request.operatorName());
+        Sale sale = checkout.complete(
+                cartId, request.paymentMethod(), request.operatorName(), request.registerSessionId());
         boolean printFailed = receiptPrinting.printBill(checkout.toView(sale, false));
         return checkout.toView(sale, printFailed);
     }

@@ -1,7 +1,9 @@
+// CLASSIC UX — restored verbatim from main (604825a) for the classic shell; frozen at restore,
+// not maintained in step with modern screens. See openspec change palletworks-selling.
 import { useEffect, useState } from 'react'
-import { receiving, shelfPricing, BackendError } from './api'
-import type { LotSummary, ReceivingBoxes } from './types'
-import { QtyInput } from './QtyInput'
+import { receiving, shelfPricing, BackendError } from '../api'
+import type { LotSummary, ReceivingBoxes } from '../types'
+import { QtyInput } from '../QtyInput'
 
 export function Receiving() {
   const [lots, setLots] = useState<LotSummary[] | null>(null)

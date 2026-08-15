@@ -31,11 +31,11 @@ export function MobileCapture() {
   return (
     <div className="pad" style={{ maxWidth: 480, margin: '0 auto' }}>
       <h1>Capture a product</h1>
-      <p style={{ color: 'var(--ink-faint)', fontSize: 14 }}>
+      <p style={{ color: 'var(--color-neutral-500)', fontSize: 14 }}>
         Type what you can read off the item. Someone will price it at the desk.
       </p>
       {saved && <p className="good">✓ Sent “{saved}” for review.</p>}
-      <form onSubmit={submit} style={{ display: 'grid', gap: 'var(--s3)', marginTop: 'var(--s3)' }}>
+      <form onSubmit={submit} style={{ display: 'grid', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
         <label style={{ fontWeight: 600 }}>
           Name
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)}

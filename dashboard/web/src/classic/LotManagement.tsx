@@ -1,7 +1,9 @@
+// CLASSIC UX — restored verbatim from main (604825a) for the classic shell; frozen at restore,
+// not maintained in step with modern screens. See openspec change palletworks-selling.
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { receiving, suppliers as suppliersApi, shelfPricing, BackendError } from './api'
-import type { CostAnchor, CostBasisFields, CostBasisStrategy, LotSummary, MultiplierBase, Supplier } from './types'
+import { receiving, suppliers as suppliersApi, shelfPricing, BackendError } from '../api'
+import type { CostAnchor, CostBasisFields, CostBasisStrategy, LotSummary, MultiplierBase, Supplier } from '../types'
 
 const emptyCreateForm = {
   supplierId: '',

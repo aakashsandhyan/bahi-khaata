@@ -58,40 +58,40 @@ export function ReceiptPrinterConfig() {
     }
   }
 
-  const statusColor = !config?.testStatus ? 'var(--ink-faint)' : config.testStatus === 'OK' ? 'var(--good)' : 'var(--stop)'
-  const statusBg = !config?.testStatus ? 'var(--line-soft)' : config.testStatus === 'OK' ? 'var(--good-tint)' : 'var(--stop-tint)'
+  const statusColor = !config?.testStatus ? 'var(--color-neutral-500)' : config.testStatus === 'OK' ? 'var(--color-neutral-800)' : 'var(--color-accent-700)'
+  const statusBg = !config?.testStatus ? 'var(--color-neutral-200)' : config.testStatus === 'OK' ? 'var(--color-neutral-100)' : 'var(--color-accent-100)'
 
   const field: React.CSSProperties = {
-    width: '100%', padding: '8px', border: '1px solid var(--line)',
-    borderRadius: 'var(--r1)', fontSize: '14px', fontFamily: 'inherit',
+    width: '100%', padding: '8px', border: '1px solid var(--color-divider)',
+    borderRadius: 'var(--radius-md)', fontSize: '14px', fontFamily: 'inherit',
   }
   const label: React.CSSProperties = {
-    display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--s1)',
+    display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: 'var(--space-1)',
   }
 
   return (
-    <div style={{ maxWidth: '560px', margin: '0 auto', padding: 'var(--s4)' }}>
+    <div style={{ maxWidth: '560px', margin: '0 auto', padding: 'var(--space-4)' }}>
       <h1>Receipt Printer</h1>
 
       {message && <div className={`banner ${message.tone}`}>{message.text}</div>}
 
-      <div style={{ padding: 'var(--s3)', background: statusBg, borderRadius: 'var(--r1)', marginBottom: 'var(--s3)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+      <div style={{ padding: 'var(--space-3)', background: statusBg, borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span style={{ width: 12, height: 12, borderRadius: '50%', background: statusColor }} />
           <span style={{ fontWeight: 600, color: statusColor }}>{config?.testStatus || 'Not tested'}</span>
         </div>
         {config?.lastTestedAt && (
-          <div style={{ fontSize: 12, color: statusColor, marginTop: 'var(--s1)' }}>
+          <div style={{ fontSize: 12, color: statusColor, marginTop: 'var(--space-1)' }}>
             Last tested: {new Date(config.lastTestedAt).toLocaleString()}
           </div>
         )}
         {config?.testError && (
-          <div style={{ fontSize: 12, color: statusColor, marginTop: 'var(--s1)' }}>{config.testError}</div>
+          <div style={{ fontSize: 12, color: statusColor, marginTop: 'var(--space-1)' }}>{config.testError}</div>
         )}
       </div>
 
-      <div style={{ padding: 'var(--s3)', background: 'var(--line-soft)', borderRadius: 'var(--r1)' }}>
-        <div style={{ marginBottom: 'var(--s3)' }}>
+      <div style={{ padding: 'var(--space-3)', background: 'var(--color-neutral-200)', borderRadius: 'var(--radius-md)' }}>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
           <label style={label}>Transport</label>
           <select
             value={form.transport}
@@ -103,7 +103,7 @@ export function ReceiptPrinterConfig() {
           </select>
         </div>
 
-        <div style={{ marginBottom: 'var(--s3)' }}>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
           <label style={label}>Printer Address</label>
           <input
             type="text"
@@ -114,8 +114,8 @@ export function ReceiptPrinterConfig() {
           />
         </div>
 
-        <div style={{ marginBottom: 'var(--s3)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)', cursor: 'pointer' }}>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={form.enabled}
@@ -125,7 +125,7 @@ export function ReceiptPrinterConfig() {
           </label>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--s2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button onClick={save} disabled={saving} className="btn-primary" style={{ flex: 1 }}>
             {saving ? 'Saving…' : 'Save Config'}
           </button>

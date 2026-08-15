@@ -8,7 +8,8 @@ import { rupees } from './money'
  * them. A reprint re-renders from the stored, immutable sale — the old bill comes out the same
  * however prices have moved since — so this is also where a missed print at the till is recovered.
  */
-export function Sales() {
+// Titled "Invoices" in the modern shell, "Sales" in the classic one — same screen, one record.
+export function Sales({ title = 'Sales' }: { title?: string } = {}) {
   const [rows, setRows] = useState<SaleSummary[]>([])
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<SaleView | null>(null)
@@ -50,7 +51,7 @@ export function Sales() {
 
   return (
     <div className="sales">
-      <h1>Sales</h1>
+      <h1>{title}</h1>
 
       <div className="sales-search">
         <input

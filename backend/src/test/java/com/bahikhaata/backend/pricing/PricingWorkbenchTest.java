@@ -29,6 +29,8 @@ import com.bahikhaata.backend.inventory.Lot;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.backend.inventory.Supplier;
 import com.bahikhaata.backend.inventory.SupplierRepository;
+import com.bahikhaata.backend.shelf.PriceHistory;
+import com.bahikhaata.backend.shelf.PriceHistoryRepository;
 import com.bahikhaata.contracts.AllocationMethod;
 import com.bahikhaata.contracts.ImportConsignmentRequest;
 import com.bahikhaata.contracts.ImportLine;
@@ -67,6 +69,7 @@ class PricingWorkbenchTest {
     @Autowired private BarcodeRepository barcodes;
     @Autowired private LotRepository lots;
     @Autowired private SupplierRepository suppliers;
+    @Autowired private PriceHistoryRepository priceHistory;
 
     private String supplierId(String name) {
         return suppliers.findByNameNormalized(Supplier.normalize(name))
@@ -206,5 +209,30 @@ class PricingWorkbenchTest {
         assertThatThrownBy(() -> workbench.apply(id, Money.ofPaise(20_001)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("unlawful");
+    }
+
+    @Test
+    @DisplayName("A single reprice through the workbench journals the change")
+    void singleRepriceJournals() {
+        UUID id = received("JOURNAL-SINGLE", 40_000, 99_900);
+
+        workbench.apply(id, Money.ofPaise(19_900));
+
+        List<PriceHistory> rows = priceHistory.findByProductIdOrderByCreatedAtDesc(id);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getOldPrice()).as("first-ever set").isNull();
+        assertThat(rows.get(0).getNewPrice()).isEqualTo(Money.ofPaise(19_900));
+    }
+
+    @Test
+    @DisplayName("A bulk category reprice journals each product it actually changes")
+    void bulkRepriceJournalsEachChangedProduct() {
+        UUID a = received("JOURNAL-BULK-A", 40_000, 99_900);
+        UUID b = received("JOURNAL-BULK-B", 80_000, 199_900);
+
+        workbench.applyCategory("HOME_ESSENTIALS", 60);
+
+        assertThat(priceHistory.findByProductIdOrderByCreatedAtDesc(a)).hasSize(1);
+        assertThat(priceHistory.findByProductIdOrderByCreatedAtDesc(b)).hasSize(1);
     }
 }
