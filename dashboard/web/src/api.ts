@@ -269,18 +269,42 @@ export const checkout = {
     post<_CartView>(`/api/checkout/cart/${cartId}/clear`) as Promise<_CartView>,
   // Turns the cart into a recorded sale and prints its bill. The returned sale carries printFailed
   // so the till can offer a reprint when the printer did not answer — the sale is recorded either way.
-  complete: (cartId: string, paymentMethod: _PaymentMethod, operatorName: string | null) =>
+  complete: (
+    cartId: string,
+    paymentMethod: _PaymentMethod,
+    operatorName: string | null,
+    registerSessionId: string | null = null,
+  ) =>
     post<_SaleView>(`/api/checkout/cart/${cartId}/complete`, {
       paymentMethod,
       operatorName,
+      registerSessionId,
     }) as Promise<_SaleView>,
+}
+
+// --- register sessions (palletworks-selling) ---
+// The drawer lifecycle: state of both registers, open with a float, cash in/out, close with a
+// counted drawer. Only the modern checkout uses these; the classic till sells sessionless.
+export const registers = {
+  state: () => getList<import('./types').RegisterStateView>('/api/registers'),
+  open: (name: string, operatorName: string, floatPaise: number) =>
+    post<import('./types').RegisterStateView>(
+      `/api/registers/${encodeURIComponent(name)}/open`, { operatorName, floatPaise }),
+  cashMovement: (name: string, direction: 'IN' | 'OUT', amountPaise: number, note: string) =>
+    post<import('./types').RegisterStateView>(
+      `/api/registers/${encodeURIComponent(name)}/cash-movements`, { direction, amountPaise, note }),
+  close: (name: string, countedPaise: number) =>
+    post<import('./types').RegisterCloseSummary>(
+      `/api/registers/${encodeURIComponent(name)}/close`, { countedPaise }),
 }
 
 // --- sales (records + reprint) ---
 // A sale, once completed, is immutable; a reprint re-renders from the stored sale, never a cart.
 
 export const sales = {
-  recent: (limit = 50) => getList<_SaleSummary>(`/api/sales?limit=${limit}`),
+  recent: (limit = 50, sessionId?: string) =>
+    getList<_SaleSummary>(
+      `/api/sales?limit=${limit}${sessionId ? `&sessionId=${encodeURIComponent(sessionId)}` : ''}`),
   byBillNo: (billNo: number) => get<_SaleView>(`/api/sales/${billNo}`),
   reprint: (saleId: string) => post<_SaleView>(`/api/sales/${saleId}/reprint`) as Promise<_SaleView>,
 }
@@ -474,6 +498,10 @@ export const catalog = {
         `&category=${encodeURIComponent(category)}&page=${page}&size=${size}` +
         `&lot=${encodeURIComponent(lot)}`,
     ),
+
+  // Restored for the CLASSIC Catalog screen only; Inventory/ItemDetail use inventory.detail.
+  detail: (productId: string) =>
+    get<import('./types').CatalogDetail>(`/api/catalog/products/${productId}`),
 }
 
 // --- product-centric counting ---

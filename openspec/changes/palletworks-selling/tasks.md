@@ -16,27 +16,27 @@
 
 ## 3. Classic UX restored
 
-- [ ] 3.1 Restore `LotManagement.tsx`, `Receiving.tsx`, `Catalog.tsx` from main into `src/classic/` with a restore-commit note in each header; wire their api/types needs
-- [ ] 3.2 `ClassicShell.tsx`: the sixteen-entry top bar (Till listed, admin configs separate) rendering shared screens + the restored trio; `.topnav` styles scoped under `.classic`
-- [ ] 3.3 Verify every classic screen renders and functions against the running app
+- [x] 3.1 Restore `LotManagement.tsx`, `Receiving.tsx`, `Catalog.tsx` from main into `src/classic/` with a restore-commit note in each header; wire their api/types needs
+- [x] 3.2 `ClassicShell.tsx`: the sixteen-entry top bar (Till listed, admin configs separate) rendering shared screens + the restored trio; `.topnav` styles scoped under `.classic`
+- [x] 3.3 Verify every classic screen renders and functions against the running app
 
 ## 4. Dual-UX switch
 
-- [ ] 4.1 `uxMode` in `App.tsx` (localStorage, default modern) mounting ClassicShell or ModernShell; no reload on switch
-- [ ] 4.2 Switch controls: "Classic UX" in the modern sidebar footer, "Modern UX" in the classic top bar
-- [ ] 4.3 `#till` / `#capture` landings honored in both modes; phone stations unaffected
-- [ ] 4.4 e2e: switch flips whole shell both ways and persists across reload
+- [x] 4.1 `uxMode` in `App.tsx` (localStorage, default modern) mounting ClassicShell or ModernShell; no reload on switch
+- [x] 4.2 Switch controls: "Classic UX" in the modern sidebar footer, "Modern UX" in the classic top bar
+- [x] 4.3 `#till` / `#capture` landings honored in both modes; phone stations unaffected
+- [x] 4.4 e2e: switch flips whole shell both ways and persists across reload
 
 ## 5. Modern selling screens
 
-- [ ] 5.1 Register screen per the artifact: both registers' state, open (float entry), cash in/out, close flow with counted amount → over/short summary + session bill list
-- [ ] 5.2 Modern Checkout per the artifact: session gate with inline open, scan/cart/pay through the existing engine
-- [ ] 5.3 Invoices per the artifact: newest-first list, find by bill number, per-row reprint; replaces Sales in the modern sidebar (Selling group: Register, Checkout, Invoices)
-- [ ] 5.4 Sidebar + screenMeta entries; classic keeps its old Sales screen
+- [x] 5.1 Register screen per the artifact: both registers' state, open (float entry), cash in/out, close flow with counted amount → over/short summary + session bill list
+- [x] 5.2 Modern Checkout per the artifact: session gate with inline open, scan/cart/pay through the existing engine
+- [x] 5.3 Invoices per the artifact: newest-first list, find by bill number, per-row reprint; replaces Sales in the modern sidebar (Selling group: Register, Checkout, Invoices)
+- [x] 5.4 Sidebar + screenMeta entries; classic keeps its old Sales screen
 
 ## 6. Verify
 
-- [ ] 6.1 Full backend suite green
-- [ ] 6.2 e2e suite green (including the rewritten shell probes: Till listed under Classic, unlisted under Modern)
-- [ ] 6.3 Browser walk: ring a sale in Classic, see it in Modern Invoices; open→sell→close a register, over/short correct on screen
-- [ ] 6.4 `openspec validate palletworks-selling`; bundle-size check on `vite build`
+- [x] 6.1 Full backend suite green
+- [x] 6.2 e2e suite green (including the rewritten shell probes: Till listed under Classic, unlisted under Modern)
+- [x] 6.3 Browser walk: ring a sale in Classic, see it in Modern Invoices; open→sell→close a register, over/short correct on screen
+- [x] 6.4 `openspec validate palletworks-selling`; bundle-size check on `vite build`

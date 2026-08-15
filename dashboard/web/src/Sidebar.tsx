@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 export type View =
   | 'dashboard' | 'checkout' | 'sales' | 'intake' | 'unpacking' | 'prep'
   | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'suppliers'
-  | 'settings'
+  | 'settings' | 'register'
   // Opened with a product id (App's `detailProductId`), not a param-less nav click — reachable
   // from any Inventory row (design decision D9 of palletworks-inventory, carried forward as the
   // sole opener by D9 of palletworks-nav), so deliberately absent from NAV_GROUPS like 'capture'.
@@ -35,7 +35,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Selling',
     items: [
-      { view: 'sales', label: 'Sales', kicker: 'Sale history' },
+      // The selling suite (palletworks-selling): drawer sessions, the session-gated till, the
+      // bill record. Checkout here is the modern, register-gated till — the classic till stays
+      // reachable via #till and the classic shell.
+      { view: 'register', label: 'Register', kicker: 'Drawer' },
+      { view: 'checkout', label: 'Checkout', kicker: 'Point of sale' },
+      { view: 'sales', label: 'Invoices', kicker: 'Bill record' },
       { view: 'reprint', label: 'Reprint', kicker: 'Labels' },
     ],
   },
@@ -53,10 +58,8 @@ export function screenMeta(view: View): { kicker: string; title: string } {
   // the header stays generic ("Inventory" / "Item detail") and the view itself renders the
   // product's actual name as its own on-page heading.
   if (view === 'item-detail') return { kicker: 'Inventory', title: 'Item detail' }
-  // Till is unlisted (design decision D8 of palletworks-nav) — reachable only by the `#till`
-  // hash, so it is absent from NAV_GROUPS, but the header still needs its own kicker/title
-  // rather than falling through to Capture's.
-  if (view === 'checkout') return { kicker: 'Point of sale', title: 'Till' }
+  // 'checkout' is a listed Selling entry since palletworks-selling (D8's unlisting retired —
+  // the modern, register-gated till IS the revival phase), so NAV_GROUPS answers for it below.
   for (const g of NAV_GROUPS) {
     const hit = g.items.find((i) => i.view === view)
     if (hit) return { kicker: hit.kicker, title: hit.label }
@@ -65,13 +68,14 @@ export function screenMeta(view: View): { kicker: string; title: string } {
 }
 
 export function Sidebar({
-  view, onNavigate, sandbox, open, onClose,
+  view, onNavigate, sandbox, open, onClose, onSwitchUx,
 }: {
   view: View
   onNavigate: (v: View) => void
   sandbox: boolean
   open: boolean
   onClose: () => void
+  onSwitchUx: () => void
 }) {
   // The operator name is set on the Pricing screen and shared app-wide.
   const [operator, setOperator] = useState(() => localStorage.getItem('pricing.operator') ?? '')
@@ -111,6 +115,9 @@ export function Sidebar({
           {operator
             ? <>Signed in as <strong>{operator}</strong></>
             : <span className="text-muted">No operator set — see Pricing</span>}
+          <button type="button" className="ux-switch" onClick={onSwitchUx}>
+            Classic UX
+          </button>
         </div>
       </aside>
     </>

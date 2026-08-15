@@ -1105,3 +1105,26 @@ tr.damaged { background: var(--color-accent-2-100); }
 .btn-primary:disabled { background: var(--color-accent-300); border-color: var(--color-accent-300); color: var(--color-bg); }
 .intake-math-note { display: block; font-size: 10px; font-weight: 400; color: var(--color-neutral-500); }
 .intake-rail-id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-500); }
+
+/* ============================================================================
+   CLASSIC UX — the pre-palletworks top bar, scoped under .classic so it can
+   never restyle the modern shell. Restored with the classic screens for the
+   dual-UX bridge (openspec change palletworks-selling).
+   ============================================================================ */
+.classic .topnav {
+  display: flex; align-items: center; gap: var(--s2, 8px); flex-wrap: wrap;
+  padding: 12px 24px; background: var(--ink); color: #fff;
+}
+.classic .topnav .brand { font-weight: 700; margin-right: 16px; letter-spacing: 0.01em; }
+.classic .topnav button { background: transparent; color: #cfcfe0; border: 1px solid transparent; font-size: 15px; }
+.classic .topnav button.on { background: #fff; color: var(--ink); }
+.classic .topnav .ux-switch { margin-left: auto; border-color: #cfcfe0; }
+@media (max-width: 760px) { .classic .topnav { display: none; } }
+
+/* The whole-app UX switch, sitting quietly in the sidebar footer. */
+.sidebar-foot .ux-switch {
+  display: block; margin-top: 8px; padding: 6px 10px;
+  background: transparent; border: 1px solid var(--color-divider); border-radius: 6px;
+  color: inherit; font: inherit; font-size: 13px; cursor: pointer;
+}
+.sidebar-foot .ux-switch:hover { border-color: var(--color-accent); color: var(--color-accent); }

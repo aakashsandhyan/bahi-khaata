@@ -16,7 +16,7 @@ const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'UPI', 'CARD']
  * not (printer offline), the confirmation says so and offers a reprint — the sale is recorded either
  * way. Errors are shown inline, never as a popup that blocks the counter.
  */
-export function Checkout() {
+export function Checkout({ registerSessionId = null }: { registerSessionId?: string | null } = {}) {
   const [cart, setCart] = useState<CartView | null>(null)
   const [error, setError] = useState<string | null>(null)
   // The counter flows cart → paying (pick a method) → done (the recorded bill).
@@ -66,7 +66,7 @@ export function Checkout() {
     setBusy(true)
     setError(null)
     try {
-      setSale(await checkout.complete(cart.cartId, method, operator.trim() || null))
+      setSale(await checkout.complete(cart.cartId, method, operator.trim() || null, registerSessionId))
       setPaying(false)
     } catch (e) {
       setError(e instanceof BackendError ? e.message : 'Cannot reach the till.')

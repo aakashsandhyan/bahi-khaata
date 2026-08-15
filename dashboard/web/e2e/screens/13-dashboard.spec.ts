@@ -22,10 +22,11 @@ test('Dashboard: desktop lands here without clicking, tiles show seeded figures,
   await expect(revenueTile.locator('.dash-kpi-value')).toHaveText('₹1,497')
   await expect(revenueTile).toContainText('2 bills')
 
-  // GST: structurally ₹0 until gst-inclusive-pricing ships, but never a bare zero.
+  // GST: computed for real since gst-inclusive-pricing merged — the seeded bills carry zero tax,
+  // so the figure is a genuine ₹0 and the "Not yet computed" hedge must be gone.
   const gstTile = kpis.filter({ hasText: 'GST collected' })
   await expect(gstTile.locator('.dash-kpi-value')).toHaveText('₹0')
-  await expect(gstTile.getByText('Not yet computed')).toBeVisible()
+  await expect(gstTile.getByText('Not yet computed')).toHaveCount(0)
 
   // Recent-sales rail: the seeded bill is visible, checked before navigating away below.
   await expect(page.locator('.dash-recent')).toContainText(seed.sales.first.billNoFormatted)

@@ -1,11 +1,18 @@
 import { test, expect } from '@playwright/test'
 import { seed } from '../seed'
 
-// Till is unlisted (design decision D8 of palletworks-nav): no sidebar entry, reached only by the
-// `#till` hash, resolved once at load with no `hashchange` listener (D7). This spec reaches it the
-// way the JavaFX terminal's web back-door does — a direct hash load, never a sidebar click.
+// `#till` resolves to the checkout screen at load, no `hashchange` listener (D7). Since
+// palletworks-selling the modern checkout is register-gated: with no session open it offers
+// opening the register inline rather than a scan field — never a dead end (selling-screens
+// spec). This spec walks that gate the way an opening cashier does, then sells.
 test('Till: reached via #till, absent from the sidebar, and keying a seeded barcode adds a cart line', async ({ page }) => {
   await page.goto('/#till')
+
+  // The gate: the register is closed, so checkout offers to open it inline.
+  await expect(page.getByText('is not open — open it to start selling')).toBeVisible()
+  await page.getByLabel('Operator').fill('Probe')
+  await page.getByLabel('Float counted in (₹)').fill('2000')
+  await page.getByRole('button', { name: /^Open Register .* and start selling$/ }).click()
 
   const scan = page.getByPlaceholder('Scan barcode or product code')
   await expect(scan).toBeVisible()

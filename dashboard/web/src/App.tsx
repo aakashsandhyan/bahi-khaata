@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Dashboard } from './Dashboard'
-import { Checkout } from './Checkout'
+import { CheckoutModern } from './CheckoutModern'
+import { Register } from './Register'
 import { Sales } from './Sales'
 import { Intake } from './Intake'
 import { Unpacking } from './Unpacking'
@@ -14,6 +15,11 @@ import { ItemDetail } from './ItemDetail'
 import { Suppliers } from './Suppliers'
 import { Settings } from './Settings'
 import { Sidebar, screenMeta, type View } from './Sidebar'
+import { ClassicShell } from './classic/ClassicShell'
+
+// The whole-dashboard UX choice, per device — 'modern' (the palletworks shell) or 'classic'
+// (the pre-palletworks top bar). Persisted like the operator name; the switch is instant.
+const UX_MODE_KEY = 'ux.mode'
 
 /**
  * The admin dashboard shell: a grouped sidebar on desktop, a drawer on phones.
@@ -37,6 +43,12 @@ function landingView(isPhone: boolean): View {
 export function App() {
   // Phones are operators' devices, so they land on a single screen by default.
   const isPhone = typeof window !== 'undefined' && window.innerWidth <= 760
+  const [uxMode, setUxMode] = useState<'modern' | 'classic'>(
+    () => (localStorage.getItem(UX_MODE_KEY) === 'classic' ? 'classic' : 'modern'))
+  const switchUx = (mode: 'modern' | 'classic') => {
+    localStorage.setItem(UX_MODE_KEY, mode)
+    setUxMode(mode)
+  }
   const [view, setView] = useState<View>(() => landingView(isPhone))
   const [drawer, setDrawer] = useState(false)
 
@@ -63,9 +75,13 @@ export function App() {
 
   const meta = screenMeta(view)
 
+  if (uxMode === 'classic') {
+    return <ClassicShell sandbox={sandbox} onSwitchUx={() => switchUx('modern')} />
+  }
+
   return (
     <div className="shell">
-      <Sidebar view={view} onNavigate={setView} sandbox={sandbox} open={drawer} onClose={() => setDrawer(false)} />
+      <Sidebar view={view} onNavigate={setView} sandbox={sandbox} open={drawer} onClose={() => setDrawer(false)} onSwitchUx={() => switchUx('classic')} />
       <div className="shell-main">
         <header className="shell-head">
           <button type="button" className="shell-burger" onClick={() => setDrawer(true)} aria-label="Open navigation">
@@ -79,7 +95,8 @@ export function App() {
         </header>
         <main className="shell-content">
           {view === 'dashboard' ? <Dashboard onNavigate={setView} />
-            : view === 'checkout' ? <Checkout />
+            : view === 'checkout' ? <CheckoutModern />
+            : view === 'register' ? <Register />
             : view === 'intake' ? <Intake onNavigate={setView} />
             : view === 'unpacking' ? <Unpacking />
             : view === 'prep' ? <Prep />
@@ -95,7 +112,7 @@ export function App() {
               )
             : view === 'suppliers' ? <Suppliers />
             : view === 'settings' ? <Settings />
-            : <Sales />}
+            : <Sales title="Invoices" />}
         </main>
       </div>
     </div>

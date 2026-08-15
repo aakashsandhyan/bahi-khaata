@@ -362,6 +362,22 @@ export interface CatalogEntry {
   unitsCounted: number
 }
 
+// Restored for the CLASSIC Catalog screen (the nav fold orphan-deleted them; the backend
+// endpoint /api/catalog/products/{id} never went away).
+export interface ProductCode {
+  code: string
+  origin: 'MANUFACTURER' | 'INTERNAL' | 'MARKETPLACE' | 'UNIT_LABEL'
+}
+
+export interface CatalogDetail {
+  states: ProductStates
+  codes: ProductCode[]
+  status: CatalogStatus
+  priced: boolean
+  unitsExpected: number
+  unitsCounted: number
+}
+
 // --- product-centric counting ---
 // Counting a product across every box of one delivery at once, instead of box by box.
 
@@ -800,4 +816,31 @@ export interface GstRateRow {
   name: string
   category: string
   basisPoints: number | null
+}
+
+// --- register sessions (palletworks-selling) ---
+// One drawer's live state; session fields are null while the register is closed.
+export interface RegisterStateView {
+  registerName: string
+  open: boolean
+  sessionId: string | null
+  operatorName: string | null
+  floatPaise: number | null
+  expectedPaise: number | null
+  openedAt: string | null
+}
+
+// What closing settled: the expected-cash arithmetic and the pinned over/short (signed —
+// positive is a drawer over, negative short).
+export interface RegisterCloseSummary {
+  sessionId: string
+  registerName: string
+  operatorName: string
+  floatPaise: number
+  cashSalesPaise: number
+  expectedPaise: number
+  countedPaise: number
+  overShortPaise: number
+  openedAt: string
+  closedAt: string
 }

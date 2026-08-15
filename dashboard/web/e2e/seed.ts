@@ -170,7 +170,7 @@ export const seed = {
   // V43 default. See the implementation return for palletworks-dashboard for the full note.
   billSettings: {
     shopNameAsSeeded: 'बचत बाज़ार', // V44's overwrite, not the V43 default 'Bachat Bazaar'
-    billTitle: 'Bill of Supply',
+    billTitle: 'Tax Invoice', // V47's regular-dealer switch overwrites V43's 'Bill of Supply'
     footer: 'Thank you!',
   },
 } as const
