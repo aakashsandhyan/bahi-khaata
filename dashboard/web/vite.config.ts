@@ -16,8 +16,10 @@ import { existsSync, readFileSync } from 'node:fs'
 // If the PC's LAN address changes, regenerate the cert for the new one and update these paths.
 const CERT = './certs/lan.pem'
 const KEY = './certs/lan-key.pem'
+// VITE_NO_HTTPS=1 forces plain http even when the cert files exist — for local tooling (the e2e
+// harness, browser automation, curl) on a machine whose cert doesn't match its current address.
 const https =
-  existsSync(CERT) && existsSync(KEY)
+  !process.env.VITE_NO_HTTPS && existsSync(CERT) && existsSync(KEY)
     ? { cert: readFileSync(CERT), key: readFileSync(KEY) }
     : undefined
 

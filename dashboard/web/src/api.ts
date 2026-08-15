@@ -19,11 +19,18 @@ import type {
 // at a backend elsewhere.
 const BASE = import.meta.env.VITE_BACKEND ?? ''
 
-class BackendError extends Error {}
+class BackendError extends Error {
+  // The HTTP status, where the caller's flow depends on it (a 404 lookup = "new customer").
+  status?: number
+  constructor(message: string, status?: number) {
+    super(message)
+    this.status = status
+  }
+}
 
 async function get<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE}${path}`)
-  if (!response.ok) throw new BackendError(await message(response))
+  if (!response.ok) throw new BackendError(await message(response), response.status)
   return response.json() as Promise<T>
 }
 
@@ -291,12 +298,32 @@ export const checkout = {
     paymentMethod: _PaymentMethod,
     operatorName: string | null,
     registerSessionId: string | null = null,
+    customerId: string | null = null,
   ) =>
     post<_SaleView>(`/api/checkout/cart/${cartId}/complete`, {
       paymentMethod,
       operatorName,
       registerSessionId,
+      customerId,
     }) as Promise<_SaleView>,
+}
+
+// --- customers (customer-capture) ---
+export const customersApi = {
+  // 404 is the ordinary "new customer" answer — surfaced as null, not an error.
+  byMobile: async (mobile: string) => {
+    try {
+      return await get<import('./types').CustomerView>(
+        `/api/customers/by-mobile/${encodeURIComponent(mobile)}`)
+    } catch (e) {
+      if (e instanceof BackendError && e.status === 404) return null
+      throw e
+    }
+  },
+  save: (name: string, mobile: string) =>
+    post<import('./types').CustomerView>('/api/customers', { name, mobile }),
+  list: () => get<import('./types').CustomerList>('/api/customers'),
+  detail: (id: string) => get<import('./types').CustomerDetail>(`/api/customers/${id}`),
 }
 
 // --- register sessions (palletworks-selling) ---

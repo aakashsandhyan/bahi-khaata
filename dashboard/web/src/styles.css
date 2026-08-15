@@ -1184,3 +1184,16 @@ tr.damaged { background: var(--color-accent-2-100); }
 .pos-dialog-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pos-dialog-actions { display: flex; gap: 8px; margin-top: 6px; }
 .pos-dialog-actions button:last-child { padding: 12px 16px; font: inherit; border: 1px solid var(--color-neutral-400); border-radius: 8px; background: #fff; cursor: pointer; }
+
+/* The payment flow's customer ask. */
+.pos-customer { display: flex; flex-direction: column; margin-top: 12px; }
+.pos-customer input { padding: 12px 14px; font: inherit; font-size: 16px; border: 1px solid var(--color-neutral-400); border-radius: 8px; background: #fff; width: 100%; }
+.pos-walkin { margin-top: 8px; padding: 12px; font: inherit; font-weight: 600; border: 1px solid var(--color-neutral-400); border-radius: 8px; background: #fff; cursor: pointer; }
+.pos-walkin:hover { border-color: var(--color-accent); }
+
+/* Customers screen. */
+.cust-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--color-divider); margin-bottom: 8px; }
+.cust-stat { padding: 14px 16px; border-right: 1px solid var(--color-divider); }
+.cust-stat:last-child { border-right: none; }
+.cust-row:hover { background: var(--color-neutral-100); }
+@media (max-width: 900px) { .cust-stats { grid-template-columns: 1fr 1fr; } .cust-stat { border-bottom: 1px solid var(--color-divider); } }

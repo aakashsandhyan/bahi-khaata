@@ -844,3 +844,53 @@ export interface RegisterCloseSummary {
   openedAt: string
   closedAt: string
 }
+
+// --- customers (customer-capture) ---
+// Figures derived from customer × sale at read time. Lists carry masked mobiles (last four);
+// the full number rides only the lookup answer and the customer's own detail.
+export interface CustomerView {
+  id: string
+  name: string
+  mobile: string
+}
+
+export interface CustomerRow {
+  id: string
+  name: string
+  tag: string
+  mobileMasked: string
+  visits: number
+  spentPaise: number
+  averagePaise: number | null
+  likes: string
+  lastVisitAt: string | null
+}
+
+export interface CustomerStats {
+  peopleOnFile: number
+  repeatShareOfRevenuePercent: number | null
+  averageRepeatBasketPaise: number | null
+  averageWalkInBasketPaise: number | null
+  lapsedSixtyDaysPlus: number
+}
+
+export interface CustomerList {
+  stats: CustomerStats
+  customers: CustomerRow[]
+}
+
+export interface CustomerVisit {
+  billNo: number
+  billNoFormatted: string
+  at: string
+  what: string
+  amountPaise: number
+}
+
+export interface CustomerDetail {
+  id: string
+  name: string
+  mobile: string
+  since: string
+  visits: CustomerVisit[]
+}

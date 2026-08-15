@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Dashboard } from './Dashboard'
 import { CheckoutModern } from './CheckoutModern'
 import { Register } from './Register'
+import { Customers } from './Customers'
 import { Sales } from './Sales'
 import { Intake } from './Intake'
 import { Unpacking } from './Unpacking'
@@ -110,6 +111,7 @@ export function App() {
                   <ItemDetail productId={detailProductId} onBack={() => setView('inventory')} />
                 ) : null
               )
+            : view === 'customers' ? <Customers />
             : view === 'suppliers' ? <Suppliers />
             : view === 'settings' ? <Settings />
             : <Sales title="Invoices" />}

@@ -15,20 +15,20 @@
 
 ## 3. Checkout payment flow
 
-- [ ] 3.1 Customer step ahead of the method step: focused mobile field, auto-lookup at ten digits, found-name confirm, unknown reveals name field, always-one-tap Walk-in; lookup failure proceeds as walk-in
-- [ ] 3.2 Cart header shows the attached name in place of "Walk-in customer"; clearing the cart clears the attachment
-- [ ] 3.3 e2e: attach a known customer through the step; walk-in path; header follows attachment
+- [x] 3.1 Customer step ahead of the method step: focused mobile field, auto-lookup at ten digits, found-name confirm, unknown reveals name field, always-one-tap Walk-in; lookup failure proceeds as walk-in
+- [x] 3.2 Cart header shows the attached name in place of "Walk-in customer"; clearing the cart clears the attachment
+- [x] 3.3 e2e: attach a known customer through the step; walk-in path; header follows attachment
 
 ## 4. Customers screen
 
 - [x] 4.1 Stats + history queries (derived only): per-customer visits/spent/avg/likes/last, shop strip (people on file, repeat share, avg repeat basket vs walk-in, lapsed 60+); endpoints + contracts
-- [ ] 4.2 Customers screen per the artifact: stats strip, list (masked mobiles, last four), customer detail with full number + visit history
-- [ ] 4.3 Sidebar entry under Back office; screenMeta
-- [ ] 4.4 Tests: stats math (repeat share, lapsed boundary), masking in the list payload or view
+- [x] 4.2 Customers screen per the artifact: stats strip, list (masked mobiles, last four), customer detail with full number + visit history
+- [x] 4.3 Sidebar entry under Back office; screenMeta
+- [x] 4.4 Tests: stats math (repeat share, lapsed boundary), masking in the list payload or view
 
 ## 5. Verify
 
-- [ ] 5.1 Full backend suite green
-- [ ] 5.2 e2e suite green (including the new customer-step specs)
+- [x] 5.1 Full backend suite green
+- [x] 5.2 e2e suite green (including the new customer-step specs)
 - [ ] 5.3 Browser walk on the running app: sell to a new customer, resell by the same mobile, see both visits on their record and the stats move
-- [ ] 5.4 `openspec validate customer-capture`
+- [x] 5.4 `openspec validate customer-capture`

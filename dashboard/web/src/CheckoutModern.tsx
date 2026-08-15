@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { checkout, inventory, receiving, registers, BackendError } from './api'
-import type { CartView, InventoryRow, LotSummary, PaymentMethod, RegisterStateView, SaleView } from './types'
+import { checkout, customersApi, inventory, receiving, registers, BackendError } from './api'
+import type { CartView, CustomerView, InventoryRow, LotSummary, PaymentMethod, RegisterStateView, SaleView } from './types'
 import { rupees } from './money'
 
 // Which physical drawer this device is — remembered per device, like the operator name.
@@ -110,7 +110,10 @@ function Pos({ register }: { register: RegisterStateView }) {
   // tries the text as a scanned/keyed code. A scanner is just a fast keyboard ending in Enter,
   // so the hardware path and the search path are literally the same input.
   const [entry, setEntry] = useState('')
-  const [paying, setPaying] = useState(false)
+  // The pay flow: idle → the customer ask (policy: ask every sale; Walk-in declines in one tap)
+  // → the payment method. A captured customer also shows on the cart header pre-payment.
+  const [payStep, setPayStep] = useState<'idle' | 'customer' | 'method'>('idle')
+  const [customer, setCustomer] = useState<CustomerView | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
@@ -168,8 +171,8 @@ function Pos({ register }: { register: RegisterStateView }) {
     setError(null)
     try {
       const operator = localStorage.getItem('pricing.operator') || register.operatorName
-      setSale(await checkout.complete(cart.cartId, method, operator, register.sessionId))
-      setPaying(false)
+      setSale(await checkout.complete(cart.cartId, method, operator, register.sessionId, customer?.id ?? null))
+      setPayStep('idle')
     } catch (e) {
       setError(e instanceof BackendError ? e.message : 'Cannot reach the till.')
     } finally {
@@ -179,6 +182,7 @@ function Pos({ register }: { register: RegisterStateView }) {
 
   const newSale = () => {
     setSale(null)
+    setCustomer(null)
     checkout.open().then(setCart).catch(() => setError('Cannot reach the till.'))
   }
 
@@ -211,6 +215,9 @@ function Pos({ register }: { register: RegisterStateView }) {
             placeholder="Scan barcode or type SKU / product name…"
             value={entry}
             autoFocus
+            // Disabled until the cart is open: a hardware scanner can finish its burst before the
+            // open() round-trip lands, and a keystroke into a null cart would die silently.
+            disabled={!cart}
             onChange={(e) => setEntry(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onScan(entry)}
           />
@@ -254,12 +261,12 @@ function Pos({ register }: { register: RegisterStateView }) {
         <div className="pos-cart-head">
           <h2 style={{ margin: 0 }}>Cart</h2>
           <button type="button" className="pos-clear"
-            onClick={() => cart && mutate(() => checkout.clear(cart.cartId))}>
+            onClick={() => { setCustomer(null); if (cart) mutate(() => checkout.clear(cart.cartId)) }}>
             Clear
           </button>
         </div>
         <div className="text-muted" style={{ marginBottom: 8 }}>
-          Walk-in customer · {register.registerName} · {register.operatorName}
+          {customer ? customer.name : 'Walk-in customer'} · {register.registerName} · {register.operatorName}
         </div>
 
         <div className="pos-lines">
@@ -299,16 +306,24 @@ function Pos({ register }: { register: RegisterStateView }) {
           <div className="pos-topay"><span>To pay</span><span>{rupees(cart?.totalPaise ?? 0)}</span></div>
         </div>
 
-        {!paying ? (
-          <button className="pos-pay" disabled={items === 0 || busy} onClick={() => setPaying(true)}>
+        {payStep === 'idle' && (
+          <button className="pos-pay" disabled={items === 0 || busy}
+            onClick={() => setPayStep(customer ? 'method' : 'customer')}>
             Take payment
           </button>
-        ) : (
+        )}
+        {payStep === 'customer' && (
+          <CustomerStep
+            onAttach={(c) => { setCustomer(c); setPayStep('method') }}
+            onWalkIn={() => { setCustomer(null); setPayStep('method') }}
+          />
+        )}
+        {payStep === 'method' && (
           <div className="pos-methods">
             {(['CASH', 'UPI', 'CARD'] as PaymentMethod[]).map((m) => (
               <button key={m} disabled={busy} onClick={() => takePayment(m)}>{m}</button>
             ))}
-            <button disabled={busy} onClick={() => setPaying(false)}>Back</button>
+            <button disabled={busy} onClick={() => setPayStep('idle')}>Back</button>
           </div>
         )}
       </aside>
@@ -407,6 +422,84 @@ function ManualEntryDialog({ cartId, onClose, onAdded }: {
           <button disabled={busy} onClick={onClose}>Cancel</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The counter's ask, every sale: key the mobile, a match confirms by name, a new pair saves —
+ * and Walk-in is always one tap (spec: selling-screens). A lookup that cannot be reached also
+ * proceeds as walk-in: the customer step must never block a sale.
+ */
+function CustomerStep({ onAttach, onWalkIn }: {
+  onAttach: (c: CustomerView) => void
+  onWalkIn: () => void
+}) {
+  const [mobile, setMobile] = useState('')
+  const [name, setName] = useState('')
+  const [found, setFound] = useState<CustomerView | null>(null)
+  const [lookedUp, setLookedUp] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const digits = mobile.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '')
+
+  useEffect(() => {
+    setFound(null)
+    setLookedUp(false)
+    setError(null)
+    if (digits.length !== 10) return
+    let stale = false
+    customersApi.byMobile(digits)
+      .then((c) => { if (!stale) { setFound(c); setLookedUp(true) } })
+      .catch(() => { if (!stale) { setError('Lookup unreachable — Walk-in still works.'); setLookedUp(true) } })
+    return () => { stale = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [digits])
+
+  const saveAndAttach = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const c = await customersApi.save(name.trim(), digits)
+      if (c) onAttach(c)
+    } catch (e) {
+      setError(e instanceof BackendError ? e.message : 'Cannot save — Walk-in still works.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="pos-customer">
+      <div className="text-muted" style={{ marginBottom: 6 }}>Customer's mobile — or Walk-in</div>
+      {error && <div className="banner stop" style={{ margin: '0 0 8px' }}>{error}</div>}
+      <input
+        autoFocus
+        inputMode="tel"
+        placeholder="Mobile number"
+        value={mobile}
+        onChange={(e) => setMobile(e.target.value)}
+      />
+      {found && (
+        <button className="pos-pay" style={{ marginTop: 8 }} disabled={busy} onClick={() => onAttach(found)}>
+          {found.name} — attach
+        </button>
+      )}
+      {!found && lookedUp && digits.length === 10 && (
+        <>
+          <input
+            placeholder="Customer's name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{ marginTop: 8 }}
+          />
+          <button className="pos-pay" style={{ marginTop: 8 }} disabled={busy || !name.trim()} onClick={saveAndAttach}>
+            Save and attach
+          </button>
+        </>
+      )}
+      <button className="pos-walkin" disabled={busy} onClick={onWalkIn}>Walk-in</button>
     </div>
   )
 }
