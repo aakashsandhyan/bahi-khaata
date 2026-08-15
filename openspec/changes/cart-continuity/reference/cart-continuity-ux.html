@@ -1,0 +1,248 @@
+<title>Cart continuity + Invoice modal — UX comp</title>
+<style>
+  /* Palletworks modernist tokens — mirrored from the app's design system. Light-only by
+     design: the comp must show exactly what the deployed dashboard will render. */
+  :root {
+    --bg: #f3f2f2; --surface: #eae9e9; --ink: #201e1d; --accent: #ec3013;
+    --n100: #f8f4f4; --n300: #d7d3d3; --n400: #bab6b6; --n600: #7d7979; --n700: #605d5d;
+    --divider: color-mix(in srgb, #201e1d 40%, transparent);
+    --hairline: color-mix(in srgb, #201e1d 18%, transparent);
+    --font: "Archivo", system-ui, -apple-system, sans-serif;
+  }
+  html { color-scheme: light; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font); margin: 0; line-height: 1.45; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+  .kicker { color: var(--accent); font-weight: 600; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+  h1 { font-weight: 800; font-size: 34px; margin: 4px 0 6px; text-wrap: balance; }
+  h2 { font-weight: 800; font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--n700); max-width: 62ch; margin: 0 0 8px; }
+  .section { margin-top: 56px; }
+  .frame { border: 1px solid var(--divider); background: var(--bg); box-shadow: 0 2px 14px color-mix(in srgb, #201e1d 10%, transparent); }
+  .frame-bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--hairline); color: var(--n600); font-size: 12px; }
+  .note { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--n700); margin: 10px 0 0; max-width: 70ch; }
+  .note b { color: var(--ink); }
+  .dot { width: 18px; height: 18px; flex: none; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; transform: translateY(2px); }
+
+  /* --- mock POS chrome --- */
+  .pos { display: grid; grid-template-columns: 1fr 340px; min-height: 470px; position: relative; overflow: hidden; }
+  .pos-left { padding: 16px; border-right: 1px solid var(--hairline); }
+  .scanrow { display: flex; gap: 8px; }
+  .scan { flex: 1; border: 2px solid var(--accent); background: #fff; padding: 11px 13px; color: var(--n600); font-size: 15px; }
+  .btn { border: 1px solid var(--n400); background: #fff; padding: 11px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+  .btn:hover, .rowbtn:hover { border-color: var(--accent); }
+  .btn:focus-visible, .rowbtn:focus-visible, .pay:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tile { border: 1px solid var(--n300); background: var(--n100); width: 190px; padding: 12px; margin-top: 12px; font-size: 14px; }
+  .tile small { display: block; color: var(--n600); letter-spacing: 0.08em; font-size: 10px; text-transform: uppercase; margin-bottom: 6px; }
+  .cartpane { padding: 16px; background: var(--n100); display: flex; flex-direction: column; }
+  .cart-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .cart-head h3 { font-size: 19px; font-weight: 800; margin: 0; }
+  .linkish { background: none; border: none; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; padding: 0; }
+  .muted { color: var(--n600); font-size: 13px; }
+  .lines { flex: 1; border-bottom: 1px solid var(--hairline); margin: 8px 0; padding-bottom: 8px; font-size: 14px; }
+  .line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--hairline); }
+  .totals { font-size: 14px; }
+  .totals div { display: flex; justify-content: space-between; padding: 2px 0; }
+  .topay { font-size: 22px; font-weight: 800; margin-top: 4px; }
+  .pay { margin-top: 10px; background: var(--accent); border: none; color: #fff; font: inherit; font-weight: 700; font-size: 17px; padding: 14px; cursor: pointer; }
+  .rowbtns { display: flex; gap: 8px; margin-top: 8px; }
+  .rowbtn { flex: 1; border: 1px solid var(--n400); background: #fff; font: inherit; font-weight: 600; padding: 10px; cursor: pointer; }
+
+  /* --- carts control + panel --- */
+  .carts-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--n400); background: #fff; font: inherit; font-weight: 600; font-size: 13px; padding: 6px 10px; cursor: pointer; }
+  .carts-pill .count { background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; }
+  .cartlist { position: absolute; top: 0; right: 0; bottom: 0; width: 420px; background: #fff; border-left: 1px solid var(--divider); box-shadow: -6px 0 18px color-mix(in srgb, #201e1d 14%, transparent); display: flex; flex-direction: column; }
+  .cartlist header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px 10px; border-bottom: 1px solid var(--hairline); }
+  .cartlist header h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .cartrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); cursor: pointer; text-align: left; background: none; border-left: 3px solid transparent; font: inherit; width: 100%; }
+  .cartrow:hover { background: var(--n100); }
+  .cartrow.on { border-left-color: var(--accent); background: var(--n100); }
+  .cartrow .who { font-weight: 700; }
+  .cartrow .when { color: var(--n600); font-size: 12px; text-align: right; }
+  .cartrow .sum { color: var(--n700); font-size: 13px; }
+  .cartrow .amt { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  .chip { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; }
+  .chip.this { background: var(--ink); color: #fff; }
+  .chip.reg { background: var(--surface); color: var(--n700); }
+  .preview { border-top: 1px solid var(--divider); background: var(--n100); padding: 12px 16px; font-size: 13px; }
+  .preview h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--n600); font-weight: 600; }
+  .preview .line { padding: 5px 0; }
+  .preview .resume { margin-top: 10px; width: 100%; background: var(--accent); color: #fff; border: none; font: inherit; font-weight: 700; padding: 11px; cursor: pointer; }
+  .eod { padding: 10px 16px; color: var(--n600); font-size: 12px; border-top: 1px solid var(--hairline); }
+
+  /* --- invoices + modal --- */
+  .inv { padding: 16px; min-height: 430px; position: relative; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--n600); font-weight: 600; padding: 6px 8px; }
+  td { border-top: 1px solid var(--hairline); padding: 10px 8px; font-variant-numeric: tabular-nums; }
+  tr.click { cursor: pointer; }
+  tr.click:hover td { background: var(--n100); }
+  .scrim { position: absolute; inset: 0; background: color-mix(in srgb, #201e1d 45%, transparent); display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--bg); width: min(560px, 92%); max-height: 92%; overflow-y: auto; border: 1px solid var(--divider); box-shadow: 0 10px 30px color-mix(in srgb, #201e1d 30%, transparent); }
+  .modal-head { display: flex; justify-content: space-between; align-items: start; padding: 16px 18px 10px; border-bottom: 1px solid var(--hairline); }
+  .modal-head h3 { margin: 0; font-size: 20px; font-weight: 800; }
+  .modal-body { padding: 12px 18px 18px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--n700); margin-bottom: 10px; }
+  .modal .line small { display: block; color: var(--n600); font-size: 12px; }
+  .gst { border-top: 1px solid var(--hairline); margin-top: 8px; padding-top: 8px; font-size: 13px; color: var(--n700); }
+  .gst div, .modal-totals div { display: flex; justify-content: space-between; padding: 2px 0; }
+  .modal-totals { border-top: 1px solid var(--divider); margin-top: 8px; padding-top: 8px; font-size: 14px; }
+  .modal-totals .grand { font-size: 20px; font-weight: 800; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .save-red { color: var(--accent); }
+  .x { background: none; border: 1px solid var(--n400); font: inherit; font-weight: 600; padding: 6px 10px; cursor: pointer; }
+  @media (max-width: 900px) { .pos { grid-template-columns: 1fr; } .cartlist { width: 100%; } }
+  @media (prefers-reduced-motion: no-preference) { .cartlist, .scrim { animation: in 160ms ease-out; } @keyframes in { from { opacity: 0 } to { opacity: 1 } } }
+</style>
+
+<div class="wrap">
+  <div class="kicker">Bachat Bazaar · UX comp · 16 Aug 2026</div>
+  <h1>Carts that survive, and bills you can open</h1>
+  <p class="lede">Three surfaces for the cart-continuity change, in the Palletworks system the dashboard already wears. Every figure below is realistic shop data. The panels are clickable — tap the pills, rows, and bills.</p>
+
+  <!-- ============ 1. CART LIST ============ -->
+  <div class="section">
+    <div class="kicker">1 · Active carts</div>
+    <h2>The carts control and the list</h2>
+    <p class="lede">A pill beside the cart heading shows how many carts are open across both registers. Opening it lists them newest-touched first. The one on this screen is marked; any till can pick up any other.</p>
+    <div class="frame">
+      <div class="frame-bar">Checkout · Register 1 open · Aakash</div>
+      <div class="pos" id="pos1">
+        <div class="pos-left">
+          <div class="scanrow">
+            <div class="scan">Scan barcode or type SKU / product name…</div>
+            <button class="btn">Manual entry</button>
+          </div>
+          <div class="tile"><small>Kitchen</small>Pigeon Hard Anodised 3L Pressure Cooker<br><b>₹725</b> <span class="muted">K-04 · 6 left</span></div>
+        </div>
+        <div class="cartpane">
+          <div class="cart-head">
+            <h3>Cart</h3>
+            <button class="carts-pill" onclick="document.getElementById('cl').style.display='flex'">
+              Carts <span class="count">3</span>
+            </button>
+          </div>
+          <div class="muted">Meera Joshi · Register 1 · Aakash</div>
+          <div class="lines">
+            <div class="line"><span>HAMMER Airflow Earbuds<br><span class="muted">₹899 each · saves ₹1,100</span></span><b>₹899</b></div>
+            <div class="line"><span>Callus Remover<br><span class="muted">₹1,140 each</span></span><b>₹1,140</b></div>
+          </div>
+          <div class="totals">
+            <div><span>Items</span><span>2</span></div>
+            <div><span>Customer saves</span><span class="save-red">₹1,100</span></div>
+            <div><span>GST (included)</span><span>₹311</span></div>
+          </div>
+          <div class="topay"><span>To pay</span> <span style="float:right">₹2,039</span></div>
+          <button class="pay">Take payment</button>
+          <div class="rowbtns">
+            <button class="rowbtn" title="Park this cart and start a fresh one">Hold cart</button>
+            <button class="rowbtn">Clear</button>
+          </div>
+        </div>
+
+        <!-- carts panel -->
+        <div class="cartlist" id="cl" style="display:flex">
+          <header>
+            <h3>Open carts</h3>
+            <button class="x" onclick="document.getElementById('cl').style.display='none'">Close</button>
+          </header>
+          <button class="cartrow on">
+            <span class="who">Meera Joshi <span class="chip this">This screen</span></span>
+            <span class="when">just now</span>
+            <span class="sum">2 items · earbuds + 1 more</span>
+            <span class="amt">₹2,039</span>
+          </button>
+          <button class="cartrow" id="prevrow" onclick="document.getElementById('pv').style.display='block'">
+            <span class="who">Rakesh Verma <span class="chip reg">Register 2</span></span>
+            <span class="when">4 min ago</span>
+            <span class="sum">3 items · dinner set + 2 more</span>
+            <span class="amt">₹3,846</span>
+          </button>
+          <div class="preview" id="pv" style="display:none">
+            <h4>Rakesh Verma · held on Register 2 · 4 min ago</h4>
+            <div class="line"><span>Larah Opalware Dinner Set</span><b>₹1,899</b></div>
+            <div class="line"><span>Storage rack × 2</span><b>₹1,072</b></div>
+            <div class="line"><span>Xtore Swan Figurine</span><b>₹875</b></div>
+            <button class="resume">Resume this cart here</button>
+          </div>
+          <button class="cartrow">
+            <span class="who">Walk-in <span class="chip reg">Register 1</span></span>
+            <span class="when">22 min ago</span>
+            <span class="sum">1 item · laundry basket</span>
+            <span class="amt">₹349</span>
+          </button>
+          <div style="flex:1"></div>
+          <div class="eod">Carts left from a previous day abandon themselves at first touch each morning.</div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><span class="dot">a</span><span><b>Sorted by last touch, newest first</b> — the cart someone just walked away from is on top. Row shows who (or Walk-in), item summary, amount, where it sits.</span></p>
+    <p class="note"><span class="dot">b</span><span><b>Tap a row → inline preview</b> with its lines; <b>Resume this cart here</b> loads it onto this screen — any till resumes any cart. The one already on screen is marked and not resumable into itself.</span></p>
+    <p class="note"><span class="dot">c</span><span><b>Hold cart</b> sits beside Clear: parks the current cart (it stays in this list, customer attached) and opens a fresh one for the next person in line.</span></p>
+  </div>
+
+  <!-- ============ 2. INVOICE MODAL ============ -->
+  <div class="section">
+    <div class="kicker">2 · Invoices</div>
+    <h2>The bill, opened</h2>
+    <p class="lede">Any row on Invoices opens its bill as a modal — the full record as issued: lines, GST split, who rang it, who bought, reprint at hand.</p>
+    <div class="frame">
+      <div class="frame-bar">Invoices · Sale history</div>
+      <div class="inv">
+        <table>
+          <thead><tr><th>Bill</th><th>When</th><th>Customer</th><th>Items</th><th>Method</th><th style="text-align:right">Total</th></tr></thead>
+          <tbody>
+            <tr class="click" onclick="document.getElementById('md').style.display='flex'">
+              <td><b>BB-000042</b></td><td>16 Aug, 12:41</td><td>Meera Joshi</td><td>3</td><td>UPI</td><td style="text-align:right"><b>₹2,764</b></td>
+            </tr>
+            <tr class="click"><td><b>BB-000041</b></td><td>16 Aug, 12:12</td><td class="muted">Walk-in</td><td>1</td><td>CASH</td><td style="text-align:right"><b>₹300</b></td></tr>
+            <tr class="click"><td><b>BB-000040</b></td><td>16 Aug, 11:58</td><td>Rakesh Verma</td><td>2</td><td>CASH</td><td style="text-align:right"><b>₹1,724</b></td></tr>
+          </tbody>
+        </table>
+
+        <div class="scrim" id="md" style="display:flex">
+          <div class="modal" role="dialog" aria-label="Bill BB-000042">
+            <div class="modal-head">
+              <div>
+                <h3>BB-000042</h3>
+                <div class="facts">
+                  <span>16 Aug 2026, 12:41</span><span>UPI</span><span>Register 1 · Aakash</span><span><b>Meera Joshi</b> · •••• 5120</span>
+                </div>
+              </div>
+              <button class="x" onclick="document.getElementById('md').style.display='none'">Close</button>
+            </div>
+            <div class="modal-body">
+              <div class="line"><span>HAMMER Airflow Neo Earbuds<small>1 × ₹899 · MRP ₹1,999 · saved ₹1,100</small></span><b>₹899</b></div>
+              <div class="line"><span>Lifelong Callus Remover<small>1 × ₹1,140</small></span><b>₹1,140</b></div>
+              <div class="line"><span>Pigeon 3L Pressure Cooker<small>1 × ₹725 · MRP ₹1,495 · saved ₹770</small></span><b>₹725</b></div>
+              <div class="gst">
+                <div><span>Taxable value</span><span>₹2,342</span></div>
+                <div><span>CGST 9%</span><span>₹211</span></div>
+                <div><span>SGST 9%</span><span>₹211</span></div>
+              </div>
+              <div class="modal-totals">
+                <div><span>Customer saved</span><span class="save-red">₹1,870</span></div>
+                <div class="grand"><span>Total</span><span>₹2,764</span></div>
+              </div>
+              <div class="modal-actions">
+                <button class="btn">Reprint bill</button>
+                <button class="x" onclick="document.getElementById('md').style.display='none'">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><span class="dot">a</span><span><b>Everything the paper showed</b>, from the stored sale — lines with qty × price and per-line saving, the GST split as invoiced, payment method, operator, register, and the customer (masked number).</span></p>
+    <p class="note"><span class="dot">b</span><span><b>Reprint lives in the modal</b> — the "customer came back asking for the bill" path is: find the row, open, reprint. Scrim tap or Close dismisses.</span></p>
+  </div>
+
+  <!-- ============ 3. FLOW ============ -->
+  <div class="section">
+    <div class="kicker">3 · The day, end to end</div>
+    <h2>How the pieces behave</h2>
+    <p class="note"><span class="dot">1</span><span><b>Refresh-proof:</b> the screen remembers its cart and re-opens it after any reload — a cart only dies by payment, by Clear, or by the next-morning sweep.</span></p>
+    <p class="note"><span class="dot">2</span><span><b>Hold → serve → return:</b> Meera forgets her wallet in the car — Hold cart, ring the next customer, tap Carts → her row → Resume. Her lines and her name come back exactly.</span></p>
+    <p class="note"><span class="dot">3</span><span><b>Cross-register:</b> a cart held on Register 2 resumes on Register 1 — the queue moves, the cart follows the customer.</span></p>
+    <p class="note"><span class="dot">4</span><span><b>Morning sweep:</b> yesterday's untouched carts are abandoned automatically at first touch of the day — the list always shows today's real work only.</span></p>
+  </div>
+</div>
