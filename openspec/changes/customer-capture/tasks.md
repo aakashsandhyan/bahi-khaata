@@ -30,5 +30,5 @@
 
 - [x] 5.1 Full backend suite green
 - [x] 5.2 e2e suite green (including the new customer-step specs)
-- [ ] 5.3 Browser walk on the running app: sell to a new customer, resell by the same mobile, see both visits on their record and the stats move
+- [x] 5.3 Browser walk on the running app: sell to a new customer, resell by the same mobile, see both visits on their record and the stats move
 - [x] 5.4 `openspec validate customer-capture`
