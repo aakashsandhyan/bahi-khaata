@@ -71,6 +71,14 @@ class CheckoutController {
         return checkout.scan(cartId, request.code());
     }
 
+    record AddProductRequest(UUID productId) {}
+
+    /** The quick-picks grid's add — a tile tap instead of a barcode in hand. */
+    @PostMapping("/cart/{cartId}/add-product")
+    CartView addProduct(@PathVariable UUID cartId, @RequestBody AddProductRequest request) {
+        return checkout.addProduct(cartId, request.productId());
+    }
+
     @PostMapping("/cart/{cartId}/lines/{lineId}/quantity")
     CartView setQuantity(
             @PathVariable UUID cartId,

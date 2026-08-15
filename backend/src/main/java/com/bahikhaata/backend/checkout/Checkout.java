@@ -228,7 +228,25 @@ public class Checkout {
                 barcodes.findByCode(code).map(Barcode::getProduct)
                         .orElseThrow(() -> new IllegalArgumentException(
                                 "Nothing scans as " + code + "."));
+        return addLine(cart, cartId, product);
+    }
 
+    /**
+     * Adds a product picked by identity rather than by scan — the quick-picks grid, where the
+     * operator taps a tile instead of holding a barcode. Same rules as a scan from here on.
+     */
+    @Transactional
+    public CartView addProduct(UUID cartId, UUID productId) {
+        Cart cart = openCart(cartId);
+        Product product = barcodes.findByProductId(productId).stream()
+                .findFirst()
+                .map(Barcode::getProduct)
+                .orElseThrow(() -> new IllegalArgumentException("No such product to add."));
+        return addLine(cart, cartId, product);
+    }
+
+    /** The one way a product enters a cart, however it was picked. */
+    private CartView addLine(Cart cart, UUID cartId, Product product) {
         Money price = product.getSellingPrice();
         if (price == null) {
             throw new IllegalStateException(

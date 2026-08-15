@@ -257,6 +257,8 @@ async function delVoid(path: string): Promise<void> {
 export const checkout = {
   open: () => post<_CartView>('/api/checkout/cart') as Promise<_CartView>,
   view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
+  addProduct: (cartId: string, productId: string) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/add-product`, { productId }) as Promise<_CartView>,
   scan: (cartId: string, code: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/scan`, { code }) as Promise<_CartView>,
   setQuantity: (cartId: string, lineId: string, quantity: number) =>
