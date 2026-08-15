@@ -14,7 +14,7 @@ test('Till: reached via #till, absent from the sidebar, and keying a seeded barc
   await page.getByLabel('Float counted in (₹)').fill('2000')
   await page.getByRole('button', { name: /^Open Register .* and start selling$/ }).click()
 
-  const scan = page.getByPlaceholder('Scan barcode or type SKU…')
+  const scan = page.getByPlaceholder('Scan barcode or type SKU / product name…')
   await expect(scan).toBeVisible()
   await scan.fill(seed.products.pricedGood.barcode)
   await scan.press('Enter')

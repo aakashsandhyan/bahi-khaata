@@ -1133,13 +1133,14 @@ tr.damaged { background: var(--color-accent-2-100); }
    POS — the modern checkout, per the design artifact: quick picks left, cart
    right. Tap targets sized for a counter, figures right-aligned like a bill.
    ============================================================================ */
-.pos { display: grid; grid-template-columns: 1fr 380px; gap: 0; min-height: calc(100vh - 57px); }
-.pos-left { padding: 16px; min-width: 0; }
+/* The screen never scrolls as a whole: the tile grid and the cart's line list scroll on their
+   own, so the scan bar, the totals, and Take payment stay planted while either side grows. */
+.pos { display: grid; grid-template-columns: 1fr 380px; gap: 0; height: calc(100vh - 57px); overflow: hidden; }
+.pos-left { padding: 16px; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .pos-scanrow { display: flex; gap: 8px; margin-bottom: 12px; }
-.pos-scan { flex: 2; font-size: 18px; padding: 12px 14px; border: 2px solid var(--color-accent); border-radius: 8px; background: #fff; }
-.pos-filter { flex: 1; padding: 12px 14px; border: 1px solid var(--color-neutral-400); border-radius: 8px; }
+.pos-scan { flex: 1; font-size: 18px; padding: 12px 14px; border: 2px solid var(--color-accent); border-radius: 8px; background: #fff; }
 .pos-chips { margin-bottom: 12px; flex-wrap: wrap; }
-.pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; min-height: 0; align-content: start; padding-bottom: 8px; }
 .pos-tile {
   display: flex; flex-direction: column; gap: 6px; text-align: left;
   padding: 12px; min-height: 130px; cursor: pointer;
@@ -1150,7 +1151,7 @@ tr.damaged { background: var(--color-accent-2-100); }
 .pos-tile-cat { font-size: 11px; letter-spacing: 0.08em; color: var(--color-neutral-600); text-transform: uppercase; }
 .pos-tile-name { font-weight: 600; flex: 1; }
 .pos-tile-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
-.pos-cart { border-left: 1px solid var(--color-divider); padding: 16px; display: flex; flex-direction: column; background: var(--color-neutral-100); }
+.pos-cart { border-left: 1px solid var(--color-divider); padding: 16px; display: flex; flex-direction: column; background: var(--color-neutral-100); min-height: 0; }
 .pos-cart-head { display: flex; justify-content: space-between; align-items: baseline; }
 .pos-clear { background: none; border: none; color: var(--color-accent); cursor: pointer; font: inherit; font-size: 13px; padding: 2px 0; }
 .pos-lines { flex: 1; overflow-y: auto; margin: 8px 0; }

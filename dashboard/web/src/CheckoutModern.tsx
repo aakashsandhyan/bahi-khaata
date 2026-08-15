@@ -106,8 +106,10 @@ function Pos({ register }: { register: RegisterStateView }) {
   const [sale, setSale] = useState<SaleView | null>(null)
   const [rows, setRows] = useState<InventoryRow[]>([])
   const [chip, setChip] = useState<string>('ALL')
-  const [query, setQuery] = useState('')
-  const [scanValue, setScanValue] = useState('')
+  // One field does both jobs, like the artifact: typing narrows the quick picks live, and Enter
+  // tries the text as a scanned/keyed code. A scanner is just a fast keyboard ending in Enter,
+  // so the hardware path and the search path are literally the same input.
+  const [entry, setEntry] = useState('')
   const [paying, setPaying] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -124,12 +126,24 @@ function Pos({ register }: { register: RegisterStateView }) {
   const chips = useMemo(
     () => ['ALL', ...Array.from(new Set(sellable.map((r) => r.categoryCode))).sort()],
     [sellable])
-  const picks = useMemo(
-    () => sellable
-      .filter((r) => chip === 'ALL' || r.categoryCode === chip)
-      .filter((r) => !query.trim() || r.productName.toLowerCase().includes(query.trim().toLowerCase()))
-      .slice(0, 24),
-    [sellable, chip, query])
+  // Tokenized prefix match over an in-memory index — every query word must start some word of
+  // the name or the category. The whole sellable catalogue is already in the browser (a few
+  // thousand rows), so this answers per keystroke with no server round-trip; no search engine
+  // needed at this scale (SQLite FTS5 is the upgrade path long before Elasticsearch would be).
+  const indexed = useMemo(
+    () => sellable.map((r) => ({
+      row: r,
+      tokens: `${r.productName} ${r.categoryCode}`.toLowerCase().split(/[^a-z0-9₹]+/).filter(Boolean),
+    })),
+    [sellable])
+  const picks = useMemo(() => {
+    const terms = entry.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    return indexed
+      .filter(({ row }) => chip === 'ALL' || row.categoryCode === chip)
+      .filter(({ tokens }) => terms.every((t) => tokens.some((tok) => tok.startsWith(t))))
+      .slice(0, 30)
+      .map(({ row }) => row)
+  }, [indexed, chip, entry])
 
   const mutate = async (fn: () => Promise<CartView>) => {
     setError(null)
@@ -143,7 +157,7 @@ function Pos({ register }: { register: RegisterStateView }) {
   const onScan = (raw: string) => {
     const code = raw.trim()
     if (!code || !cart) return
-    setScanValue('')
+    setEntry('')
     mutate(() => checkout.scan(cart.cartId, code))
   }
 
@@ -193,17 +207,11 @@ function Pos({ register }: { register: RegisterStateView }) {
         <div className="pos-scanrow">
           <input
             className="pos-scan"
-            placeholder="Scan barcode or type SKU…"
-            value={scanValue}
+            placeholder="Scan barcode or type SKU / product name…"
+            value={entry}
             autoFocus
-            onChange={(e) => setScanValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && onScan(scanValue)}
-          />
-          <input
-            className="pos-filter"
-            placeholder="Filter quick picks…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setEntry(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onScan(entry)}
           />
         </div>
         <div className="mode-toggle pos-chips">
