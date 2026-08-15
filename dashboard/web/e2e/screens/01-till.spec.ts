@@ -25,6 +25,15 @@ test('Till: reached via #till, absent from the sidebar, and keying a seeded barc
   await expect(page.locator('.pos-line strong').first()).toHaveText('₹499')
   await expect(page.locator('.pos-topay')).toContainText('₹499')
 
+  // Manual entry: a keyed name and price joins the cart beside the scanned line (no product
+  // record, GST at the default rate, no stock touched — asserted API-side in CheckoutTest).
+  await page.getByRole('button', { name: 'Manual entry', exact: true }).click()
+  await page.getByLabel('What is being sold').fill('Loose glass jar')
+  await page.getByLabel('Price (₹)').fill('100')
+  await page.getByRole('button', { name: 'Add to cart', exact: true }).click()
+  await expect(page.locator('.pos-line').getByText('Loose glass jar')).toBeVisible()
+  await expect(page.locator('.pos-topay')).toContainText('₹599')
+
   // No sidebar entry names it — Till is a deliberate back-door, not a daily destination.
   await expect(page.getByRole('button', { name: 'Till', exact: true })).toHaveCount(0)
 })

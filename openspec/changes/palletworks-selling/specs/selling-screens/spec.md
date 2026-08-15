@@ -25,3 +25,18 @@ The Invoices screen SHALL list recorded sales newest-first with bill number, tim
 #### Scenario: Reviewing a session's bills at close
 - **WHEN** the close-drawer view asks for the open session's sales
 - **THEN** Invoices shows exactly the bills recorded against that session
+
+### Requirement: Manual entry sells a thing with no product record
+
+The checkout SHALL offer manual entry: a keyed name and price form a cart line with no product
+reference. GST SHALL resolve from a chosen sub-category or the shop default; an optional lot
+SHALL attribute the line to a delivery for recovery reporting. No stock ledger movement SHALL be
+written for such a line, and an optional MRP below the price SHALL be refused.
+
+#### Scenario: A loose item is keyed and sold
+- **WHEN** a name and price are keyed through manual entry and the cart is paid
+- **THEN** the sale records the line with no product reference, GST extracted at the chosen rate, and no stock movement
+
+#### Scenario: Lot attribution is optional
+- **WHEN** a manual entry names a delivery lot
+- **THEN** the sale line carries that lot reference; without one the line records unattributed

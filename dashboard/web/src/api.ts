@@ -259,6 +259,21 @@ export const checkout = {
   view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
   addProduct: (cartId: string, productId: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/add-product`, { productId }) as Promise<_CartView>,
+  // Manual entry: a keyed name and price; GST by chosen sub-category; lot attribution optional.
+  addCustomLine: (
+    cartId: string,
+    name: string,
+    pricePaise: number,
+    mrpPaise: number | null,
+    subCategory: string | null,
+    lotId: string | null,
+  ) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/custom-line`, {
+      name, pricePaise, mrpPaise, subCategory, lotId,
+    }) as Promise<_CartView>,
+  gstOptions: () =>
+    get<{ defaultBasisPoints: number; options: { subCategory: string; basisPoints: number }[] }>(
+      '/api/checkout/gst-options'),
   scan: (cartId: string, code: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/scan`, { code }) as Promise<_CartView>,
   setQuantity: (cartId: string, lineId: string, quantity: number) =>

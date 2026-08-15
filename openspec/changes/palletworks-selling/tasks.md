@@ -40,3 +40,9 @@
 - [x] 6.2 e2e suite green (including the rewritten shell probes: Till listed under Classic, unlisted under Modern)
 - [x] 6.3 Browser walk: ring a sale in Classic, see it in Modern Invoices; open→sell→close a register, over/short correct on screen
 - [x] 6.4 `openspec validate palletworks-selling`; bundle-size check on `vite build`
+
+## 7. Checkout refinements (post-deploy feedback)
+
+- [x] 7.1 POS panes scroll independently; scan bar, totals, Take payment stay fixed
+- [x] 7.2 Single scan/search field with tokenized prefix matching over the in-browser catalogue (no search engine; FTS5 is the documented upgrade path)
+- [x] 7.3 Manual entry: V51 (nullable product on cart/sale lines + lot attribution), addCustomLine service + endpoint + GST options endpoint, dialog on checkout; unit + e2e coverage

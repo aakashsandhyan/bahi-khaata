@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { checkout, inventory, registers, BackendError } from './api'
-import type { CartView, InventoryRow, PaymentMethod, RegisterStateView, SaleView } from './types'
+import { checkout, inventory, receiving, registers, BackendError } from './api'
+import type { CartView, InventoryRow, LotSummary, PaymentMethod, RegisterStateView, SaleView } from './types'
 import { rupees } from './money'
 
 // Which physical drawer this device is — remembered per device, like the operator name.
@@ -113,6 +113,7 @@ function Pos({ register }: { register: RegisterStateView }) {
   const [paying, setPaying] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
 
   useEffect(() => {
     checkout.open().then(setCart).catch(() => setError('Cannot reach the till.'))
@@ -213,7 +214,17 @@ function Pos({ register }: { register: RegisterStateView }) {
             onChange={(e) => setEntry(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onScan(entry)}
           />
+          <button type="button" className="pos-manual" onClick={() => setManualOpen(true)}>
+            Manual entry
+          </button>
         </div>
+        {manualOpen && cart && (
+          <ManualEntryDialog
+            cartId={cart.cartId}
+            onClose={() => setManualOpen(false)}
+            onAdded={(next) => { setCart(next); setManualOpen(false) }}
+          />
+        )}
         <div className="mode-toggle pos-chips">
           {chips.map((c) => (
             <button key={c} type="button" className={chip === c ? 'on' : ''} onClick={() => setChip(c)}>
@@ -301,6 +312,101 @@ function Pos({ register }: { register: RegisterStateView }) {
           </div>
         )}
       </aside>
+    </div>
+  )
+}
+
+/**
+ * Manual entry: sell a thing with no product record — name and price keyed at the counter.
+ * GST comes from a picked sub-category (or the shop default); the lot is optional attribution
+ * to the delivery it came from, for recovery reporting. No stock is decremented — the stock was
+ * never in the system, which is why it is being keyed by hand.
+ */
+function ManualEntryDialog({ cartId, onClose, onAdded }: {
+  cartId: string
+  onClose: () => void
+  onAdded: (cart: CartView) => void
+}) {
+  const [name, setName] = useState('')
+  const [priceRupees, setPriceRupees] = useState('')
+  const [mrpRupees, setMrpRupees] = useState('')
+  const [subCategory, setSubCategory] = useState('')
+  const [lotId, setLotId] = useState('')
+  const [gst, setGst] = useState<{ defaultBasisPoints: number; options: { subCategory: string; basisPoints: number }[] } | null>(null)
+  const [lots, setLots] = useState<LotSummary[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    checkout.gstOptions().then(setGst).catch(() => {})
+    receiving.lots().then(setLots).catch(() => {})
+  }, [])
+
+  const paise = (s: string) => Math.round(parseFloat(s || '0') * 100)
+
+  const add = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      onAdded(await checkout.addCustomLine(
+        cartId, name.trim(), paise(priceRupees),
+        mrpRupees.trim() ? paise(mrpRupees) : null,
+        subCategory || null, lotId || null))
+    } catch (e) {
+      setError(e instanceof BackendError ? e.message : 'Cannot reach the till.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="pos-dialog-scrim" onClick={onClose}>
+      <div className="pos-dialog" onClick={(e) => e.stopPropagation()}>
+        <h2 style={{ marginTop: 0 }}>Manual entry</h2>
+        {error && <div className="banner stop">{error}</div>}
+        <label>
+          What is being sold
+          <input value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="e.g. Loose glass jar" />
+        </label>
+        <div className="pos-dialog-row">
+          <label>
+            Price (₹)
+            <input value={priceRupees} inputMode="decimal" onChange={(e) => setPriceRupees(e.target.value)} />
+          </label>
+          <label>
+            MRP (₹, optional)
+            <input value={mrpRupees} inputMode="decimal" onChange={(e) => setMrpRupees(e.target.value)} />
+          </label>
+        </div>
+        <label>
+          GST category
+          <select value={subCategory} onChange={(e) => setSubCategory(e.target.value)}>
+            <option value="">Default ({gst ? gst.defaultBasisPoints / 100 : 18}%)</option>
+            {gst?.options.map((o) => (
+              <option key={o.subCategory} value={o.subCategory}>
+                {o.subCategory} · {o.basisPoints / 100}%
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          From delivery (optional)
+          <select value={lotId} onChange={(e) => setLotId(e.target.value)}>
+            <option value="">Not attributed</option>
+            {lots.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.supplier} · {l.receivedOn}{l.categoryCode ? ` · ${l.categoryCode}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="pos-dialog-actions">
+          <button disabled={busy || !name.trim() || !paise(priceRupees)} className="pos-pay" style={{ marginTop: 0 }} onClick={add}>
+            Add to cart
+          </button>
+          <button disabled={busy} onClick={onClose}>Cancel</button>
+        </div>
+      </div>
     </div>
   )
 }
