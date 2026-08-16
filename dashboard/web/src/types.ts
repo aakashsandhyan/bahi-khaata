@@ -109,6 +109,9 @@ export interface CartView {
   totalPaise: number
   savingPaise: number
   taxIsPlaceholder: boolean
+  // The cart's captured customer, or nulls — a walk-in. Rides the cart so holds keep the person.
+  customerId: string | null
+  customerName: string | null
 }
 
 export type PaymentMethod = 'CASH' | 'UPI' | 'CARD'
@@ -142,6 +145,8 @@ export interface SaleView {
   createdAt: string
   lines: SaleLineView[]
   printFailed: boolean
+  customerName: string | null
+  customerMobileMasked: string | null
 }
 
 export interface SaleSummary {
@@ -152,6 +157,7 @@ export interface SaleSummary {
   paymentMethod: PaymentMethod
   createdAt: string
   itemCount: number
+  customerName: string | null
 }
 
 // --- dashboard ---
@@ -843,4 +849,65 @@ export interface RegisterCloseSummary {
   overShortPaise: number
   openedAt: string
   closedAt: string
+}
+
+// --- customers (customer-capture) ---
+// Figures derived from customer × sale at read time. Lists carry masked mobiles (last four);
+// the full number rides only the lookup answer and the customer's own detail.
+export interface CustomerView {
+  id: string
+  name: string
+  mobile: string
+}
+
+export interface CustomerRow {
+  id: string
+  name: string
+  tag: string
+  mobileMasked: string
+  visits: number
+  spentPaise: number
+  averagePaise: number | null
+  likes: string
+  lastVisitAt: string | null
+}
+
+export interface CustomerStats {
+  peopleOnFile: number
+  repeatShareOfRevenuePercent: number | null
+  averageRepeatBasketPaise: number | null
+  averageWalkInBasketPaise: number | null
+  lapsedSixtyDaysPlus: number
+}
+
+export interface CustomerList {
+  stats: CustomerStats
+  customers: CustomerRow[]
+}
+
+export interface CustomerVisit {
+  billNo: number
+  billNoFormatted: string
+  at: string
+  what: string
+  amountPaise: number
+}
+
+export interface CustomerDetail {
+  id: string
+  name: string
+  mobile: string
+  since: string
+  visits: CustomerVisit[]
+}
+
+// One open cart as the carts panel lists it (cart-continuity).
+export interface CartSummary {
+  cartId: string
+  customerName: string | null
+  itemCount: number
+  summary: string
+  totalPaise: number
+  registerName: string | null
+  touchedAt: string
 }

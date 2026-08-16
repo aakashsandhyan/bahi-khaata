@@ -59,7 +59,7 @@ class ReceiptTemplateServiceTest {
         return new SaleView(
                 UUID.randomUUID(), 42, "BB-000042", PaymentMethod.CASH,
                 199_700, 149_600, 0, 0, 0, 199_700, 199_700, "Ravi",
-                Instant.parse("2026-08-02T09:00:00Z"), lines, false);
+                Instant.parse("2026-08-02T09:00:00Z"), lines, false, null, null);
     }
 
     @Test
@@ -76,7 +76,7 @@ class ReceiptTemplateServiceTest {
                 99_800, 0, 15_200, 7_600, 7_600, 84_600, 99_800, "Ravi",
                 Instant.parse("2026-08-02T09:00:00Z"),
                 List.of(new SaleLineView(UUID.randomUUID(), "Item", "BBZ-1", 0, 49_900, 2, 99_800, 0)),
-                false);
+                false, null, null);
 
         String bill = template.renderText(sale);
 

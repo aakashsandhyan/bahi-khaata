@@ -29,7 +29,9 @@ test('the dashboard shell renders the sidebar', async ({ page }) => {
   // register-gated Checkout to the Selling group — thirteen. Catalog/Receiving/Lots stay gone
   // from the MODERN sidebar (they live in the classic shell now), Settings stays the one admin
   // entry.
-  await expect(page.locator('.sidebar-item')).toHaveCount(13)
+  // customer-capture adds Customers under Back office — fourteen.
+  await expect(page.locator('.sidebar-item')).toHaveCount(14)
+  await expect(page.getByRole('button', { name: 'Customers', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Register', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Checkout', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Invoices', exact: true })).toBeVisible()

@@ -18,30 +18,17 @@
 package com.bahikhaata.contracts;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 /**
- * A completed sale as the till and sales screen show it. {@code printFailed} is true when the sale
- * was recorded but its bill did not print — the operator can reprint it.
+ * One open cart as the carts panel lists it: who it is for (null name = walk-in), what is in it
+ * at a glance, where it was opened, and when it was last touched — the list's sort key.
  */
-public record SaleView(
-        UUID saleId,
-        long billNo,
-        String billNoFormatted,
-        PaymentMethod paymentMethod,
-        long subtotalPaise,
-        long savingPaise,
-        long taxPaise,
-        long cgstPaise,
-        long sgstPaise,
-        long taxablePaise,
-        long totalPaise,
-        String operatorName,
-        Instant createdAt,
-        List<SaleLineView> lines,
-        boolean printFailed,
-        // The captured customer, or nulls — a walk-in. Mobile pre-masked (last four digits);
-        // the full number never rides a sale view.
+public record CartSummary(
+        UUID cartId,
         String customerName,
-        String customerMobileMasked) {}
+        int itemCount,
+        String summary,
+        long totalPaise,
+        String registerName,
+        Instant touchedAt) {}

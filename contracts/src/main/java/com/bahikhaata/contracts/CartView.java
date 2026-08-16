@@ -36,4 +36,8 @@ public record CartView(
         long taxPaise,
         long totalPaise,
         long savingPaise,
-        boolean taxIsPlaceholder) {}
+        boolean taxIsPlaceholder,
+        // The cart's captured customer, or nulls — a walk-in. Rides the cart (V53) so a held or
+        // resumed cart keeps its person on any register.
+        UUID customerId,
+        String customerName) {}

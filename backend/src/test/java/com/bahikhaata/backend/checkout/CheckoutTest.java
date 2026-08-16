@@ -67,6 +67,10 @@ class CheckoutTest {
     @Autowired private SaleRepository sales;
     @Autowired private com.bahikhaata.backend.inventory.StockLevels stock;
     @Autowired private com.bahikhaata.backend.register.RegisterService registerService;
+    @Autowired private com.bahikhaata.backend.customer.CustomerService customerService;
+    @Autowired private CartRepository carts;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired private jakarta.persistence.EntityManager em;
 
     private String supplierId(String name) {
         return suppliers.findByNameNormalized(Supplier.normalize(name))
@@ -327,6 +331,96 @@ class CheckoutTest {
                 .hasMessageContaining("No sale numbered");
     }
 
+    @Test
+    @DisplayName("A restored cart is the same cart; a paid one restores as nothing")
+    void restoreReturnsTheSameOpenCart() {
+        String code = onTheShelf("CONTA", 20_000, 40_000, 15_000);
+        UUID cartId = scannedCart(code);
+
+        var restored = checkout.restore(cartId);
+        assertThat(restored).isPresent();
+        assertThat(restored.get().cartId()).isEqualTo(cartId);
+        assertThat(restored.get().lines()).hasSize(1);
+
+        checkout.complete(cartId, PaymentMethod.CASH, "Aakash");
+        assertThat(checkout.restore(cartId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("The carts panel lists open carts newest touch first")
+    void openCartsSortByLastTouch() {
+        String code = onTheShelf("CONTB", 20_000, 40_000, 15_000);
+        UUID older = scannedCart(code);
+        UUID newer = checkout.open().cartId();
+        checkout.scan(newer, code); // touched after `older`
+
+        var panel = checkout.openCarts();
+        assertThat(panel.get(0).cartId()).isEqualTo(newer);
+        assertThat(panel.get(1).cartId()).isEqualTo(older);
+
+        checkout.scan(older, code); // touching the older cart lifts it back on top
+        panel = checkout.openCarts();
+        assertThat(panel.get(0).cartId()).isEqualTo(older);
+    }
+
+    @Test
+    @DisplayName("Yesterday's cart sweeps on either read path; today's survives")
+    void yesterdaysCartSweeps() {
+        String code = onTheShelf("CONTC", 20_000, 40_000, 15_000);
+        UUID stale = scannedCart(code);
+        UUID fresh = scannedCart(code);
+        em.flush();
+        // Backdate the stale cart's touch to two days ago, beneath the persistence context.
+        jdbc.update("UPDATE cart SET touched_at = ? WHERE id = ?",
+                java.time.Instant.now().minusSeconds(2L * 24 * 60 * 60).toString(), stale.toString());
+        em.clear();
+
+        var panel = checkout.openCarts();
+        assertThat(panel.stream().map(c -> c.cartId())).contains(fresh).doesNotContain(stale);
+        assertThat(carts.findById(stale).orElseThrow().getState()).isEqualTo("ABANDONED");
+
+        // The pointer-restore path sweeps too.
+        em.clear();
+        jdbc.update("UPDATE cart SET touched_at = ?, state = 'OPEN' WHERE id = ?",
+                java.time.Instant.now().minusSeconds(2L * 24 * 60 * 60).toString(), stale.toString());
+        assertThat(checkout.restore(stale)).isEmpty();
+        em.flush(); // the request boundary would flush; the test must too before detaching
+        em.clear();
+        assertThat(carts.findById(stale).orElseThrow().getState()).isEqualTo("ABANDONED");
+    }
+
+    @Test
+    @DisplayName("A held cart keeps its customer onto the sale; a second completion is refused")
+    void heldCartsCustomerRidesToTheSale() {
+        String code = onTheShelf("CONTD", 20_000, 40_000, 15_000);
+        UUID cartId = scannedCart(code);
+        var meera = customerService.save("Meera Joshi", "9821455130");
+
+        CartView withCustomer = checkout.attachCustomer(cartId, meera.getId());
+        assertThat(withCustomer.customerName()).isEqualTo("Meera Joshi");
+
+        // "Hold" is client-side pointer talk; the cart row needs nothing. Resume = plain fetch.
+        assertThat(checkout.restore(cartId).orElseThrow().customerName()).isEqualTo("Meera Joshi");
+
+        checkout.complete(cartId, PaymentMethod.CASH, "Aakash");
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getCustomerId()).isEqualTo(meera.getId());
+
+        assertThatThrownBy(() -> checkout.complete(cartId, PaymentMethod.CASH, "Aakash"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("A request-level customer still lands when the cart carries none")
+    void requestCustomerFallback() {
+        String code = onTheShelf("CONTE", 20_000, 40_000, 15_000);
+        var rakesh = customerService.save("Rakesh", "9910588215");
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash", null, rakesh.getId());
+        Sale sale = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(sale.getCustomerId()).isEqualTo(rakesh.getId());
+    }
+
     private UUID scannedCart(String code) {
         UUID cartId = checkout.open().cartId();
         checkout.scan(cartId, code);
@@ -402,6 +496,21 @@ class CheckoutTest {
         assertThatThrownBy(() -> checkout.addCustomLine(cartId, "Jar", 100, null, null, UUID.randomUUID()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("lot");
+    }
+
+    @Test
+    @DisplayName("A captured customer rides the sale; a walk-in stays unreferenced")
+    void customerAttachmentIsOptional() {
+        String code = onTheShelf("CUSTA", 20_000, 40_000, 15_000);
+        var meera = customerService.save("Meera Joshi", "+91 98214 55120");
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash", null, meera.getId());
+        Sale attached = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(attached.getCustomerId()).isEqualTo(meera.getId());
+
+        checkout.complete(scannedCart(code), PaymentMethod.CASH, "Aakash");
+        Sale walkIn = sales.findAll().stream().reduce((a, b) -> b).orElseThrow();
+        assertThat(walkIn.getCustomerId()).isNull();
     }
 
     @Test

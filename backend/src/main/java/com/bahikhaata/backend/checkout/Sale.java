@@ -84,6 +84,11 @@ public class Sale extends UuidEntity {
     @Column(name = "register_session_id")
     private java.util.UUID registerSessionId;
 
+    /** The captured customer, or null — a walk-in, forever valid (V52). */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.CHAR)
+    @Column(name = "customer_id")
+    private java.util.UUID customerId;
+
     @CreationTimestamp
     @Convert(converter = InstantIso8601Converter.class)
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "text")
@@ -171,6 +176,14 @@ public class Sale extends UuidEntity {
 
     public void setRegisterSessionId(java.util.UUID registerSessionId) {
         this.registerSessionId = registerSessionId;
+    }
+
+    public java.util.UUID getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(java.util.UUID customerId) {
+        this.customerId = customerId;
     }
 
     public Instant getCreatedAt() {

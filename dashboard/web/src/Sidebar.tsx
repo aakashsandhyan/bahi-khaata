@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 export type View =
   | 'dashboard' | 'checkout' | 'sales' | 'intake' | 'unpacking' | 'prep'
   | 'pricing' | 'review' | 'inventory' | 'reprint' | 'capture' | 'suppliers'
-  | 'settings' | 'register'
+  | 'settings' | 'register' | 'customers'
   // Opened with a product id (App's `detailProductId`), not a param-less nav click — reachable
   // from any Inventory row (design decision D9 of palletworks-inventory, carried forward as the
   // sole opener by D9 of palletworks-nav), so deliberately absent from NAV_GROUPS like 'capture'.
@@ -47,6 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Back office',
     items: [
+      { view: 'customers', label: 'Customers', kicker: 'People' },
       { view: 'suppliers', label: 'Suppliers', kicker: 'Sourcing' },
       { view: 'settings', label: 'Settings', kicker: 'Admin' },
     ],

@@ -47,3 +47,102 @@ test('Capture hash also resolves on desktop, via the same landing mechanism as #
   await page.goto('/#capture')
   await expect(page.getByRole('heading', { name: 'Capture a product' })).toBeVisible()
 })
+
+// The counter's policy: ask every sale; Walk-in declines in one tap; a keyed mobile saves and
+// attaches, and the cart header names the catch (customer-capture specs).
+test('Payment leads with the customer ask: attach by mobile, and the header follows', async ({ page }) => {
+  await page.goto('/#till')
+
+  // Register was opened by the first spec in this file (serial within a worker on one DB)…
+  // …but be self-sufficient: open it if the gate shows.
+  const gate = page.getByRole('button', { name: /^Open Register .* and start selling$/ })
+  if (await gate.isVisible().catch(() => false)) {
+    await page.getByLabel('Operator').fill('Probe')
+    await page.getByLabel('Float counted in (₹)').fill('2000')
+    await gate.click()
+  }
+
+  const scan = page.getByPlaceholder('Scan barcode or type SKU / product name…')
+  await expect(scan).toBeVisible()
+  await scan.fill(seed.products.pricedGood.barcode)
+  await scan.press('Enter')
+  await expect(page.locator('.pos-line').getByText(seed.products.pricedGood.name)).toBeVisible()
+
+  // Take payment → the ask. Key a new customer's mobile; the name field reveals; save attaches.
+  await page.getByRole('button', { name: 'Take payment', exact: true }).click()
+  await page.getByPlaceholder('Mobile number').fill('98214 55120')
+  await page.getByPlaceholder("Customer's name").fill('Meera Joshi')
+  await page.getByRole('button', { name: 'Save and attach', exact: true }).click()
+
+  // The header names the catch, and the method step is up.
+  await expect(page.locator('.pos-cart').getByText('Meera Joshi ·')).toBeVisible()
+  await expect(page.locator('.pos-methods')).toBeVisible()
+
+  // Back out and clear — the attachment clears with the cart.
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await page.locator('.pos-cart').getByRole('button', { name: 'Clear', exact: true }).click()
+  await expect(page.locator('.pos-cart').getByText('Walk-in customer ·')).toBeVisible()
+})
+
+test('Walk-in declines in one tap and the method step is up at once', async ({ page }) => {
+  // Deliberately stops at the method step: actually completing would move revenue and stock
+  // that 13-dashboard and 18-item-detail assert from the seed. The unreferenced-completion
+  // fact is proven API-side (CheckoutTest: walk-in stays null); this spec proves the one-tap.
+  await page.goto('/#till')
+  const scan = page.getByPlaceholder('Scan barcode or type SKU / product name…')
+  await expect(scan).toBeVisible()
+  await scan.fill(seed.products.pricedGood.barcode)
+  await scan.press('Enter')
+  await expect(page.locator('.pos-line').getByText(seed.products.pricedGood.name)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Take payment', exact: true }).click()
+  await page.getByRole('button', { name: 'Walk-in', exact: true }).click()
+  await expect(page.locator('.pos-methods')).toBeVisible()
+
+  // Leave the shared DB as found: back out and clear the cart.
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await page.locator('.pos-cart').getByRole('button', { name: 'Clear', exact: true }).click()
+})
+
+// Continuity: the cart survives a reload, Hold parks it with its customer, and the panel
+// resumes it — the checkout capability's persistence rules, driven end to end.
+test('A reload keeps the cart; Hold parks it and the panel resumes it with its customer', async ({ page }) => {
+  await page.goto('/#till')
+  const scan = page.getByPlaceholder('Scan barcode or type SKU / product name…')
+  await expect(scan).toBeVisible()
+  await scan.fill(seed.products.pricedGood.barcode)
+  await scan.press('Enter')
+  await expect(page.locator('.pos-line').getByText(seed.products.pricedGood.name)).toBeVisible()
+
+  // Reload changes nothing.
+  await page.reload()
+  await expect(page.locator('.pos-line').getByText(seed.products.pricedGood.name)).toBeVisible()
+
+  // Attach the customer saved by the earlier spec (same run, same DB), then back out to idle.
+  await page.getByRole('button', { name: 'Take payment', exact: true }).click()
+  await page.getByPlaceholder('Mobile number').fill('9821455120')
+  await page.getByRole('button', { name: 'Meera Joshi — attach', exact: true }).click()
+  await expect(page.locator('.pos-methods')).toBeVisible()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(page.locator('.pos-cart').getByText('Meera Joshi ·')).toBeVisible()
+
+  // Hold: a fresh, empty walk-in cart takes the screen.
+  await page.getByRole('button', { name: 'Hold cart', exact: true }).click()
+  await expect(page.locator('.pos-cart').getByText('Walk-in customer ·')).toBeVisible()
+  await expect(page.locator('.pos-line')).toHaveCount(0)
+
+  // The panel lists the held cart under Meera's name; resume brings lines and customer back.
+  await page.getByRole('button', { name: /^Carts/ }).click()
+  const heldRow = page.locator('.pos-cartrow', { hasText: 'Meera Joshi' })
+  await expect(heldRow).toBeVisible()
+  await expect(page.locator('.pos-cartrow.on')).toBeVisible() // this screen's cart is marked
+  await heldRow.click()
+  await expect(page.locator('.pos-panel-preview').getByText(seed.products.pricedGood.name)).toBeVisible()
+  await page.getByRole('button', { name: 'Resume this cart here', exact: true }).click()
+  await expect(page.locator('.pos-line').getByText(seed.products.pricedGood.name)).toBeVisible()
+  await expect(page.locator('.pos-cart').getByText('Meera Joshi ·')).toBeVisible()
+
+  // Leave the shared DB tidy: detach and clear.
+  await page.locator('.pos-cart').getByRole('button', { name: 'Clear', exact: true }).click()
+  await expect(page.locator('.pos-cart').getByText('Walk-in customer ·')).toBeVisible()
+})

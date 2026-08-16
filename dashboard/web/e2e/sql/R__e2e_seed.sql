@@ -213,10 +213,10 @@ VALUES (
 );
 
 -- --- cart + cart line — an open sale sitting on the priced product -----------------------------
-INSERT INTO cart (id, state, created_at, updated_at)
+INSERT INTO cart (id, state, created_at, updated_at, touched_at)
 VALUES (
   'e2e00001-0000-4000-8000-000000000051',
-  'OPEN', '2026-08-01T09:30:00.000Z', '2026-08-01T09:30:00.000Z'
+  'OPEN', '2026-08-01T09:30:00.000Z', '2026-08-01T09:30:00.000Z', '2026-08-01T09:30:00.000Z'
 );
 
 INSERT INTO cart_line (id, cart_id, product_id, unit_price_paise, mrp_paise, quantity, created_at, updated_at)
@@ -233,10 +233,10 @@ VALUES (
 -- (Checkout.tsx's own comment: "till does not take money yet"), so nothing exercises this through
 -- the UI today — it exists as fixture data for the OpenSpec spec's "one completed sale" lifecycle
 -- state, ready for whichever screen reads sale history first.
-INSERT INTO cart (id, state, created_at, updated_at)
+INSERT INTO cart (id, state, created_at, updated_at, touched_at)
 VALUES (
   'e2e00001-0000-4000-8000-000000000053',
-  'PAID', '2026-08-01T09:45:00.000Z', '2026-08-01T09:46:00.000Z'
+  'PAID', '2026-08-01T09:45:00.000Z', '2026-08-01T09:46:00.000Z', '2026-08-01T09:46:00.000Z'
 );
 
 INSERT INTO cart_line (id, cart_id, product_id, unit_price_paise, mrp_paise, quantity, created_at, updated_at)

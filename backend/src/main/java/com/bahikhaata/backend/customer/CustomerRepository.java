@@ -15,13 +15,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.bahikhaata.backend.checkout;
+package com.bahikhaata.backend.customer;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CartRepository extends JpaRepository<Cart, UUID> {
-    /** The open carts, newest touch first — the carts panel's order. */
-    java.util.List<Cart> findByStateOrderByTouchedAtDesc(String state);
+public interface CustomerRepository extends JpaRepository<Customer, UUID> {
+    Optional<Customer> findByMobile(String mobile);
 }

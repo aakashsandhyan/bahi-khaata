@@ -45,22 +45,52 @@ class CheckoutController {
     private final ReceiptPrinting receiptPrinting;
     private final com.bahikhaata.backend.register.RegisterService registerService;
     private final com.bahikhaata.backend.tax.GstRates gstRates;
+    private final com.bahikhaata.backend.customer.CustomerService customerService;
 
     CheckoutController(
             Checkout checkout,
             ReceiptPrinting receiptPrinting,
             com.bahikhaata.backend.register.RegisterService registerService,
-            com.bahikhaata.backend.tax.GstRates gstRates) {
+            com.bahikhaata.backend.tax.GstRates gstRates,
+            com.bahikhaata.backend.customer.CustomerService customerService) {
         this.checkout = checkout;
         this.receiptPrinting = receiptPrinting;
         this.registerService = registerService;
         this.gstRates = gstRates;
+        this.customerService = customerService;
     }
 
-    /** Starts a fresh sale. */
+    record OpenCartRequest(String registerName) {}
+
+    /** Starts a fresh sale, stamped with the register it belongs to when the till says so. */
     @PostMapping("/cart")
-    CartView open() {
-        return checkout.open();
+    CartView open(@RequestBody(required = false) OpenCartRequest request) {
+        return checkout.open(request != null ? request.registerName() : null);
+    }
+
+    /**
+     * A device restoring its remembered cart after a reload: the open cart, or 404 when it is
+     * gone, paid, abandoned — or swept just now for being yesterday's.
+     */
+    @GetMapping("/cart/{cartId}/restore")
+    ResponseEntity<CartView> restore(@PathVariable UUID cartId) {
+        return checkout.restore(cartId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** The open carts across the shop, newest touch first — the carts panel. */
+    @GetMapping("/carts")
+    java.util.List<com.bahikhaata.contracts.CartSummary> openCarts() {
+        return checkout.openCarts();
+    }
+
+    record AttachCustomerRequest(UUID customerId) {}
+
+    /** Attaches (null detaches) the cart's customer — a held cart keeps its person. */
+    @PostMapping("/cart/{cartId}/customer")
+    CartView attachCustomer(@PathVariable UUID cartId, @RequestBody AttachCustomerRequest request) {
+        return checkout.attachCustomer(cartId, request.customerId());
     }
 
     @GetMapping("/cart/{cartId}")
@@ -135,11 +165,15 @@ class CheckoutController {
         if (request.registerSessionId() != null) {
             registerService.requireOpenById(request.registerSessionId());
         }
+        if (request.customerId() != null) {
+            customerService.require(request.customerId());
+        }
         // complete() opens its own transaction and commits the sale + ledger before returning; the
         // bill is only printed afterwards, so a jammed or offline printer can never roll it back — a
         // print failure is flagged as printFailed and the operator reprints from the stored sale.
         Sale sale = checkout.complete(
-                cartId, request.paymentMethod(), request.operatorName(), request.registerSessionId());
+                cartId, request.paymentMethod(), request.operatorName(),
+                request.registerSessionId(), request.customerId());
         boolean printFailed = receiptPrinting.printBill(checkout.toView(sale, false));
         return checkout.toView(sale, printFailed);
     }

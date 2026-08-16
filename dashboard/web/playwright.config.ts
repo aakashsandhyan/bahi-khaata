@@ -63,6 +63,9 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         E2E_BACKEND_URL: `http://localhost:${BACKEND_PORT}`,
+        // The harness always drives plain http — a dev machine's mkcert certs (vite.config.ts's
+        // https block) must not flip the e2e frontend to https under the tests.
+        VITE_NO_HTTPS: '1',
       },
     },
   ],

@@ -1143,13 +1143,19 @@ tr.damaged { background: var(--color-accent-2-100); }
 .pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; min-height: 0; align-content: start; padding-bottom: 8px; }
 .pos-tile {
   display: flex; flex-direction: column; gap: 6px; text-align: left;
-  padding: 12px; min-height: 130px; cursor: pointer;
+  padding: 12px; height: 150px; cursor: pointer; overflow: hidden;
   background: var(--color-neutral-100); border: 1px solid var(--color-neutral-300); border-radius: 8px;
   font: inherit; color: inherit;
 }
 .pos-tile:hover { border-color: var(--color-accent); }
 .pos-tile-cat { font-size: 11px; letter-spacing: 0.08em; color: var(--color-neutral-600); text-transform: uppercase; }
-.pos-tile-name { font-weight: 600; flex: 1; }
+.pos-tile-name {
+  font-weight: 600; flex: 1; min-height: 0;
+  /* Real catalogue names are full marketplace titles — clamp to three lines so a long name can
+     never spill over neighbouring tiles; the full name rides the title tooltip. */
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
 .pos-tile-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
 .pos-cart { border-left: 1px solid var(--color-divider); padding: 16px; display: flex; flex-direction: column; background: var(--color-neutral-100); min-height: 0; }
 .pos-cart-head { display: flex; justify-content: space-between; align-items: baseline; }
@@ -1184,3 +1190,57 @@ tr.damaged { background: var(--color-accent-2-100); }
 .pos-dialog-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pos-dialog-actions { display: flex; gap: 8px; margin-top: 6px; }
 .pos-dialog-actions button:last-child { padding: 12px 16px; font: inherit; border: 1px solid var(--color-neutral-400); border-radius: 8px; background: #fff; cursor: pointer; }
+
+/* The payment flow's customer ask. */
+.pos-customer { display: flex; flex-direction: column; margin-top: 12px; }
+.pos-customer input { padding: 12px 14px; font: inherit; font-size: 16px; border: 1px solid var(--color-neutral-400); border-radius: 8px; background: #fff; width: 100%; }
+.pos-walkin { margin-top: 8px; padding: 12px; font: inherit; font-weight: 600; border: 1px solid var(--color-neutral-400); border-radius: 8px; background: #fff; cursor: pointer; }
+.pos-walkin:hover { border-color: var(--color-accent); }
+
+/* Customers screen. */
+.cust-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--color-divider); margin-bottom: 8px; }
+.cust-stat { padding: 14px 16px; border-right: 1px solid var(--color-divider); }
+.cust-stat:last-child { border-right: none; }
+.cust-row:hover { background: var(--color-neutral-100); }
+@media (max-width: 900px) { .cust-stats { grid-template-columns: 1fr 1fr; } .cust-stat { border-bottom: 1px solid var(--color-divider); } }
+
+/* Carts pill, panel, and Hold — the continuity surfaces (comp: cart-continuity-ux). */
+.pos-carts-pill { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 10px; border: 1px solid var(--color-neutral-400); background: #fff; font: inherit; font-weight: 600; font-size: 13px; padding: 5px 9px; cursor: pointer; }
+.pos-carts-pill:hover { border-color: var(--color-accent); }
+.pos-carts-count { background: var(--color-accent); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; }
+.pos-rowbtns { display: flex; gap: 8px; margin-top: 8px; }
+.pos-hold { flex: 1; border: 1px solid var(--color-neutral-400); background: #fff; font: inherit; font-weight: 600; padding: 10px; cursor: pointer; }
+.pos-hold:hover { border-color: var(--color-accent); }
+.pos-hold:disabled { opacity: 0.5; cursor: default; }
+.pos-panel-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(32,30,29,0.35); }
+.pos-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(430px, 94vw); background: #fff; border-left: 1px solid var(--color-divider); box-shadow: -6px 0 18px rgba(32,30,29,0.15); display: flex; flex-direction: column; }
+.pos-panel header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px 10px; border-bottom: 1px solid var(--color-divider); }
+.pos-panel header h3 { margin: 0; font-size: 16px; }
+.pos-panel-rows { flex: 1; overflow-y: auto; }
+.pos-cartrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; width: 100%; text-align: left; padding: 12px 16px; border: none; border-bottom: 1px solid var(--color-divider); border-left: 3px solid transparent; background: none; font: inherit; cursor: pointer; }
+.pos-cartrow:hover { background: var(--color-neutral-100); }
+.pos-cartrow.on { border-left-color: var(--color-accent); background: var(--color-neutral-100); cursor: default; }
+.pos-cartrow-who { font-weight: 700; }
+.pos-cartrow-when { color: var(--color-neutral-600); font-size: 12px; text-align: right; }
+.pos-cartrow-sum { color: var(--color-neutral-700); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-cartrow-amt { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.pos-chip { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; background: var(--color-neutral-200); color: var(--color-neutral-700); }
+.pos-chip.this { background: var(--color-text, #201e1d); color: #fff; }
+.pos-panel-preview { padding: 10px 16px; background: var(--color-neutral-100); border-bottom: 1px solid var(--color-divider); font-size: 13px; }
+.pos-panel-eod { padding: 10px 16px; color: var(--color-neutral-600); font-size: 12px; border-top: 1px solid var(--color-divider); }
+
+/* The bill opened as a modal from Invoices (comp: cart-continuity-ux). */
+.sales-row { cursor: pointer; }
+.sales-row:hover td { background: var(--color-neutral-100); }
+.bill-scrim { position: fixed; inset: 0; z-index: 70; background: rgba(32,30,29,0.45); display: flex; align-items: center; justify-content: center; }
+.bill-modal { background: var(--color-bg); width: min(560px, 92vw); max-height: 92vh; overflow-y: auto; border: 1px solid var(--color-divider); box-shadow: 0 10px 30px rgba(32,30,29,0.3); }
+.bill-head { display: flex; justify-content: space-between; align-items: start; padding: 16px 18px 10px; border-bottom: 1px solid var(--color-divider); }
+.bill-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--color-neutral-700); margin-top: 4px; }
+.bill-body { padding: 12px 18px 18px; }
+.bill-line { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--color-divider); }
+.bill-line small { display: block; color: var(--color-neutral-600); font-size: 12px; }
+.bill-gst { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-divider); font-size: 13px; color: var(--color-neutral-700); }
+.bill-gst div, .bill-totals div { display: flex; justify-content: space-between; padding: 2px 0; }
+.bill-totals { border-top: 1px solid var(--color-divider); margin-top: 8px; padding-top: 8px; font-size: 14px; }
+.bill-grand { font-size: 20px; font-weight: 700; }
+.bill-actions { display: flex; gap: 8px; margin-top: 14px; }
