@@ -42,3 +42,51 @@ written for such a line, and an optional MRP below the price SHALL be refused.
 #### Scenario: Lot attribution is optional
 - **WHEN** a manual entry names a delivery lot
 - **THEN** the sale line carries that lot reference; without one the line records unattributed
+
+### Requirement: Payment leads with the customer ask
+
+Taking payment SHALL present the customer step before the payment method: a mobile field, focused, where ten digits look up the customer — a match shows the name to confirm and attach, an unknown number reveals a name field to save and attach. A **Walk-in** control SHALL always be one tap and SHALL proceed straight to the payment method with no customer. The sale SHALL never be blocked by the customer step — a failed lookup proceeds as walk-in.
+
+#### Scenario: A known customer attaches in one confirm
+- **WHEN** a known mobile is keyed at the customer step
+- **THEN** the stored name is shown, and confirming attaches the customer and moves to the payment method
+
+#### Scenario: Declining is one tap
+- **WHEN** Walk-in is tapped at the customer step
+- **THEN** the payment method appears at once and the sale completes unreferenced
+
+#### Scenario: A lookup failure never blocks the sale
+- **WHEN** the customer lookup cannot be reached
+- **THEN** the flow proceeds as walk-in and the sale completes
+
+### Requirement: The cart names its customer
+
+Once a customer is attached, the cart header SHALL show their name in place of "Walk-in customer"; clearing the cart SHALL clear the attachment.
+
+#### Scenario: The header follows the attachment
+- **WHEN** a customer is attached and the cart is then cleared
+- **THEN** the header shows the name after attaching and "Walk-in customer" again after clearing
+
+### Requirement: The POS offers Hold and the carts panel
+
+The checkout SHALL offer a Hold control that parks the current cart (leaving it open with its customer) and opens a fresh one, and a carts control showing the count of open carts. Opening it SHALL list the open carts newest touch first — who (or Walk-in), item summary, amount, register, last touch — with the cart on this screen marked. Tapping a row SHALL show an inline preview of its lines with a resume action that loads that cart onto this screen.
+
+#### Scenario: Hold, serve, return
+- **WHEN** a cart is held, another customer is rung up, and the held row is resumed from the panel
+- **THEN** the held cart's lines and customer return to the screen exactly
+
+#### Scenario: The panel mirrors the floor
+- **WHEN** three carts are open across both registers
+- **THEN** the panel lists all three newest-first with this screen's cart marked
+
+### Requirement: An invoice opens as a details modal
+
+Tapping a row on Invoices SHALL open the stored bill in a modal: every line with quantity × price and per-line saving, the GST split as invoiced, the payment method, operator, register, the customer (masked mobile) when one was attached, and a Reprint action. The Invoices table SHALL show a customer column (Walk-in when none).
+
+#### Scenario: The bill answers on screen
+- **WHEN** a bill's row is tapped
+- **THEN** the modal shows its lines, GST split, and customer, and Reprint prints it as issued
+
+#### Scenario: Walk-ins read as walk-ins
+- **WHEN** a sale with no customer appears in the table or modal
+- **THEN** it is labeled Walk-in, never blank
