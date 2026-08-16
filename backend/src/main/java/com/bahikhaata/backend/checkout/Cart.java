@@ -86,7 +86,9 @@ public class Cart extends UuidEntity {
     }
 
     public Instant getTouchedAt() {
-        return touchedAt;
+        // A row written before V53's backfill (or by raw SQL) may carry no touch; the row's own
+        // update stamp is the honest stand-in — never null, so the sweep and sort cannot trip.
+        return touchedAt != null ? touchedAt : updatedAt;
     }
 
     /** Every cart mutation counts as a touch — the list order and the sweep both read this. */

@@ -109,6 +109,9 @@ export interface CartView {
   totalPaise: number
   savingPaise: number
   taxIsPlaceholder: boolean
+  // The cart's captured customer, or nulls — a walk-in. Rides the cart so holds keep the person.
+  customerId: string | null
+  customerName: string | null
 }
 
 export type PaymentMethod = 'CASH' | 'UPI' | 'CARD'
@@ -142,6 +145,8 @@ export interface SaleView {
   createdAt: string
   lines: SaleLineView[]
   printFailed: boolean
+  customerName: string | null
+  customerMobileMasked: string | null
 }
 
 export interface SaleSummary {
@@ -152,6 +157,7 @@ export interface SaleSummary {
   paymentMethod: PaymentMethod
   createdAt: string
   itemCount: number
+  customerName: string | null
 }
 
 // --- dashboard ---
@@ -893,4 +899,15 @@ export interface CustomerDetail {
   mobile: string
   since: string
   visits: CustomerVisit[]
+}
+
+// One open cart as the carts panel lists it (cart-continuity).
+export interface CartSummary {
+  cartId: string
+  customerName: string | null
+  itemCount: number
+  summary: string
+  totalPaise: number
+  registerName: string | null
+  touchedAt: string
 }

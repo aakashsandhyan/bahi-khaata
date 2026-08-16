@@ -11,20 +11,20 @@
 
 ## 2. POS continuity (frontend)
 
-- [ ] 2.1 Cart pointer in localStorage: mount restores the remembered cart (fresh on missing/paid/abandoned/swept); refetch on window focus
-- [ ] 2.2 Hold control beside Clear: parks the cart, opens fresh; capture step writes the customer to the cart at attach (replacing client-only state); header keeps naming the cart's customer
-- [ ] 2.3 Carts pill + panel per the comp: count, rows newest-first with who/summary/amount/register/when, this-screen marked, inline preview on tap, Resume loads the cart here
-- [ ] 2.4 e2e: reload keeps the cart; hold → ring another → resume returns lines + customer; panel order and this-screen marker
+- [x] 2.1 Cart pointer in localStorage: mount restores the remembered cart (fresh on missing/paid/abandoned/swept); refetch on window focus
+- [x] 2.2 Hold control beside Clear: parks the cart, opens fresh; capture step writes the customer to the cart at attach (replacing client-only state); header keeps naming the cart's customer
+- [x] 2.3 Carts pill + panel per the comp: count, rows newest-first with who/summary/amount/register/when, this-screen marked, inline preview on tap, Resume loads the cart here
+- [x] 2.4 e2e: reload keeps the cart; hold → ring another → resume returns lines + customer; panel order and this-screen marker
 
 ## 3. Invoice details modal
 
-- [ ] 3.1 `SaleSummary.customerName` + `SaleView` customer fields (name, masked mobile); Invoices table customer column (Walk-in when none)
-- [ ] 3.2 Modal per the comp: lines with qty × price and saving, GST split, method/operator/register/customer facts, Reprint, scrim/Close dismiss
-- [ ] 3.3 e2e: row opens modal with seeded figures; walk-in labeled; reprint reachable
+- [x] 3.1 `SaleSummary.customerName` + `SaleView` customer fields (name, masked mobile); Invoices table customer column (Walk-in when none)
+- [x] 3.2 Modal per the comp: lines with qty × price and saving, GST split, method/operator/register/customer facts, Reprint, scrim/Close dismiss
+- [x] 3.3 e2e: row opens modal with seeded figures; walk-in labeled; reprint reachable
 
 ## 4. Verify
 
-- [ ] 4.1 Full backend suite green
-- [ ] 4.2 e2e suite green
+- [x] 4.1 Full backend suite green
+- [x] 4.2 e2e suite green
 - [ ] 4.3 Browser walk on the running app: build cart → reload → hold → second cart → resume across registers → pay; open the bill from Invoices
-- [ ] 4.4 `openspec validate cart-continuity`
+- [x] 4.4 `openspec validate cart-continuity`

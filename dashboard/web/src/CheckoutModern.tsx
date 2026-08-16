@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { checkout, customersApi, inventory, receiving, registers, BackendError } from './api'
-import type { CartView, CustomerView, InventoryRow, LotSummary, PaymentMethod, RegisterStateView, SaleView } from './types'
+import type { CartSummary, CartView, CustomerView, InventoryRow, LotSummary, PaymentMethod, RegisterStateView, SaleView } from './types'
 import { rupees } from './money'
 
 // Which physical drawer this device is — remembered per device, like the operator name.
 const REGISTER_KEY = 'till.register'
+// The device's cart pointer — the only client state; the cart row itself is the truth.
+const CART_KEY = 'till.cart'
 
 /**
  * The modern checkout, per the design artifact's Point of sale: scan bar and quick-picks grid on
@@ -104,6 +106,8 @@ function OpenRegisterGate({ state, registerName, error, onPick, onOpened }: {
 function Pos({ register }: { register: RegisterStateView }) {
   const [cart, setCart] = useState<CartView | null>(null)
   const [sale, setSale] = useState<SaleView | null>(null)
+  const [openCartCount, setOpenCartCount] = useState(0)
+  const [panelOpen, setPanelOpen] = useState(false)
   const [rows, setRows] = useState<InventoryRow[]>([])
   const [chip, setChip] = useState<string>('ALL')
   // One field does both jobs, like the artifact: typing narrows the quick picks live, and Enter
@@ -111,17 +115,74 @@ function Pos({ register }: { register: RegisterStateView }) {
   // so the hardware path and the search path are literally the same input.
   const [entry, setEntry] = useState('')
   // The pay flow: idle → the customer ask (policy: ask every sale; Walk-in declines in one tap)
-  // → the payment method. A captured customer also shows on the cart header pre-payment.
+  // → the payment method. The customer rides the CART (a hold keeps the person), never client state.
   const [payStep, setPayStep] = useState<'idle' | 'customer' | 'method'>('idle')
-  const [customer, setCustomer] = useState<CustomerView | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
 
+  const adoptCart = (c: CartView) => {
+    localStorage.setItem(CART_KEY, c.cartId)
+    setCart(c)
+  }
+
+  // Restore the remembered cart, or start fresh — a reload changes nothing (spec: checkout).
+  const loadCart = async () => {
+    try {
+      const remembered = localStorage.getItem(CART_KEY)
+      const restored = remembered ? await checkout.restore(remembered) : null
+      adoptCart(restored ?? await checkout.openFor(register.registerName))
+    } catch {
+      setError('Cannot reach the till.')
+    }
+  }
+
+  const refreshCount = () => {
+    checkout.openCarts().then((cs) => setOpenCartCount(cs.length)).catch(() => {})
+  }
+
   useEffect(() => {
-    checkout.open().then(setCart).catch(() => setError('Cannot reach the till.'))
+    loadCart()
+    refreshCount()
     inventory.rows().then(setRows).catch(() => {})
+    // Another till may have taken or changed this cart — truth on every return to the window.
+    const onFocus = () => {
+      const remembered = localStorage.getItem(CART_KEY)
+      if (remembered) {
+        checkout.restore(remembered)
+          .then((c) => { if (c) setCart(c); else loadCart() })
+          .catch(() => {})
+      }
+      refreshCount()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Hold: park this cart (it stays open, customer attached) and start a fresh one.
+  const holdCart = async () => {
+    try {
+      adoptCart(await checkout.openFor(register.registerName))
+      setPayStep('idle')
+      refreshCount()
+    } catch {
+      setError('Cannot reach the till.')
+    }
+  }
+
+  // Resume a cart from the panel onto this screen — any till resumes any cart.
+  const resumeCart = async (cartId: string) => {
+    try {
+      const c = await checkout.restore(cartId)
+      if (c) adoptCart(c)
+      setPanelOpen(false)
+      setPayStep('idle')
+      refreshCount()
+    } catch {
+      setError('Cannot reach the till.')
+    }
+  }
 
   // Quick picks: what is actually sellable right now — priced, good, on hand.
   const sellable = useMemo(
@@ -171,7 +232,8 @@ function Pos({ register }: { register: RegisterStateView }) {
     setError(null)
     try {
       const operator = localStorage.getItem('pricing.operator') || register.operatorName
-      setSale(await checkout.complete(cart.cartId, method, operator, register.sessionId, customer?.id ?? null))
+      setSale(await checkout.complete(cart.cartId, method, operator, register.sessionId))
+      localStorage.removeItem(CART_KEY)
       setPayStep('idle')
     } catch (e) {
       setError(e instanceof BackendError ? e.message : 'Cannot reach the till.')
@@ -182,8 +244,8 @@ function Pos({ register }: { register: RegisterStateView }) {
 
   const newSale = () => {
     setSale(null)
-    setCustomer(null)
-    checkout.open().then(setCart).catch(() => setError('Cannot reach the till.'))
+    checkout.openFor(register.registerName).then(adoptCart).catch(() => setError('Cannot reach the till.'))
+    refreshCount()
   }
 
   if (sale) {
@@ -260,13 +322,19 @@ function Pos({ register }: { register: RegisterStateView }) {
       <aside className="pos-cart">
         <div className="pos-cart-head">
           <h2 style={{ margin: 0 }}>Cart</h2>
+          <button type="button" className="pos-carts-pill" onClick={() => { setPanelOpen(true); refreshCount() }}>
+            Carts <span className="pos-carts-count">{openCartCount}</span>
+          </button>
           <button type="button" className="pos-clear"
-            onClick={() => { setCustomer(null); if (cart) mutate(() => checkout.clear(cart.cartId)) }}>
+            onClick={() => cart && mutate(async () => {
+              await checkout.attachCustomer(cart.cartId, null)
+              return checkout.clear(cart.cartId)
+            })}>
             Clear
           </button>
         </div>
         <div className="text-muted" style={{ marginBottom: 8 }}>
-          {customer ? customer.name : 'Walk-in customer'} · {register.registerName} · {register.operatorName}
+          {cart?.customerName ?? 'Walk-in customer'} · {register.registerName} · {register.operatorName}
         </div>
 
         <div className="pos-lines">
@@ -307,15 +375,26 @@ function Pos({ register }: { register: RegisterStateView }) {
         </div>
 
         {payStep === 'idle' && (
-          <button className="pos-pay" disabled={items === 0 || busy}
-            onClick={() => setPayStep(customer ? 'method' : 'customer')}>
-            Take payment
-          </button>
+          <>
+            <button className="pos-pay" disabled={items === 0 || busy}
+              onClick={() => setPayStep(cart?.customerId ? 'method' : 'customer')}>
+              Take payment
+            </button>
+            <div className="pos-rowbtns">
+              <button type="button" className="pos-hold" title="Park this cart and start a fresh one"
+                disabled={items === 0} onClick={holdCart}>
+                Hold cart
+              </button>
+            </div>
+          </>
         )}
-        {payStep === 'customer' && (
+        {payStep === 'customer' && cart && (
           <CustomerStep
-            onAttach={(c) => { setCustomer(c); setPayStep('method') }}
-            onWalkIn={() => { setCustomer(null); setPayStep('method') }}
+            onAttach={async (c) => {
+              await mutate(() => checkout.attachCustomer(cart.cartId, c.id))
+              setPayStep('method')
+            }}
+            onWalkIn={() => setPayStep('method')}
           />
         )}
         {payStep === 'method' && (
@@ -327,6 +406,9 @@ function Pos({ register }: { register: RegisterStateView }) {
           </div>
         )}
       </aside>
+      {panelOpen && cart && (
+        <CartsPanel currentCartId={cart.cartId} onResume={resumeCart} onClose={() => setPanelOpen(false)} />
+      )}
     </div>
   )
 }
@@ -500,6 +582,91 @@ function CustomerStep({ onAttach, onWalkIn }: {
         </>
       )}
       <button className="pos-walkin" disabled={busy} onClick={onWalkIn}>Walk-in</button>
+    </div>
+  )
+}
+
+/**
+ * The open carts across the shop, newest touch first — who each is for, what's in it, where it
+ * sits. Tapping a row previews its lines inline; Resume loads it onto this screen (any till
+ * resumes any cart). The cart already on this screen is marked and not resumable into itself.
+ */
+function CartsPanel({ currentCartId, onResume, onClose }: {
+  currentCartId: string
+  onResume: (cartId: string) => void
+  onClose: () => void
+}) {
+  const [carts, setCarts] = useState<CartSummary[]>([])
+  const [preview, setPreview] = useState<CartView | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    checkout.openCarts().then(setCarts).catch(() => setError('Cannot reach the till.'))
+  }, [])
+
+  const togglePreview = async (cartId: string) => {
+    if (preview?.cartId === cartId) {
+      setPreview(null)
+      return
+    }
+    try {
+      setPreview(await checkout.restore(cartId))
+    } catch {
+      setError('Cannot reach the till.')
+    }
+  }
+
+  const ago = (iso: string) => {
+    const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
+    return mins === 0 ? 'just now' : mins === 1 ? '1 min ago' : mins < 60 ? `${mins} min ago`
+      : `${Math.floor(mins / 60)} h ago`
+  }
+
+  return (
+    <div className="pos-panel-scrim" onClick={onClose}>
+      <aside className="pos-panel" onClick={(e) => e.stopPropagation()}>
+        <header>
+          <h3>Open carts</h3>
+          <button type="button" className="pos-clear" onClick={onClose}>Close</button>
+        </header>
+        {error && <div className="banner stop" style={{ margin: '8px 12px' }}>{error}</div>}
+        <div className="pos-panel-rows">
+          {carts.map((c) => (
+            <div key={c.cartId}>
+              <button type="button"
+                className={c.cartId === currentCartId ? 'pos-cartrow on' : 'pos-cartrow'}
+                onClick={() => c.cartId !== currentCartId && togglePreview(c.cartId)}>
+                <span className="pos-cartrow-who">
+                  {c.customerName ?? 'Walk-in'}
+                  {c.cartId === currentCartId
+                    ? <span className="pos-chip this">This screen</span>
+                    : c.registerName && <span className="pos-chip">{c.registerName}</span>}
+                </span>
+                <span className="pos-cartrow-when">{ago(c.touchedAt)}</span>
+                <span className="pos-cartrow-sum">{c.itemCount} item{c.itemCount === 1 ? '' : 's'} · {c.summary}</span>
+                <span className="pos-cartrow-amt">{rupees(c.totalPaise)}</span>
+              </button>
+              {preview !== null && preview.cartId === c.cartId && c.cartId !== currentCartId && (
+                <div className="pos-panel-preview">
+                  {preview.lines.map((l) => (
+                    <div key={l.lineId} className="pos-line" style={{ padding: '5px 0' }}>
+                      <span>{l.name}{l.quantity > 1 ? ` × ${l.quantity}` : ''}</span>
+                      <b>{rupees(l.lineTotalPaise)}</b>
+                    </div>
+                  ))}
+                  {preview.lines.length === 0 && <div className="text-muted">Empty cart.</div>}
+                  <button type="button" className="pos-pay" style={{ marginTop: 8 }}
+                    onClick={() => onResume(c.cartId)}>
+                    Resume this cart here
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {carts.length === 0 && <div className="text-muted" style={{ padding: 16 }}>No open carts.</div>}
+        </div>
+        <div className="pos-panel-eod">Carts left from a previous day abandon themselves at first touch each morning.</div>
+      </aside>
     </div>
   )
 }

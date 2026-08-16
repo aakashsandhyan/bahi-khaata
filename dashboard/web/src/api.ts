@@ -264,6 +264,23 @@ async function delVoid(path: string): Promise<void> {
 export const checkout = {
   open: () => post<_CartView>('/api/checkout/cart') as Promise<_CartView>,
   view: (cartId: string) => get<_CartView>(`/api/checkout/cart/${cartId}`),
+  // A fresh cart, stamped with the register it belongs to when the till says so.
+  openFor: (registerName: string | null) =>
+    post<_CartView>('/api/checkout/cart', { registerName }) as Promise<_CartView>,
+  // A device restoring its remembered cart: the open cart, or null when gone/paid/swept.
+  restore: async (cartId: string) => {
+    try {
+      return await get<_CartView>(`/api/checkout/cart/${cartId}/restore`)
+    } catch (e) {
+      if (e instanceof BackendError && e.status === 404) return null
+      throw e
+    }
+  },
+  // The open carts across the shop, newest touch first — the carts panel.
+  openCarts: () => getList<import('./types').CartSummary>('/api/checkout/carts'),
+  // Attaches (null detaches) the cart's customer — a held cart keeps its person.
+  attachCustomer: (cartId: string, customerId: string | null) =>
+    post<_CartView>(`/api/checkout/cart/${cartId}/customer`, { customerId }) as Promise<_CartView>,
   addProduct: (cartId: string, productId: string) =>
     post<_CartView>(`/api/checkout/cart/${cartId}/add-product`, { productId }) as Promise<_CartView>,
   // Manual entry: a keyed name and price; GST by chosen sub-category; lot attribution optional.
