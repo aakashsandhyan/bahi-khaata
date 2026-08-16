@@ -26,5 +26,5 @@
 
 - [x] 4.1 Full backend suite green
 - [x] 4.2 e2e suite green
-- [ ] 4.3 Browser walk on the running app: build cart → reload → hold → second cart → resume across registers → pay; open the bill from Invoices
+- [x] 4.3 Browser walk on the running app: build cart → reload → hold → second cart → resume across registers → pay; open the bill from Invoices
 - [x] 4.4 `openspec validate cart-continuity`
