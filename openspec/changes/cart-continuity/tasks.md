@@ -2,12 +2,12 @@
 
 ## 1. Cart lifecycle (backend)
 
-- [ ] 1.1 Migration V53 (verify ceiling first): nullable `cart.customer_id` + `cart.register_name` — additive only
-- [ ] 1.2 Touch discipline: every cart mutation (scan, add-product, custom line, quantity, remove, clear, customer attach) explicitly touches the cart row so last-touch ordering is honest
-- [ ] 1.3 Sweep guard: shared check marking open carts last touched before today (IST) abandoned; applied in the carts-list read and the fetch-by-id read
-- [ ] 1.4 `GET /api/checkout/carts`: open carts touched-desc with the panel's shape (customer name, item count, first-line + "+N more", total, register, last touch); `open()` accepts an optional register name to stamp
-- [ ] 1.5 `POST /api/checkout/cart/{id}/customer`: attach/detach the cart's customer; `CartView` gains the customer name; complete copies cart→sale (request-level customerId honored as fallback)
-- [ ] 1.6 Tests: reload-refetch returns same cart; touch ordering; sweep on both read paths (yesterday abandons, today survives); double-complete refused after cross-register resume; held cart's customer rides to the sale; fallback customerId still works
+- [x] 1.1 Migration V53 (verify ceiling first): nullable `cart.customer_id` + `cart.register_name` — additive only
+- [x] 1.2 Touch discipline: every cart mutation (scan, add-product, custom line, quantity, remove, clear, customer attach) explicitly touches the cart row so last-touch ordering is honest
+- [x] 1.3 Sweep guard: shared check marking open carts last touched before today (IST) abandoned; applied in the carts-list read and the fetch-by-id read
+- [x] 1.4 `GET /api/checkout/carts`: open carts touched-desc with the panel's shape (customer name, item count, first-line + "+N more", total, register, last touch); `open()` accepts an optional register name to stamp
+- [x] 1.5 `POST /api/checkout/cart/{id}/customer`: attach/detach the cart's customer; `CartView` gains the customer name; complete copies cart→sale (request-level customerId honored as fallback)
+- [x] 1.6 Tests: reload-refetch returns same cart; touch ordering; sweep on both read paths (yesterday abandons, today survives); double-complete refused after cross-register resume; held cart's customer rides to the sale; fallback customerId still works
 
 ## 2. POS continuity (frontend)
 

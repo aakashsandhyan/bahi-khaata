@@ -156,7 +156,7 @@ public class CustomerQueries {
     }
 
     /** The list's masking rule: last four digits only. */
-    static String mask(String mobile) {
+    public static String mask(String mobile) {
         return "•••• " + mobile.substring(mobile.length() - 4);
     }
 

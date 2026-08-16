@@ -60,10 +60,37 @@ class CheckoutController {
         this.customerService = customerService;
     }
 
-    /** Starts a fresh sale. */
+    record OpenCartRequest(String registerName) {}
+
+    /** Starts a fresh sale, stamped with the register it belongs to when the till says so. */
     @PostMapping("/cart")
-    CartView open() {
-        return checkout.open();
+    CartView open(@RequestBody(required = false) OpenCartRequest request) {
+        return checkout.open(request != null ? request.registerName() : null);
+    }
+
+    /**
+     * A device restoring its remembered cart after a reload: the open cart, or 404 when it is
+     * gone, paid, abandoned — or swept just now for being yesterday's.
+     */
+    @GetMapping("/cart/{cartId}/restore")
+    ResponseEntity<CartView> restore(@PathVariable UUID cartId) {
+        return checkout.restore(cartId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** The open carts across the shop, newest touch first — the carts panel. */
+    @GetMapping("/carts")
+    java.util.List<com.bahikhaata.contracts.CartSummary> openCarts() {
+        return checkout.openCarts();
+    }
+
+    record AttachCustomerRequest(UUID customerId) {}
+
+    /** Attaches (null detaches) the cart's customer — a held cart keeps its person. */
+    @PostMapping("/cart/{cartId}/customer")
+    CartView attachCustomer(@PathVariable UUID cartId, @RequestBody AttachCustomerRequest request) {
+        return checkout.attachCustomer(cartId, request.customerId());
     }
 
     @GetMapping("/cart/{cartId}")

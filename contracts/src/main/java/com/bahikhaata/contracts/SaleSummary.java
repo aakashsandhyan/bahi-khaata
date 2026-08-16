@@ -28,4 +28,6 @@ public record SaleSummary(
         long totalPaise,
         PaymentMethod paymentMethod,
         Instant createdAt,
-        long itemCount) {}
+        long itemCount,
+        // The captured customer's name, or null — rendered as Walk-in, never blank.
+        String customerName) {}

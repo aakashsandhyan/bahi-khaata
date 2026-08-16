@@ -24,6 +24,7 @@ import com.bahikhaata.backend.catalog.Product;
 import com.bahikhaata.backend.inventory.Batch;
 import com.bahikhaata.backend.inventory.BatchRepository;
 import com.bahikhaata.backend.inventory.FifoConsumer;
+import com.bahikhaata.backend.customer.CustomerRepository;
 import com.bahikhaata.backend.inventory.LotRepository;
 import com.bahikhaata.contracts.CartLineView;
 import com.bahikhaata.contracts.CartView;
@@ -66,6 +67,7 @@ public class Checkout {
     private final FifoConsumer fifo;
     private final GstRates gstRates;
     private final LotRepository lotRepository;
+    private final CustomerRepository customerRepository;
 
     Checkout(
             CartRepository carts,
@@ -76,7 +78,8 @@ public class Checkout {
             SaleLineRepository saleLines,
             FifoConsumer fifo,
             GstRates gstRates,
-            LotRepository lotRepository) {
+            LotRepository lotRepository,
+            CustomerRepository customerRepository) {
         this.carts = carts;
         this.lines = lines;
         this.barcodes = barcodes;
@@ -86,6 +89,7 @@ public class Checkout {
         this.fifo = fifo;
         this.gstRates = gstRates;
         this.lotRepository = lotRepository;
+        this.customerRepository = customerRepository;
     }
 
     /**
@@ -148,7 +152,9 @@ public class Checkout {
                 Money.ofPaise(gst.sgstPaise()), Money.ofPaise(gst.taxablePaise()),
                 subtotal, operatorName);
         sale.setRegisterSessionId(registerSessionId);
-        sale.setCustomerId(customerId);
+        // The cart's customer is the truth (a held cart kept its person); the request-level id
+        // remains the fallback for callers that never attach to the cart (the classic till, APIs).
+        sale.setCustomerId(cart.getCustomerId() != null ? cart.getCustomerId() : customerId);
         sale = sales.save(sale);
 
         Instant now = Instant.now();
@@ -193,7 +199,12 @@ public class Checkout {
         return new SaleSummary(
                 s.getId(), s.getBillNo(), s.formattedBillNo(), s.getTotal().paise(),
                 PaymentMethod.valueOf(s.getPaymentMethod()), s.getCreatedAt(),
-                saleLines.countBySaleId(s.getId()));
+                saleLines.countBySaleId(s.getId()),
+                saleCustomer(s).map(com.bahikhaata.backend.customer.Customer::getName).orElse(null));
+    }
+
+    private java.util.Optional<com.bahikhaata.backend.customer.Customer> saleCustomer(Sale s) {
+        return java.util.Optional.ofNullable(s.getCustomerId()).flatMap(customerRepository::findById);
     }
 
     /** A single stored sale by its bill number, fully lined, for viewing or reprint. */
@@ -221,18 +232,30 @@ public class Checkout {
                                 sl.getMrp().paise(), sl.getUnitPrice().paise(), sl.getQuantity(),
                                 sl.getLineTotal().paise(), sl.getSaving().paise()))
                         .toList();
+        var customer = saleCustomer(sale);
         return new SaleView(
                 sale.getId(), sale.getBillNo(), sale.formattedBillNo(),
                 PaymentMethod.valueOf(sale.getPaymentMethod()),
                 sale.getSubtotal().paise(), sale.getSaving().paise(), sale.getTax().paise(),
                 sale.getCgst().paise(), sale.getSgst().paise(), sale.getTaxable().paise(),
                 sale.getTotal().paise(), sale.getOperatorName(), sale.getCreatedAt(),
-                lineViews, printFailed);
+                lineViews, printFailed,
+                customer.map(com.bahikhaata.backend.customer.Customer::getName).orElse(null),
+                customer.map(c -> com.bahikhaata.backend.customer.CustomerQueries.mask(c.getMobile()))
+                        .orElse(null));
     }
 
     @Transactional
     public CartView open() {
-        return view(carts.save(new Cart()).getId());
+        return open(null);
+    }
+
+    /** Opens a cart stamped with the register it belongs to — the carts panel's chip. */
+    @Transactional
+    public CartView open(String registerName) {
+        Cart cart = new Cart();
+        cart.setRegisterName(registerName);
+        return view(carts.save(cart).getId());
     }
 
     /**
@@ -358,7 +381,9 @@ public class Checkout {
                                         l.lineTotal().paise(),
                                         gstRates.resolveBasisPoints(l.gstSubCategory())))
                                 .toList());
-        return new CartView(cartId, views, subtotal, gst.taxPaise(), subtotal, saving, false);
+        Cart cart = carts.findById(cartId).orElseThrow();
+        return new CartView(cartId, views, subtotal, gst.taxPaise(), subtotal, saving, false,
+                cart.getCustomerId(), customerNameOf(cart));
     }
 
     private CartLineView lineView(CartLine line) {
@@ -408,7 +433,85 @@ public class Checkout {
         if (!cart.isOpen()) {
             throw new IllegalStateException("this sale is already " + cart.getState().toLowerCase());
         }
+        // Every mutation passes through here, so this is the one place the touch discipline
+        // lives: the carts panel's order and the sweep's clock stay honest for free.
+        cart.touch();
+        carts.save(cart);
         return cart;
+    }
+
+    /** The IST business day — a cart last touched before today is yesterday's, whatever the UTC clock says. */
+    private static final java.time.ZoneId SHOP_ZONE = java.time.ZoneId.of("Asia/Kolkata");
+
+    private boolean fromAPreviousDay(Cart cart) {
+        return cart.getTouchedAt().atZone(SHOP_ZONE).toLocalDate()
+                .isBefore(Instant.now().atZone(SHOP_ZONE).toLocalDate());
+    }
+
+    /** Sweeps one stale cart; true when it was abandoned. */
+    private boolean sweepIfStale(Cart cart) {
+        if (cart.isOpen() && fromAPreviousDay(cart)) {
+            cart.markAbandoned();
+            carts.save(cart);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * A device restoring its remembered cart: the open cart's view, or empty when it is gone,
+     * paid, abandoned — or was yesterday's, in which case this read is the sweep that takes it.
+     */
+    @Transactional
+    public java.util.Optional<CartView> restore(UUID cartId) {
+        return carts.findById(cartId)
+                .filter(cart -> !sweepIfStale(cart))
+                .filter(Cart::isOpen)
+                .map(cart -> view(cartId));
+    }
+
+    /** The open carts for the panel, newest touch first — sweeping yesterday's on the way through. */
+    @Transactional
+    public List<com.bahikhaata.contracts.CartSummary> openCarts() {
+        return carts.findByStateOrderByTouchedAtDesc("OPEN").stream()
+                .filter(cart -> !sweepIfStale(cart))
+                .map(this::summarize)
+                .toList();
+    }
+
+    private com.bahikhaata.contracts.CartSummary summarize(Cart cart) {
+        List<CartLine> cartLines = lines.findByCartIdOrderByCreatedAt(cart.getId());
+        int items = (int) cartLines.stream().mapToLong(CartLine::getQuantity).sum();
+        String summary = cartLines.isEmpty()
+                ? "empty"
+                : cartLines.size() == 1
+                        ? cartLines.get(0).displayName()
+                        : cartLines.get(0).displayName() + " + " + (cartLines.size() - 1) + " more";
+        long total = cartLines.stream().mapToLong(l -> l.lineTotal().paise()).sum();
+        return new com.bahikhaata.contracts.CartSummary(
+                cart.getId(), customerNameOf(cart), items, summary, total,
+                cart.getRegisterName(), cart.getTouchedAt());
+    }
+
+    /** Attaches (or with null, detaches) the cart's customer — a held cart keeps its person. */
+    @Transactional
+    public CartView attachCustomer(UUID cartId, UUID customerId) {
+        Cart cart = openCart(cartId);
+        if (customerId != null && customerRepository.findById(customerId).isEmpty()) {
+            throw new IllegalArgumentException("No such customer.");
+        }
+        cart.setCustomerId(customerId);
+        carts.save(cart);
+        return view(cartId);
+    }
+
+    private String customerNameOf(Cart cart) {
+        if (cart.getCustomerId() == null) {
+            return null;
+        }
+        return customerRepository.findById(cart.getCustomerId())
+                .map(com.bahikhaata.backend.customer.Customer::getName)
+                .orElse(null);
     }
 
     private CartLine requireLine(UUID cartId, UUID lineId) {

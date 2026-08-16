@@ -22,4 +22,6 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CartRepository extends JpaRepository<Cart, UUID> {
+    /** The open carts, newest touch first — the carts panel's order. */
+    java.util.List<Cart> findByStateOrderByTouchedAtDesc(String state);
 }

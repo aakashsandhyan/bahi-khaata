@@ -44,7 +44,7 @@ class ReceiptPrintingTest {
         return new SaleView(
                 UUID.randomUUID(), 42, "BB-000042", PaymentMethod.CASH,
                 99_900, 50_000, 0, 0, 0, 99_900, 99_900, "Ravi", Instant.parse("2026-08-02T09:00:00Z"),
-                List.of(), false);
+                List.of(), false, null, null);
     }
 
     @Test
